@@ -145,6 +145,7 @@ export type Database = {
           course_id: string
           created_at: string
           id: string
+          is_active: boolean
           is_guest: boolean
           is_muted: boolean
           user_id: string
@@ -153,6 +154,7 @@ export type Database = {
           course_id: string
           created_at?: string
           id?: string
+          is_active?: boolean
           is_guest?: boolean
           is_muted?: boolean
           user_id: string
@@ -161,6 +163,7 @@ export type Database = {
           course_id?: string
           created_at?: string
           id?: string
+          is_active?: boolean
           is_guest?: boolean
           is_muted?: boolean
           user_id?: string
@@ -495,6 +498,7 @@ export type Database = {
       is_course_enrolled: { Args: { c_id: string }; Returns: boolean }
       is_section_admin: { Args: { sec_id: string }; Returns: boolean }
       is_section_member: { Args: { sec_id: string }; Returns: boolean }
+      join_section_via_code: { Args: { p_join_code: string }; Returns: string }
     }
     Enums: {
       [_ in never]: never

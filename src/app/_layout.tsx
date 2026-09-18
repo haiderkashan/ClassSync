@@ -25,12 +25,17 @@ function NavigationGuard() {
     if (!isLoaded) return;
 
     const inAuthGroup = segments[0] === '(auth)';
+    console.log(
+      `🔄 [AuthGuard] State changed: isLoaded=${isLoaded}, isSignedIn=${isSignedIn}, activeGroup=/${segments[0] || ''}`
+    );
 
     if (!isSignedIn && !inAuthGroup) {
       // Redirect unauthenticated users to the sign-in flow
+      console.log('🚀 [AuthGuard] Redirecting unauthenticated user -> /(auth)/sign-in');
       router.replace('/(auth)/sign-in');
     } else if (isSignedIn && inAuthGroup) {
       // Redirect authenticated users to the main protected tabs
+      console.log('🚀 [AuthGuard] Redirecting authenticated user -> /(tabs)');
       router.replace('/(tabs)');
     }
   }, [isLoaded, isSignedIn, segments, router]);

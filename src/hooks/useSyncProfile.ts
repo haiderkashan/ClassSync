@@ -19,6 +19,7 @@ export function useSyncProfile() {
 
     async function syncProfile() {
       try {
+        console.log(`🔄 [ProfileSync] Starting client-side sync for user: ${user!.id}`);
         const primaryEmail = user?.primaryEmailAddress?.emailAddress || null;
         const displayName =
           user?.fullName ||
@@ -42,13 +43,13 @@ export function useSyncProfile() {
         );
 
         if (error) {
-          console.error('[useSyncProfile] Failed to upsert profile to Supabase:', error.message);
+          console.error(`❌ [ProfileSync] Failed to upsert profile for user ${user!.id}:`, error.message);
         } else {
           syncedUserIdRef.current = user!.id;
-          console.log('[useSyncProfile] User profile synchronized with Supabase:', user!.id);
+          console.log(`✅ [ProfileSync] Upsert succeeded for user ${user!.id} (${primaryEmail ?? 'no-email'})`);
         }
       } catch (err) {
-        console.error('[useSyncProfile] Unexpected error during profile sync:', err);
+        console.error(`❌ [ProfileSync] Unexpected error during profile sync:`, err);
       }
     }
 

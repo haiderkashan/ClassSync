@@ -1,10 +1,13 @@
 import '../../global.css';
 import { env } from '@/lib/env';
-import React from 'react';
+import React, { useEffect } from 'react';
+import { View, ActivityIndicator, Text } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
-import { Stack } from 'expo-router';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { useAuth } from '@clerk/clerk-expo';
+import { Calendar } from 'lucide-react-native';
 import { AppProviders } from '@/providers';
 
 // Complete any pending auth session from browser redirect
@@ -13,14 +16,57 @@ WebBrowser.maybeCompleteAuthSession();
 // Boot-time environment validation check
 console.log(`[ClassSync] Booting in ${env.EXPO_PUBLIC_APP_ENV} mode`);
 
+function NavigationGuard() {
+  const { isLoaded, isSignedIn } = useAuth();
+  const segments = useSegments();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!isLoaded) return;
+
+    const inAuthGroup = segments[0] === '(auth)';
+
+    if (!isSignedIn && !inAuthGroup) {
+      // Redirect unauthenticated users to the sign-in flow
+      router.replace('/(auth)/sign-in');
+    } else if (isSignedIn && inAuthGroup) {
+      // Redirect authenticated users to the main protected tabs
+      router.replace('/(tabs)');
+    }
+  }, [isLoaded, isSignedIn, segments, router]);
+
+  // Render branded splash while Clerk restores session from SecureStore
+  if (!isLoaded) {
+    return (
+      <View className="flex-1 items-center justify-center bg-white">
+        <View className="w-20 h-20 rounded-3xl bg-brand-600 items-center justify-center mb-6 shadow-xl shadow-brand-600/30">
+          <Calendar size={40} color="#ffffff" strokeWidth={2.2} />
+        </View>
+        <Text className="text-2xl font-bold text-gray-900 mb-4">ClassSync</Text>
+        <ActivityIndicator size="small" color="#4f46e5" />
+      </View>
+    );
+  }
+
+  return (
+    <>
+      <StatusBar style="auto" />
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      </Stack>
+    </>
+  );
+}
+
+/**
+ * Root Layout assembling SafeAreaProvider, AppProviders, and NavigationGuard.
+ */
 export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <AppProviders>
-        <StatusBar style="auto" />
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="index" options={{ headerShown: false }} />
-        </Stack>
+        <NavigationGuard />
       </AppProviders>
     </SafeAreaProvider>
   );

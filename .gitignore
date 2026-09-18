@@ -39,12 +39,14 @@ yarn-error.*
 Thumbs.db
 desktop.ini
 
-# local env files
+# local env files (strictly ignore secrets, track only example template)
 .env
 .env*.local
+.env.local
+.env.development
 .env.production
 .env.staging
-.env.development
+!.env.example
 
 # typescript
 *.tsbuildinfo

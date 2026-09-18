@@ -4,33 +4,51 @@ decision_log.md
 study_guide.md
 study guide.md
 *.local.md
+.claude/
+CLAUDE.md
 
-# Environment variables & secrets
+# dependencies
+node_modules/
+
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Native
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Metro
+.metro-health-check*
+
+# debug
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# macOS / Windows OS metadata
+.DS_Store
+*.pem
+Thumbs.db
+desktop.ini
+
+# local env files
 .env
 .env*.local
 .env.production
 .env.staging
+.env.development
 
-# Dependencies
-node_modules/
-.pnp
-.pnp.js
+# typescript
+*.tsbuildinfo
 
-# Expo & Metro
-.expo/
-dist/
-web-build/
-
-# Native builds
-android/
-ios/
-
-# Debug logs
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# MacOS / Windows OS metadata
-.DS_Store
-Thumbs.db
-desktop.ini
+# generated native folders
+/ios
+/android

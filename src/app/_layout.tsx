@@ -1,10 +1,14 @@
 import '../../global.css';
 import { env } from '@/lib/env';
 import React from 'react';
+import * as WebBrowser from 'expo-web-browser';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AppProviders } from '@/providers';
+
+// Complete any pending auth session from browser redirect
+WebBrowser.maybeCompleteAuthSession();
 
 // Boot-time environment validation check
 console.log(`[ClassSync] Booting in ${env.EXPO_PUBLIC_APP_ENV} mode`);

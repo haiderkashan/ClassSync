@@ -1,11 +1,21 @@
 import React from 'react';
-import { View, Text, SafeAreaView, ActivityIndicator, ScrollView, RefreshControl } from 'react-native';
-import { Calendar, Users, Hash } from 'lucide-react-native';
+import {
+  View,
+  Text,
+  SafeAreaView,
+  ActivityIndicator,
+  ScrollView,
+  RefreshControl,
+  Pressable,
+} from 'react-native';
+import { Calendar, Users, Hash, Layers } from 'lucide-react-native';
 import { useWorkspaces } from '@/hooks/useWorkspaces';
+import { useAppStore } from '@/store/useAppStore';
 import { EmptyState } from '@/components/EmptyState';
 
 export default function AgendaScreen() {
   const { sections, activeSection, isLoading, isFetching, refetch } = useWorkspaces();
+  const { setActiveSectionId } = useAppStore();
 
   if (isLoading && sections.length === 0) {
     return (
@@ -41,11 +51,11 @@ export default function AgendaScreen() {
         }
       >
         {/* Active Section Header */}
-        <View className="px-5 pt-4 pb-4 bg-white border-b border-gray-100">
+        <View className="px-5 pt-4 pb-3 bg-white border-b border-gray-100">
           <View className="flex-row items-center justify-between">
             <View className="flex-1 mr-3">
               <Text className="text-xs font-bold uppercase tracking-wider text-brand-600 mb-0.5">
-                {activeSection?.institution_tag || 'Active Section'}
+                {activeSection?.institution_tag || 'Active Cohort'}
               </Text>
               <Text className="text-xl font-extrabold text-gray-900" numberOfLines={1}>
                 {activeSection?.name || 'Class Section'}
@@ -62,6 +72,44 @@ export default function AgendaScreen() {
               </View>
             )}
           </View>
+
+          {/* Multi-Section Workspace Switcher Pills */}
+          {sections.length > 1 && (
+            <View className="mt-3 pt-2.5 border-t border-gray-100">
+              <Text className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">
+                Enrolled Sections
+              </Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row">
+                {sections.map((sec) => {
+                  const isSelected = sec.id === activeSection?.id;
+                  return (
+                    <Pressable
+                      key={sec.id}
+                      onPress={() => setActiveSectionId(sec.id)}
+                      className={`mr-2 px-3 py-1.5 rounded-xl border flex-row items-center ${
+                        isSelected
+                          ? 'bg-brand-600 border-brand-600 shadow-sm shadow-brand-600/20'
+                          : 'bg-gray-50 border-gray-200 active:bg-gray-100'
+                      }`}
+                    >
+                      <Layers
+                        size={12}
+                        color={isSelected ? '#ffffff' : '#6b7280'}
+                        className="mr-1.5"
+                      />
+                      <Text
+                        className={`text-xs font-bold ${
+                          isSelected ? 'text-white' : 'text-gray-700'
+                        }`}
+                      >
+                        {sec.name}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          )}
         </View>
 
         {/* Timetable Content Placeholder */}

@@ -9,9 +9,11 @@ import {
   ScrollView,
   Switch,
   Platform,
+  Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useUser, useAuth } from '@clerk/clerk-expo';
+import { useQueryClient } from '@tanstack/react-query';
 import * as Clipboard from 'expo-clipboard';
 import {
   LogOut,
@@ -28,7 +30,11 @@ import {
   BellOff,
   Copy,
   Check,
-  KeyRound,
+  Users,
+  Archive,
+  UserMinus,
+  Layers,
+  Trash2,
 } from 'lucide-react-native';
 import { useWorkspaces } from '@/hooks/useWorkspaces';
 import { useSupabase } from '@/hooks/useSupabase';
@@ -36,19 +42,21 @@ import { useAppStore } from '@/store/useAppStore';
 
 export default function SettingsScreen() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { user, isLoaded } = useUser();
   const { signOut } = useAuth();
   const supabase = useSupabase();
 
   const { sections, courses, activeSection, isLoading: isWorkspaceLoading } = useWorkspaces();
-  const { setActiveCourses } = useAppStore();
+  const { setActiveCourses, setActiveSectionId } = useAppStore();
 
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [togglingCourseId, setTogglingCourseId] = useState<string | null>(null);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const [isPerformingAction, setIsPerformingAction] = useState(false);
 
-  const isCR =
-    activeSection?.role === 'genesis_cr' || activeSection?.role === 'co_admin';
+  const isGenesisCR = activeSection?.role === 'genesis_cr';
+  const isCR = isGenesisCR || activeSection?.role === 'co_admin';
 
   const handleSignOut = async () => {
     setIsSigningOut(true);
@@ -101,6 +109,112 @@ export default function SettingsScreen() {
     } finally {
       setTogglingCourseId(null);
     }
+  };
+
+  const handleLeaveSection = () => {
+    if (!activeSection?.id) return;
+
+    Alert.alert(
+      'Leave Section',
+      `Are you sure you want to leave "${activeSection.name}"? You will be unenrolled from this section and its courses.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Leave',
+          style: 'destructive',
+          onPress: async () => {
+            setIsPerformingAction(true);
+            try {
+              const { error } = await supabase.rpc('leave_section', {
+                p_section_id: activeSection.id,
+              });
+
+              if (error) {
+                Alert.alert('Cannot Leave', error.message);
+                setIsPerformingAction(false);
+                return;
+              }
+
+              await queryClient.invalidateQueries({ queryKey: ['workspaces'] });
+              Alert.alert('Left Section', `You have left "${activeSection.name}".`);
+            } catch (err) {
+              console.error('[Settings] Error leaving section:', err);
+              Alert.alert('Error', 'Failed to leave section.');
+            } finally {
+              setIsPerformingAction(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleArchiveSection = () => {
+    if (!activeSection?.id) return;
+
+    Alert.alert(
+      'Archive Section',
+      `Are you sure you want to archive "${activeSection.name}"? This dismantles the section and removes active access for all members.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Archive Section',
+          style: 'destructive',
+          onPress: async () => {
+            setIsPerformingAction(true);
+            try {
+              const { error } = await supabase.rpc('archive_section', {
+                p_section_id: activeSection.id,
+              });
+
+              if (error) {
+                Alert.alert('Cannot Archive', error.message);
+                setIsPerformingAction(false);
+                return;
+              }
+
+              await queryClient.invalidateQueries({ queryKey: ['workspaces'] });
+              Alert.alert('Section Archived', `"${activeSection.name}" has been archived.`);
+            } catch (err) {
+              console.error('[Settings] Error archiving section:', err);
+              Alert.alert('Error', 'Failed to archive section.');
+            } finally {
+              setIsPerformingAction(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleDropGuestCourse = (courseId: string, courseName: string) => {
+    Alert.alert(
+      'Drop Guest Course',
+      `Are you sure you want to drop "${courseName}"? You will no longer receive timetable updates for this course.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Drop Course',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const { error } = await supabase.rpc('leave_course_guest', {
+                p_course_id: courseId,
+              });
+
+              if (error) {
+                Alert.alert('Error', error.message);
+                return;
+              }
+
+              await queryClient.invalidateQueries({ queryKey: ['workspaces'] });
+            } catch (err) {
+              console.error('[Settings] Error dropping course:', err);
+            }
+          },
+        },
+      ]
+    );
   };
 
   const displayName =
@@ -187,7 +301,54 @@ export default function SettingsScreen() {
                 </Text>
               </View>
             )}
+
+            {activeSection?.role === 'co_admin' && (
+              <View className="flex-row items-center bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-md">
+                <ShieldCheck size={12} color="#4f46e5" />
+                <Text className="text-[10px] font-bold text-indigo-800 ml-1">
+                  Co-Admin
+                </Text>
+              </View>
+            )}
           </View>
+
+          {/* Multi-Section Workspace Selector */}
+          {sections.length > 1 && (
+            <View className="mb-3 p-2.5 bg-gray-50 rounded-2xl border border-gray-200">
+              <Text className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">
+                Switch Active Workspace
+              </Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row">
+                {sections.map((sec) => {
+                  const isSelected = sec.id === activeSection?.id;
+                  return (
+                    <Pressable
+                      key={sec.id}
+                      onPress={() => setActiveSectionId(sec.id)}
+                      className={`mr-2 px-3 py-1.5 rounded-xl border flex-row items-center ${
+                        isSelected
+                          ? 'bg-brand-600 border-brand-600'
+                          : 'bg-white border-gray-200 active:bg-gray-100'
+                      }`}
+                    >
+                      <Layers
+                        size={12}
+                        color={isSelected ? '#ffffff' : '#6b7280'}
+                        className="mr-1.5"
+                      />
+                      <Text
+                        className={`text-xs font-bold ${
+                          isSelected ? 'text-white' : 'text-gray-700'
+                        }`}
+                      >
+                        {sec.name}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          )}
 
           {activeSection ? (
             <View className="p-3.5 bg-gray-50 rounded-2xl border border-gray-100">
@@ -210,6 +371,45 @@ export default function SettingsScreen() {
                 <Text className="text-xs text-gray-400">
                   {activeSection.timezone}
                 </Text>
+              </View>
+
+              {/* Roster and Section Management Actions */}
+              <View className="mt-3 pt-3 border-t border-gray-200 flex-row flex-wrap gap-2">
+                {isCR && (
+                  <Pressable
+                    onPress={() => router.push('/section-members')}
+                    className="bg-white border border-gray-200 px-3 py-2 rounded-xl flex-row items-center active:bg-gray-100 shadow-xs"
+                  >
+                    <Users size={14} color="#4f46e5" />
+                    <Text className="text-xs font-bold text-gray-800 ml-1.5">
+                      Manage Roster
+                    </Text>
+                  </Pressable>
+                )}
+
+                {isGenesisCR ? (
+                  <Pressable
+                    onPress={handleArchiveSection}
+                    disabled={isPerformingAction}
+                    className="bg-rose-50 border border-rose-200 px-3 py-2 rounded-xl flex-row items-center active:bg-rose-100"
+                  >
+                    <Archive size={14} color="#e11d48" />
+                    <Text className="text-xs font-bold text-rose-700 ml-1.5">
+                      Archive Section
+                    </Text>
+                  </Pressable>
+                ) : (
+                  <Pressable
+                    onPress={handleLeaveSection}
+                    disabled={isPerformingAction}
+                    className="bg-gray-100 border border-gray-200 px-3 py-2 rounded-xl flex-row items-center active:bg-gray-200"
+                  >
+                    <UserMinus size={14} color="#6b7280" />
+                    <Text className="text-xs font-bold text-gray-700 ml-1.5">
+                      Leave Section
+                    </Text>
+                  </Pressable>
+                )}
               </View>
             </View>
           ) : (
@@ -334,10 +534,19 @@ export default function SettingsScreen() {
                             {course.name}
                           </Text>
                           {course.is_guest && (
-                            <View className="ml-2 px-1.5 py-0.5 rounded bg-amber-50 border border-amber-200">
-                              <Text className="text-[9px] font-bold text-amber-800">
-                                Guest
-                              </Text>
+                            <View className="ml-2 flex-row items-center">
+                              <View className="px-1.5 py-0.5 rounded bg-amber-50 border border-amber-200">
+                                <Text className="text-[9px] font-bold text-amber-800">
+                                  Guest
+                                </Text>
+                              </View>
+                              <Pressable
+                                onPress={() => handleDropGuestCourse(course.id, course.name)}
+                                hitSlop={8}
+                                className="ml-1.5 px-1.5 py-0.5 rounded bg-rose-50 border border-rose-200 active:bg-rose-100"
+                              >
+                                <Text className="text-[9px] font-bold text-rose-700">Drop</Text>
+                              </Pressable>
                             </View>
                           )}
                         </View>

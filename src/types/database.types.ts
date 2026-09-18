@@ -497,6 +497,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      archive_section: { Args: { p_section_id: string }; Returns: boolean }
       create_course: {
         Args: { p_join_code: string; p_section_id: string; p_title: string }
         Returns: string
@@ -507,6 +508,24 @@ export type Database = {
       is_section_member: { Args: { sec_id: string }; Returns: boolean }
       join_course_guest: { Args: { p_join_code: string }; Returns: string }
       join_section_via_code: { Args: { p_join_code: string }; Returns: string }
+      leave_course_guest: { Args: { p_course_id: string }; Returns: boolean }
+      leave_section: { Args: { p_section_id: string }; Returns: boolean }
+      remove_section_member: {
+        Args: { p_section_id: string; p_target_user_id: string }
+        Returns: boolean
+      }
+      transfer_section_ownership: {
+        Args: { p_new_cr_user_id: string; p_section_id: string }
+        Returns: boolean
+      }
+      update_member_role: {
+        Args: {
+          p_new_role: string
+          p_section_id: string
+          p_target_user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never

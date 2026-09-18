@@ -1,11 +1,16 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
 import { Calendar, ListTodo, User } from 'lucide-react-native';
+import { useSyncProfile } from '@/hooks/useSyncProfile';
 
 /**
  * Protected Tab Bar layout for the main application.
+ * Automatically synchronizes Clerk profile into Supabase in the background.
  */
 export default function TabsLayout() {
+  // Silent background sync of user profile to Supabase on protected entry
+  useSyncProfile();
+
   return (
     <Tabs
       screenOptions={{

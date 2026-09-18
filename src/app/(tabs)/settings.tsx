@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useUser, useAuth } from '@clerk/clerk-expo';
+import * as Clipboard from 'expo-clipboard';
 import {
   LogOut,
   Mail,
@@ -25,6 +26,9 @@ import {
   Crown,
   Bell,
   BellOff,
+  Copy,
+  Check,
+  KeyRound,
 } from 'lucide-react-native';
 import { useWorkspaces } from '@/hooks/useWorkspaces';
 import { useSupabase } from '@/hooks/useSupabase';
@@ -41,6 +45,10 @@ export default function SettingsScreen() {
 
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [togglingCourseId, setTogglingCourseId] = useState<string | null>(null);
+  const [copiedCode, setCopiedCode] = useState<string | null>(null);
+
+  const isCR =
+    activeSection?.role === 'genesis_cr' || activeSection?.role === 'co_admin';
 
   const handleSignOut = async () => {
     setIsSigningOut(true);
@@ -50,6 +58,16 @@ export default function SettingsScreen() {
       console.error('[Settings] Error signing out:', error);
     } finally {
       setIsSigningOut(false);
+    }
+  };
+
+  const handleCopyGuestCode = async (code: string) => {
+    try {
+      await Clipboard.setStringAsync(code);
+      setCopiedCode(code);
+      setTimeout(() => setCopiedCode(null), 2000);
+    } catch (err) {
+      console.error('[Settings] Failed to copy code:', err);
     }
   };
 
@@ -224,7 +242,7 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        {/* Course Subscriptions (Bundle & Toggle) Card */}
+        {/* Course Subscriptions & CR Course Management Card */}
         <View className="bg-white rounded-3xl p-5 border border-gray-200/80 shadow-sm mb-6">
           <View className="flex-row items-center justify-between mb-1.5">
             <View className="flex-row items-center">
@@ -236,13 +254,26 @@ export default function SettingsScreen() {
               </Text>
             </View>
 
-            <Text className="text-xs font-bold text-gray-400">
-              {courses.filter((c) => c.is_active !== false).length}/{courses.length} Active
-            </Text>
+            {/* CR Add Course Button */}
+            {isCR ? (
+              <Pressable
+                onPress={() => router.push('/add-course')}
+                className="bg-brand-600 px-3 py-1.5 rounded-xl flex-row items-center active:bg-brand-700 shadow-sm shadow-brand-600/30"
+              >
+                <Plus size={13} color="#ffffff" strokeWidth={2.5} />
+                <Text className="text-xs font-bold text-white ml-1">
+                  Add Course
+                </Text>
+              </Pressable>
+            ) : (
+              <Text className="text-xs font-bold text-gray-400">
+                {courses.filter((c) => c.is_active !== false).length}/{courses.length} Active
+              </Text>
+            )}
           </View>
 
           <Text className="text-xs text-gray-500 mb-4 leading-relaxed">
-            Toggle off courses you are not taking to silence alerts and hide them from your agenda.
+            Toggle off courses you do not attend. Share Guest Codes with irregular or retake students.
           </Text>
 
           {isWorkspaceLoading && courses.length === 0 ? (
@@ -255,15 +286,28 @@ export default function SettingsScreen() {
               <Text className="text-xs font-semibold text-gray-500 text-center">
                 No courses added to this section yet.
               </Text>
-              <Text className="text-[11px] text-gray-400 text-center mt-1">
-                Your Class Representative can configure courses in Phase 3.
-              </Text>
+              {isCR ? (
+                <Pressable
+                  onPress={() => router.push('/add-course')}
+                  className="mt-3 bg-brand-600 px-4 py-2 rounded-xl flex-row items-center active:bg-brand-700"
+                >
+                  <Plus size={14} color="#ffffff" strokeWidth={2.5} />
+                  <Text className="text-xs font-bold text-white ml-1.5">
+                    Add First Course
+                  </Text>
+                </Pressable>
+              ) : (
+                <Text className="text-[11px] text-gray-400 text-center mt-1">
+                  Your Class Representative can add courses for your timetable.
+                </Text>
+              )}
             </View>
           ) : (
             <View className="space-y-2.5">
               {courses.map((course) => {
                 const isActive = course.is_active !== false;
                 const isToggling = togglingCourseId === course.id;
+                const isThisCopied = copiedCode === course.join_code;
 
                 return (
                   <View
@@ -278,13 +322,16 @@ export default function SettingsScreen() {
                       {/* Color Accent Indicator */}
                       <View
                         style={{ backgroundColor: course.color_hex || '#4F46E5' }}
-                        className="w-3.5 h-10 rounded-full mr-3"
+                        className="w-3.5 h-12 rounded-full mr-3"
                       />
 
                       <View className="flex-1">
                         <View className="flex-row items-center">
-                          <Text className="text-xs font-bold font-mono text-gray-900">
-                            {course.code}
+                          <Text
+                            className="text-sm font-bold text-gray-900"
+                            numberOfLines={1}
+                          >
+                            {course.name}
                           </Text>
                           {course.is_guest && (
                             <View className="ml-2 px-1.5 py-0.5 rounded bg-amber-50 border border-amber-200">
@@ -294,12 +341,31 @@ export default function SettingsScreen() {
                             </View>
                           )}
                         </View>
-                        <Text
-                          className="text-xs font-medium text-gray-600 mt-0.5"
-                          numberOfLines={1}
-                        >
-                          {course.name}
-                        </Text>
+
+                        {/* Guest Code Copy Badge */}
+                        {course.join_code && (
+                          <Pressable
+                            onPress={() => handleCopyGuestCode(course.join_code!)}
+                            hitSlop={8}
+                            className="mt-1.5 flex-row items-center bg-gray-100/90 border border-gray-200/80 px-2 py-0.5 rounded-md self-start active:bg-gray-200"
+                          >
+                            {isThisCopied ? (
+                              <>
+                                <Check size={11} color="#059669" />
+                                <Text className="text-[10px] font-bold text-emerald-700 ml-1">
+                                  Copied!
+                                </Text>
+                              </>
+                            ) : (
+                              <>
+                                <Copy size={10} color="#6b7280" />
+                                <Text className="text-[10px] font-mono font-medium text-gray-600 ml-1">
+                                  Guest Code: <Text className="font-bold text-brand-700">{course.join_code}</Text>
+                                </Text>
+                              </>
+                            )}
+                          </Pressable>
+                        )}
                       </View>
                     </View>
 

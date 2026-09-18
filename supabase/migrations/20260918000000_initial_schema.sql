@@ -7,6 +7,7 @@
 
 -- Extensions
 create extension if not exists "uuid-ossp";
+create extension if not exists "pgcrypto";
 create extension if not exists "citext";
 
 -- ============================================================================
@@ -64,7 +65,7 @@ create table if not exists public.courses (
     code text not null, -- e.g., "CS-201"
     name text not null, -- e.g., "Data Structures & Algorithms"
     color_hex text not null default '#4F46E5',
-    guest_invite_token text unique not null default encode(gen_random_bytes(12), 'hex'),
+    guest_invite_token text unique not null default md5(random()::text || clock_timestamp()::text),
     is_archived boolean not null default false,
     created_at timestamptz default timezone('utc'::text, now()) not null,
     updated_at timestamptz default timezone('utc'::text, now()) not null

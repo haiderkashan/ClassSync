@@ -80,6 +80,13 @@ function NavigationGuard() {
             headerShown: false,
           }}
         />
+        <Stack.Screen
+          name="section-members"
+          options={{
+            presentation: 'modal',
+            headerShown: false,
+          }}
+        />
       </Stack>
     </>
   );

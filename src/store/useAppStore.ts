@@ -1,8 +1,16 @@
 import { create } from 'zustand';
 import type { Tables } from '@/types/database.types';
 
-export type SectionRow = Tables<'sections'>;
-export type CourseRow = Tables<'courses'>;
+export type SectionRow = Tables<'sections'> & {
+  role?: 'genesis_cr' | 'co_admin' | 'member' | 'guest' | string;
+};
+
+export type CourseRow = Tables<'courses'> & {
+  is_active?: boolean;
+  is_muted?: boolean;
+  is_guest?: boolean;
+  enrollment_id?: string;
+};
 
 export interface AppState {
   isHydrated: boolean;

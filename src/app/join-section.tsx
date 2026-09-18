@@ -47,6 +47,8 @@ export default function JoinSectionModal() {
     setErrorMessage(null);
 
     try {
+      console.log(`🔍 [UnifiedJoin] Attempting join with code: ${trimmed}`);
+
       // 1. Attempt Section Join first
       const { data: sectionId, error: sectionError } = await supabase.rpc(
         'join_section_via_code',
@@ -54,6 +56,7 @@ export default function JoinSectionModal() {
       );
 
       if (!sectionError && sectionId) {
+        console.log(`✅ [UnifiedJoin] Section join RPC succeeded: sectionId=${sectionId}`);
         // Successfully joined Section cohort
         const { data: sectionData } = await supabase
           .from('sections')
@@ -78,6 +81,8 @@ export default function JoinSectionModal() {
         return;
       }
 
+      console.log(`ℹ️ [UnifiedJoin] Section RPC failed/unmatched (${sectionError?.message ?? 'no match'}), attempting guest course RPC...`);
+
       // 2. Fallback: Attempt Guest Course Join
       const { data: courseId, error: courseError } = await supabase.rpc(
         'join_course_guest',
@@ -85,6 +90,7 @@ export default function JoinSectionModal() {
       );
 
       if (!courseError && courseId) {
+        console.log(`✅ [UnifiedJoin] Guest course join RPC succeeded: courseId=${courseId}`);
         // Successfully joined course as guest
         const { data: courseData } = await supabase
           .from('courses')
@@ -112,7 +118,7 @@ export default function JoinSectionModal() {
       }
 
       // 3. Both attempts failed: Code not found
-      console.warn('[UnifiedJoin] Code did not match section or course:', trimmed);
+      console.warn(`❌ [UnifiedJoin] Both join RPCs failed for code "${trimmed}". SectionErr: ${sectionError?.message}, CourseErr: ${courseError?.message}`);
       setErrorMessage('Invalid code. No active section or course matches this 6-character code.');
       setIsLoading(false);
     } catch (err) {

@@ -66,6 +66,7 @@ export default function CreateSectionModal() {
     try {
       // 1. Generate unique 6-character uppercase join code
       let joinCode = generateJoinCode(6);
+      console.log(`🚀 [CreateSection] Initiating section creation: "${trimmedName}" (code: ${joinCode})`);
 
       // 2. Insert new section
       const { data: section, error: sectionError } = await supabase
@@ -81,11 +82,13 @@ export default function CreateSectionModal() {
         .single();
 
       if (sectionError) {
-        console.error('[CreateSection] Error inserting section:', sectionError.message);
+        console.error('❌ [CreateSection] Error inserting section:', sectionError.message);
         setErrorMessage(sectionError.message);
         setIsLoading(false);
         return;
       }
+
+      console.log(`✅ [CreateSection] Section created: id=${section.id}, name="${section.name}", code=${joinCode}`);
 
       // 3. Immediately enroll current user as Genesis CR
       const { error: memberError } = await supabase.from('section_members').insert({
@@ -95,11 +98,13 @@ export default function CreateSectionModal() {
       });
 
       if (memberError) {
-        console.error('[CreateSection] Error enrolling genesis_cr:', memberError.message);
+        console.error('❌ [CreateSection] Error enrolling genesis_cr:', memberError.message);
         setErrorMessage(memberError.message);
         setIsLoading(false);
         return;
       }
+
+      console.log(`👑 [CreateSection] Enrolled user ${user.id} as genesis_cr of section ${section.id}`);
 
       // 4. Update active workspace and invalidate queries
       setActiveSectionId(section.id);

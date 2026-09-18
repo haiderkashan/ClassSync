@@ -56,8 +56,18 @@ export const useAppStore = create<AppState>()(
         activeSections: state.activeSections,
         activeCourses: state.activeCourses,
       }),
-      onRehydrateStorage: () => (state) => {
-        state?.setHydrated(true);
+      onRehydrateStorage: () => {
+        console.log('💾 [Zustand] Hydrating offline workspace and course cache from AsyncStorage...');
+        return (state, error) => {
+          if (error) {
+            console.error('❌ [Zustand] Failed to rehydrate offline storage:', error);
+          } else {
+            console.log(
+              `💾 [Zustand] Offline workspace hydration completed: ${state?.activeSections.length ?? 0} section(s), ${state?.activeCourses.length ?? 0} course(s), activeSectionId=${state?.activeSectionId ?? 'none'}`
+            );
+            state?.setHydrated(true);
+          }
+        };
       },
     }
   )

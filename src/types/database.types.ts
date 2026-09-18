@@ -187,34 +187,37 @@ export type Database = {
       }
       courses: {
         Row: {
-          code: string
+          code: string | null
           color_hex: string
           created_at: string
           guest_invite_token: string
           id: string
           is_archived: boolean
+          join_code: string | null
           name: string
           section_id: string
           updated_at: string
         }
         Insert: {
-          code: string
+          code?: string | null
           color_hex?: string
           created_at?: string
           guest_invite_token?: string
           id?: string
           is_archived?: boolean
+          join_code?: string | null
           name: string
           section_id: string
           updated_at?: string
         }
         Update: {
-          code?: string
+          code?: string | null
           color_hex?: string
           created_at?: string
           guest_invite_token?: string
           id?: string
           is_archived?: boolean
+          join_code?: string | null
           name?: string
           section_id?: string
           updated_at?: string
@@ -494,10 +497,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      create_course: {
+        Args: { p_join_code: string; p_section_id: string; p_title: string }
+        Returns: string
+      }
       current_user_id: { Args: never; Returns: string }
       is_course_enrolled: { Args: { c_id: string }; Returns: boolean }
       is_section_admin: { Args: { sec_id: string }; Returns: boolean }
       is_section_member: { Args: { sec_id: string }; Returns: boolean }
+      join_course_guest: { Args: { p_join_code: string }; Returns: string }
       join_section_via_code: { Args: { p_join_code: string }; Returns: string }
     }
     Enums: {

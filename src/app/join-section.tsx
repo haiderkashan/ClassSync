@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { X, KeyRound, ArrowRight, AlertCircle, CheckCircle2 } from 'lucide-react-native';
+import { X, KeyRound, ArrowRight, AlertCircle, CheckCircle2, BookOpen, Users } from 'lucide-react-native';
 import { useSupabase } from '@/hooks/useSupabase';
 import { useAppStore } from '@/store/useAppStore';
 import { normalizeJoinCode } from '@/lib/utils/codeGenerator';
@@ -27,7 +27,7 @@ export default function JoinSectionModal() {
   const [code, setCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [isSuccess, setIsSuccess] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const handleCodeChange = (text: string) => {
     const normalized = normalizeJoinCode(text).slice(0, 6);
@@ -38,7 +38,7 @@ export default function JoinSectionModal() {
   const handleJoin = async () => {
     const trimmed = code.trim();
     if (trimmed.length !== 6) {
-      setErrorMessage('Please enter the full 6-character join code.');
+      setErrorMessage('Please enter the full 6-character code.');
       return;
     }
 
@@ -47,44 +47,82 @@ export default function JoinSectionModal() {
     setErrorMessage(null);
 
     try {
-      const { data: sectionId, error } = await supabase.rpc('join_section_via_code', {
-        p_join_code: trimmed,
-      });
+      // 1. Attempt Section Join first
+      const { data: sectionId, error: sectionError } = await supabase.rpc(
+        'join_section_via_code',
+        { p_join_code: trimmed }
+      );
 
-      if (error) {
-        console.error('[JoinSection] RPC error:', error.message);
-        setErrorMessage(
-          error.message.includes('Invalid or expired')
-            ? 'No active section found with this code. Please verify and try again.'
-            : error.message
-        );
+      if (!sectionError && sectionId) {
+        // Successfully joined Section cohort
+        const { data: sectionData } = await supabase
+          .from('sections')
+          .select('name')
+          .eq('id', sectionId)
+          .maybeSingle();
+
+        const sectionName = sectionData?.name || 'Section';
+        setActiveSectionId(sectionId);
+        await queryClient.invalidateQueries({ queryKey: ['workspaces'] });
+
+        setSuccessMessage(`Joined "${sectionName}" successfully!`);
         setIsLoading(false);
+
+        setTimeout(() => {
+          if (router.canGoBack()) {
+            router.back();
+          } else {
+            router.replace('/(tabs)');
+          }
+        }, 800);
         return;
       }
 
-      if (sectionId) {
-        setActiveSectionId(sectionId);
+      // 2. Fallback: Attempt Guest Course Join
+      const { data: courseId, error: courseError } = await supabase.rpc(
+        'join_course_guest',
+        { p_join_code: trimmed }
+      );
+
+      if (!courseError && courseId) {
+        // Successfully joined course as guest
+        const { data: courseData } = await supabase
+          .from('courses')
+          .select('name, section_id')
+          .eq('id', courseId)
+          .maybeSingle();
+
+        const courseName = courseData?.name || 'Course';
+        if (courseData?.section_id) {
+          setActiveSectionId(courseData.section_id);
+        }
+        await queryClient.invalidateQueries({ queryKey: ['workspaces'] });
+
+        setSuccessMessage(`Joined "${courseName}" as Guest!`);
+        setIsLoading(false);
+
+        setTimeout(() => {
+          if (router.canGoBack()) {
+            router.back();
+          } else {
+            router.replace('/(tabs)');
+          }
+        }, 800);
+        return;
       }
 
-      // Invalidate queries to refresh workspace & course lists
-      await queryClient.invalidateQueries({ queryKey: ['workspaces'] });
-
-      setIsSuccess(true);
-      setTimeout(() => {
-        if (router.canGoBack()) {
-          router.back();
-        } else {
-          router.replace('/(tabs)');
-        }
-      }, 700);
+      // 3. Both attempts failed: Code not found
+      console.warn('[UnifiedJoin] Code did not match section or course:', trimmed);
+      setErrorMessage('Invalid code. No active section or course matches this 6-character code.');
+      setIsLoading(false);
     } catch (err) {
-      console.error('[JoinSection] Unexpected exception:', err);
+      console.error('[UnifiedJoin] Unexpected exception:', err);
       setErrorMessage('An unexpected network error occurred. Please try again.');
       setIsLoading(false);
     }
   };
 
-  const isButtonDisabled = code.length !== 6 || isLoading || isSuccess;
+  const isButtonDisabled = code.length !== 6 || isLoading || !!successMessage;
 
   return (
     <SafeAreaView className="flex-1 bg-white">
@@ -101,7 +139,7 @@ export default function JoinSectionModal() {
                   <View className="w-9 h-9 rounded-xl bg-brand-50 items-center justify-center mr-3">
                     <KeyRound size={20} color="#4f46e5" strokeWidth={2.2} />
                   </View>
-                  <Text className="text-xl font-bold text-gray-900">Join Section</Text>
+                  <Text className="text-xl font-bold text-gray-900">Join with Code</Text>
                 </View>
 
                 <Pressable
@@ -116,14 +154,14 @@ export default function JoinSectionModal() {
               {/* Instructional Context */}
               <View className="mt-6">
                 <Text className="text-base text-gray-600 leading-relaxed">
-                  Enter the 6-character alphanumeric code provided by your Class Representative to enroll in your cohort and courses.
+                  Enter any 6-character code to join your entire cohort section or enroll in an individual course as a Guest student.
                 </Text>
               </View>
 
               {/* Join Code Input Form */}
               <View className="mt-8">
                 <Text className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">
-                  Section Join Code
+                  Enter 6-Character Code
                 </Text>
 
                 <View className="border-2 border-brand-200 rounded-2xl bg-gray-50/70 px-4 py-4 focus:border-brand-600 focus:bg-white transition-all">
@@ -145,7 +183,7 @@ export default function JoinSectionModal() {
                 {/* Progress Indicators */}
                 <View className="flex-row justify-between items-center mt-2 px-1">
                   <Text className="text-xs text-gray-400">
-                    Codes exclude confusing characters (0, O, 1, I, L)
+                    Supports both Section codes & Course Guest codes
                   </Text>
                   <Text
                     className={`text-xs font-semibold ${
@@ -166,14 +204,30 @@ export default function JoinSectionModal() {
                   </View>
                 )}
 
-                {isSuccess && (
+                {successMessage && (
                   <View className="mt-4 p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl flex-row items-center">
                     <CheckCircle2 size={18} color="#059669" className="mr-2.5 flex-shrink-0" />
                     <Text className="text-sm font-semibold text-emerald-800 ml-2">
-                      Enrolled successfully! Redirecting...
+                      {successMessage}
                     </Text>
                   </View>
                 )}
+              </View>
+
+              {/* Code Types Guide */}
+              <View className="mt-8 p-4 bg-gray-50 rounded-2xl border border-gray-200 space-y-3">
+                <View className="flex-row items-center">
+                  <Users size={16} color="#4f46e5" className="mr-2.5" />
+                  <Text className="text-xs text-gray-600 flex-1">
+                    <Text className="font-bold text-gray-800">Section Code:</Text> Enrolls you in the cohort and all of its scheduled courses.
+                  </Text>
+                </View>
+                <View className="flex-row items-center mt-2">
+                  <BookOpen size={16} color="#d97706" className="mr-2.5" />
+                  <Text className="text-xs text-gray-600 flex-1">
+                    <Text className="font-bold text-gray-800">Guest Course Code:</Text> Enrolls you only in that specific retake or elective course.
+                  </Text>
+                </View>
               </View>
             </View>
 
@@ -190,7 +244,7 @@ export default function JoinSectionModal() {
               >
                 {isLoading ? (
                   <ActivityIndicator size="small" color="#ffffff" />
-                ) : isSuccess ? (
+                ) : successMessage ? (
                   <Text className="text-white text-base font-bold">Joined!</Text>
                 ) : (
                   <>
@@ -199,7 +253,7 @@ export default function JoinSectionModal() {
                         isButtonDisabled ? 'text-gray-400' : 'text-white'
                       }`}
                     >
-                      Join Section
+                      Join with Code
                     </Text>
                     <ArrowRight
                       size={18}

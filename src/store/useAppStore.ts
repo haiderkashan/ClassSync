@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Tables } from '@/types/database.types';
 
 export type SectionRow = Tables<'sections'> & {
@@ -25,22 +27,38 @@ export interface AppState {
 }
 
 /**
- * Global application store for fast in-memory client state management and workspace/course caching.
+ * Global application store for fast client state management and offline-first
+ * workspace/course caching backed by AsyncStorage persistence.
  */
-export const useAppStore = create<AppState>((set) => ({
-  isHydrated: true,
-  activeSectionId: null,
-  activeSections: [],
-  activeCourses: [],
-  setHydrated: (isHydrated) => set({ isHydrated }),
-  setActiveSectionId: (activeSectionId) => set({ activeSectionId }),
-  setActiveSections: (activeSections) => set({ activeSections }),
-  setActiveCourses: (activeCourses) => set({ activeCourses }),
-  reset: () =>
-    set({
+export const useAppStore = create<AppState>()(
+  persist(
+    (set) => ({
       isHydrated: false,
       activeSectionId: null,
       activeSections: [],
       activeCourses: [],
+      setHydrated: (isHydrated) => set({ isHydrated }),
+      setActiveSectionId: (activeSectionId) => set({ activeSectionId }),
+      setActiveSections: (activeSections) => set({ activeSections }),
+      setActiveCourses: (activeCourses) => set({ activeCourses }),
+      reset: () =>
+        set({
+          activeSectionId: null,
+          activeSections: [],
+          activeCourses: [],
+        }),
     }),
-}));
+    {
+      name: 'classsync-app-storage',
+      storage: createJSONStorage(() => AsyncStorage),
+      partialize: (state) => ({
+        activeSectionId: state.activeSectionId,
+        activeSections: state.activeSections,
+        activeCourses: state.activeCourses,
+      }),
+      onRehydrateStorage: () => (state) => {
+        state?.setHydrated(true);
+      },
+    }
+  )
+);

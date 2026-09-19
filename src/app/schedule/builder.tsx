@@ -17,10 +17,12 @@ import {
   Sparkles,
   Layers,
   School,
+  Copy,
 } from 'lucide-react-native';
 import { useBaseSchedule } from '@/hooks/useBaseSchedule';
 import { ScheduleBlockCard } from '@/components/ScheduleBlockCard';
 import { FreePeriodSpacer } from '@/components/FreePeriodSpacer';
+import { CloneDayModal } from '@/components/CloneDayModal';
 import {
   getDayName,
   calculateDurationMinutes,
@@ -51,6 +53,7 @@ export default function ScheduleBuilderScreen() {
 
   // Selected Day state (defaults to Monday = 1)
   const [selectedDay, setSelectedDay] = useState<number>(1);
+  const [isCloneModalVisible, setIsCloneModalVisible] = useState<boolean>(false);
 
   // Filtered blocks for selected day
   const dayBlocks = useMemo(() => {
@@ -76,7 +79,7 @@ export default function ScheduleBuilderScreen() {
       {/* Top Header */}
       <View className="bg-white border-b border-gray-200 px-4 pt-3 pb-3">
         <View className="flex-row items-center justify-between">
-          <View className="flex-row items-center space-x-3">
+          <View className="flex-row items-center space-x-3 flex-1 mr-2">
             <Pressable
               onPress={() => router.back()}
               className="w-10 h-10 rounded-full bg-gray-100 items-center justify-center active:bg-gray-200"
@@ -84,7 +87,7 @@ export default function ScheduleBuilderScreen() {
             >
               <ArrowLeft size={20} color="#1f2937" />
             </Pressable>
-            <View>
+            <View className="flex-1">
               <Text className="text-lg font-extrabold text-gray-900 tracking-tight" numberOfLines={1}>
                 {activeSectionName}
               </Text>
@@ -96,6 +99,18 @@ export default function ScheduleBuilderScreen() {
               </View>
             </View>
           </View>
+
+          {/* Clone Day CTA */}
+          {isSectionAdmin && (
+            <Pressable
+              onPress={() => setIsCloneModalVisible(true)}
+              className="flex-row items-center space-x-1.5 bg-brand-50 border border-brand-200 px-3 py-2 rounded-xl active:bg-brand-100 shadow-xs"
+              accessibilityLabel="Clone Day"
+            >
+              <Copy size={14} color="#4f46e5" strokeWidth={2.5} />
+              <Text className="text-xs font-bold text-brand-700">Clone</Text>
+            </Pressable>
+          )}
         </View>
 
         {/* Horizontal Day Selector Tabs */}
@@ -247,6 +262,16 @@ export default function ScheduleBuilderScreen() {
           </Pressable>
         </View>
       )}
+
+      {/* Day Cloner Modal */}
+      <CloneDayModal
+        visible={isCloneModalVisible}
+        onClose={() => setIsCloneModalVisible(false)}
+        initialSourceDay={selectedDay}
+        onSuccess={(targetDay) => {
+          setSelectedDay(targetDay);
+        }}
+      />
     </SafeAreaView>
   );
 }

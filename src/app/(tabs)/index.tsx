@@ -8,6 +8,7 @@ import {
   RefreshControl,
   Pressable,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import {
   Calendar,
   Users,
@@ -39,12 +40,14 @@ const DAYS_OF_WEEK = [
 ];
 
 export default function AgendaScreen() {
+  const router = useRouter();
   const { sections, activeSection, isLoading, isFetching, refetch } = useWorkspaces();
   const { setActiveSectionId } = useAppStore();
   const {
     getBlocksForDay,
     isFetching: isScheduleFetching,
     refetch: refetchSchedule,
+    isSectionAdmin,
   } = useBaseSchedule();
 
   // Resolve current device day of the week (1=Mon ... 7=Sun)
@@ -192,6 +195,33 @@ export default function AgendaScreen() {
             </ScrollView>
           </View>
         </View>
+
+        {/* CR Timetable Management Quick Action Banner */}
+        {isSectionAdmin && (
+          <View className="mx-5 mt-3.5 p-3.5 bg-brand-50 border border-brand-200 rounded-2xl flex-row items-center justify-between shadow-xs">
+            <View className="flex-row items-center space-x-2.5 flex-1 mr-2">
+              <View className="w-8 h-8 rounded-xl bg-brand-600 items-center justify-center">
+                <Calendar size={16} color="#ffffff" strokeWidth={2.5} />
+              </View>
+              <View className="flex-1">
+                <Text className="text-xs font-bold text-brand-900">
+                  Timetable Builder
+                </Text>
+                <Text className="text-[11px] text-brand-700 mt-0.5">
+                  CR Admin: add classes, clone schedules & manage times
+                </Text>
+              </View>
+            </View>
+
+            <Pressable
+              onPress={() => router.push('/schedule/builder')}
+              className="bg-brand-600 active:bg-brand-700 px-3.5 py-1.5 rounded-xl shadow-xs"
+              accessibilityLabel="Manage Timetable"
+            >
+              <Text className="text-xs font-bold text-white">Manage</Text>
+            </Pressable>
+          </View>
+        )}
 
         {/* Day Agenda Header Bar */}
         <View className="px-5 pt-4 pb-2 flex-row items-center justify-between">

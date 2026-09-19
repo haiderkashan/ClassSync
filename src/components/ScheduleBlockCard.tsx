@@ -23,6 +23,7 @@ export interface ScheduleBlockCardProps {
   block: BaseScheduleRow;
   onPress?: (block: BaseScheduleRow) => void;
   onLongPress?: (block: BaseScheduleRow) => void;
+  readOnly?: boolean;
 }
 
 /**
@@ -85,7 +86,13 @@ function getSessionTypeConfig(sessionType: string) {
   }
 }
 
-export function ScheduleBlockCard({ block, onPress, onLongPress }: ScheduleBlockCardProps) {
+export function ScheduleBlockCard({
+  block,
+  onPress,
+  onLongPress,
+  readOnly = false,
+}: ScheduleBlockCardProps) {
+  const isInteractive = !readOnly && (!!onPress || !!onLongPress);
   const durationMins = calculateDurationMinutes(block.start_time, block.end_time);
   const durationLabel = formatDuration(durationMins);
   const timeWindow = `${formatTime12Hour(block.start_time)} - ${formatTime12Hour(block.end_time)}`;
@@ -124,9 +131,12 @@ export function ScheduleBlockCard({ block, onPress, onLongPress }: ScheduleBlock
 
   return (
     <Pressable
-      onPress={() => onPress?.(block)}
-      onLongPress={() => onLongPress?.(block)}
-      className="bg-white rounded-2xl p-4 mb-3 border border-gray-100 shadow-sm active:scale-[0.99] transition-transform"
+      disabled={!isInteractive}
+      onPress={() => isInteractive && onPress?.(block)}
+      onLongPress={() => isInteractive && onLongPress?.(block)}
+      className={`bg-white rounded-2xl p-4 mb-3 border border-gray-100 shadow-sm transition-transform ${
+        isInteractive ? 'active:scale-[0.99]' : ''
+      }`}
       style={{
         borderLeftWidth: 4,
         borderLeftColor: accentColor,

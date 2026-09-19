@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, Pressable } from 'react-native';
+import { View, Text, Pressable, StyleSheet, Platform } from 'react-native';
 import {
   Clock,
   MapPin,
@@ -10,7 +10,6 @@ import {
   BookOpen,
   FlaskConical,
   GraduationCap,
-  Sparkles,
 } from 'lucide-react-native';
 import type { BaseScheduleRow } from '@/store/useAppStore';
 import {
@@ -27,41 +26,50 @@ export interface ScheduleBlockCardProps {
 }
 
 /**
- * Returns icon, label, and theme classes for a given session type.
+ * Returns pastel theme colors, session icon, and typography styles for a given session type.
+ * Inspired by premium soft UI design language (mint, lavender, peach, teal, sky).
  */
-function getSessionTypeConfig(sessionType: string) {
+function getSessionPalette(sessionType: string) {
   switch (sessionType?.toLowerCase()) {
     case 'lab':
       return {
         label: 'LAB',
         icon: FlaskConical,
-        bgClass: 'bg-emerald-50 border-emerald-200',
-        textClass: 'text-emerald-700',
+        bgColor: '#EDFAF3', // soft mint
+        borderColor: '#C7F0DB',
+        badgeBg: '#D1F4E2',
+        textColor: '#064E3B',
         iconColor: '#059669',
       };
     case 'break':
       return {
         label: 'BREAK',
         icon: Coffee,
-        bgClass: 'bg-amber-50 border-amber-200',
-        textClass: 'text-amber-700',
-        iconColor: '#d97706',
+        bgColor: '#FEF7EC', // soft peach
+        borderColor: '#FCE7C5',
+        badgeBg: '#FDECD2',
+        textColor: '#78350F',
+        iconColor: '#D97706',
       };
     case 'prayer':
       return {
         label: 'PRAYER',
         icon: Heart,
-        bgClass: 'bg-teal-50 border-teal-200',
-        textClass: 'text-teal-700',
-        iconColor: '#0d9488',
+        bgColor: '#EBF7F6', // soft teal
+        borderColor: '#C7ECE8',
+        badgeBg: '#CEEFEA',
+        textColor: '#134E4A',
+        iconColor: '#0D9488',
       };
     case 'meeting':
       return {
         label: 'MEETING',
         icon: Users,
-        bgClass: 'bg-slate-100 border-slate-200',
-        textClass: 'text-slate-700',
-        iconColor: '#475569',
+        bgColor: '#F4EEFD', // soft lavender
+        borderColor: '#E5D6FA',
+        badgeBg: '#EBDCFB',
+        textColor: '#4C1D95',
+        iconColor: '#7C3AED',
       };
     case 'tutorial':
     case 'seminar':
@@ -70,18 +78,22 @@ function getSessionTypeConfig(sessionType: string) {
       return {
         label: sessionType.toUpperCase(),
         icon: GraduationCap,
-        bgClass: 'bg-purple-50 border-purple-200',
-        textClass: 'text-purple-700',
-        iconColor: '#9333ea',
+        bgColor: '#FEF1F3', // soft rose
+        borderColor: '#FCD3D9',
+        badgeBg: '#FCE0E5',
+        textColor: '#881337',
+        iconColor: '#E11D48',
       };
     case 'lecture':
     default:
       return {
         label: 'LECTURE',
         icon: BookOpen,
-        bgClass: 'bg-indigo-50 border-indigo-200',
-        textClass: 'text-indigo-700',
-        iconColor: '#4f46e5',
+        bgColor: '#EEF6FF', // soft sky blue
+        borderColor: '#D8E8FC',
+        badgeBg: '#DBEBFE',
+        textColor: '#1E3A8A',
+        iconColor: '#2563EB',
       };
   }
 }
@@ -109,100 +121,126 @@ export function ScheduleBlockCard({
       ? 'Prayer Break'
       : 'Cohort Meeting';
 
-  const accentColor =
-    block.color_override ||
-    (isGeneralSession
-      ? block.session_type === 'break'
-        ? '#d97706'
-        : block.session_type === 'prayer'
-        ? '#0d9488'
-        : '#475569'
-      : block.course?.color_hex || '#4F46E5');
-
   const courseTitle = isGeneralSession
     ? generalTitle
     : block.course?.name || 'Academic Session';
   const courseCode = isGeneralSession ? undefined : block.course?.code;
-  const sessionConfig = getSessionTypeConfig(block.session_type);
-  const SessionIcon = sessionConfig.icon;
+
+  const palette = getSessionPalette(block.session_type);
+  const SessionIcon = palette.icon;
 
   const isBiweekly = block.frequency === 'biweekly_week_a' || block.frequency === 'biweekly_week_b';
-  const biweeklyLabel = block.frequency === 'biweekly_week_a' ? 'Week A Only' : 'Week B Only';
+  const biweeklyLabel = block.frequency === 'biweekly_week_a' ? 'Week A' : 'Week B';
 
   return (
     <Pressable
       disabled={!isInteractive}
       onPress={() => isInteractive && onPress?.(block)}
       onLongPress={() => isInteractive && onLongPress?.(block)}
-      className={`bg-white rounded-2xl p-4 mb-3 border border-gray-100 shadow-sm transition-transform ${
-        isInteractive ? 'active:scale-[0.99]' : ''
+      style={[
+        styles.cardContainer,
+        {
+          backgroundColor: palette.bgColor,
+          borderColor: palette.borderColor,
+        },
+      ]}
+      className={`rounded-3xl p-4 mb-3 transition-transform ${
+        isInteractive ? 'active:scale-[0.98]' : ''
       }`}
-      style={{
-        borderLeftWidth: 4,
-        borderLeftColor: accentColor,
-      }}
     >
-      {/* Top Header: Time Window + Duration Badge + Frequency */}
-      <View className="flex-row items-center justify-between mb-2">
-        <View className="flex-row items-center space-x-1.5">
-          <Clock size={14} color="#6b7280" />
-          <Text className="text-xs font-semibold text-gray-700">{timeWindow}</Text>
+      {/* Top Header: Session Type Badge + Duration Pill + Frequency */}
+      <View className="flex-row items-center justify-between mb-2.5">
+        {/* Session Type Pill */}
+        <View className="flex-row items-center bg-white/90 px-2.5 py-1 rounded-full border border-white/80 shadow-2xs">
+          <SessionIcon size={12} color={palette.iconColor} />
+          <Text
+            className="text-[10px] font-black tracking-wider ml-1"
+            style={{ color: palette.textColor }}
+          >
+            {palette.label}
+          </Text>
         </View>
 
+        {/* Right Badges: Frequency & Duration */}
         <View className="flex-row items-center space-x-1.5">
           {isBiweekly && (
-            <View className="bg-purple-100 px-2 py-0.5 rounded-full border border-purple-200">
-              <Text className="text-[10px] font-bold text-purple-700">{biweeklyLabel}</Text>
+            <View className="bg-white/90 px-2 py-0.5 rounded-full border border-white/80 shadow-2xs">
+              <Text className="text-[10px] font-bold text-neutral-700">
+                {biweeklyLabel}
+              </Text>
             </View>
           )}
-          <View className="bg-gray-100 px-2 py-0.5 rounded-full">
-            <Text className="text-[10px] font-bold text-gray-600">{durationLabel}</Text>
+
+          <View className="flex-row items-center bg-white/90 px-2.5 py-0.5 rounded-full border border-white/80 shadow-2xs">
+            <Clock size={10} color="#71717a" />
+            <Text className="text-[10px] font-bold text-neutral-700 ml-1">
+              {durationLabel}
+            </Text>
           </View>
         </View>
       </View>
 
-      {/* Main Content: Course Name and Code */}
-      <View className="mb-3">
-        <Text className="text-base font-bold text-gray-900 tracking-tight" numberOfLines={1}>
+      {/* Main Content: Course Title & Code */}
+      <View className="mb-2.5">
+        <Text className="text-base font-black text-neutral-900 tracking-tight" numberOfLines={1}>
           {courseTitle}
         </Text>
         {courseCode && (
-          <Text className="text-xs font-semibold text-gray-400 mt-0.5 uppercase tracking-wider">
+          <Text className="text-[11px] font-bold text-neutral-500 mt-0.5 uppercase tracking-wider">
             {courseCode}
           </Text>
         )}
       </View>
 
-      {/* Bottom Row: Session Type, Room, and Instructor Badges */}
-      <View className="flex-row flex-wrap items-center gap-2 pt-2 border-t border-gray-50">
-        {/* Session Type Pill */}
-        <View
-          className={`flex-row items-center space-x-1 px-2.5 py-1 rounded-lg border ${sessionConfig.bgClass}`}
-        >
-          <SessionIcon size={12} color={sessionConfig.iconColor} />
-          <Text className={`text-[11px] font-bold tracking-wider ${sessionConfig.textClass}`}>
-            {sessionConfig.label}
-          </Text>
+      {/* Bottom Row: Room, Instructor, and Time Window */}
+      <View className="flex-row flex-wrap items-center justify-between pt-2 border-t border-black/5 gap-1.5">
+        <View className="flex-row items-center flex-wrap gap-1.5">
+          {/* Room Badge */}
+          {block.room && (
+            <View className="flex-row items-center bg-white/90 px-2.5 py-1 rounded-full border border-white/80 shadow-2xs">
+              <MapPin size={11} color="#71717a" />
+              <Text className="text-[11px] font-semibold text-neutral-800 ml-1">
+                {block.room}
+              </Text>
+            </View>
+          )}
+
+          {/* Instructor Badge */}
+          {block.instructor && (
+            <View className="flex-row items-center bg-white/90 px-2.5 py-1 rounded-full border border-white/80 shadow-2xs max-w-[130px]">
+              <User size={11} color="#71717a" />
+              <Text className="text-[11px] font-semibold text-neutral-800 ml-1" numberOfLines={1}>
+                {block.instructor}
+              </Text>
+            </View>
+          )}
         </View>
 
-        {/* Room / Location */}
-        {block.room && (
-          <View className="flex-row items-center space-x-1 px-2.5 py-1 rounded-lg bg-gray-50 border border-gray-200">
-            <MapPin size={12} color="#6b7280" />
-            <Text className="text-[11px] font-medium text-gray-700">{block.room}</Text>
-          </View>
-        )}
-
-        {/* Instructor */}
-        {block.instructor && (
-          <View className="flex-row items-center space-x-1 px-2.5 py-1 rounded-lg bg-gray-50 border border-gray-200">
-            <User size={12} color="#6b7280" />
-            <Text className="text-[11px] font-medium text-gray-700" numberOfLines={1}>
-              {block.instructor}
-            </Text>
-          </View>
-        )}
+        {/* Time Window */}
+        <Text className="text-[11px] font-bold text-neutral-500 ml-auto">
+          {timeWindow}
+        </Text>
       </View>
     </Pressable>
   );
 }
+
+const styles = StyleSheet.create({
+  cardContainer: {
+    borderWidth: 1,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.04,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 1,
+      },
+      default: {
+        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.03)',
+      },
+    }),
+  },
+});

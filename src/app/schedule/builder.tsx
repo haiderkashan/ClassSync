@@ -75,25 +75,25 @@ export default function ScheduleBuilderScreen() {
   const timezone = activeSection?.timezone || 'UTC';
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50" edges={['top', 'bottom', 'left', 'right']}>
+    <SafeAreaView className="flex-1 bg-[#F8F9FA]" edges={['top', 'bottom', 'left', 'right']}>
       {/* Top Header */}
-      <View className="bg-white border-b border-gray-200 px-4 pt-3 pb-3">
+      <View className="bg-white border-b border-neutral-100/90 px-4 pt-3 pb-3 shadow-2xs">
         <View className="flex-row items-center justify-between">
           <View className="flex-row items-center space-x-3 flex-1 mr-2">
             <Pressable
               onPress={() => router.back()}
-              className="w-10 h-10 rounded-full bg-gray-100 items-center justify-center active:bg-gray-200"
+              className="w-9 h-9 rounded-full bg-neutral-100 items-center justify-center active:bg-neutral-200"
               accessibilityLabel="Back"
             >
-              <ArrowLeft size={20} color="#1f2937" />
+              <ArrowLeft size={18} color="#18181b" />
             </Pressable>
-            <View className="flex-1">
-              <Text className="text-lg font-extrabold text-gray-900 tracking-tight" numberOfLines={1}>
+            <View className="flex-1 ml-2">
+              <Text className="text-lg font-black text-neutral-900 tracking-tight" numberOfLines={1}>
                 {activeSectionName}
               </Text>
               <View className="flex-row items-center space-x-1 mt-0.5">
-                <Globe size={11} color="#6b7280" />
-                <Text className="text-xs text-gray-500 font-medium">
+                <Globe size={11} color="#a1a1aa" />
+                <Text className="text-xs text-neutral-400 font-medium ml-1">
                   {timezone} • Recurring Base Schedule
                 </Text>
               </View>
@@ -104,11 +104,11 @@ export default function ScheduleBuilderScreen() {
           {isSectionAdmin && (
             <Pressable
               onPress={() => setIsCloneModalVisible(true)}
-              className="flex-row items-center space-x-1.5 bg-brand-50 border border-brand-200 px-3 py-2 rounded-xl active:bg-brand-100 shadow-xs"
+              className="flex-row items-center space-x-1.5 bg-neutral-100 border border-neutral-200/60 px-3 py-1.5 rounded-full active:bg-neutral-200 shadow-2xs"
               accessibilityLabel="Clone Day"
             >
-              <Copy size={14} color="#4f46e5" strokeWidth={2.5} />
-              <Text className="text-xs font-bold text-brand-700">Clone</Text>
+              <Copy size={13} color="#18181b" strokeWidth={2} />
+              <Text className="text-xs font-bold text-neutral-800 ml-1">Clone</Text>
             </Pressable>
           )}
         </View>
@@ -117,7 +117,7 @@ export default function ScheduleBuilderScreen() {
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          className="mt-4 -mx-4 px-4 flex-row"
+          className="mt-3 -mx-4 px-4 flex-row py-1"
         >
           {DAYS_OF_WEEK.map((day) => {
             const isSelected = selectedDay === day.id;
@@ -127,15 +127,15 @@ export default function ScheduleBuilderScreen() {
               <Pressable
                 key={day.id}
                 onPress={() => setSelectedDay(day.id)}
-                className={`mr-2.5 px-4 py-2.5 rounded-2xl flex-row items-center space-x-2 border transition-all ${
+                className={`mr-2.5 px-3.5 py-2 rounded-2xl flex-row items-center space-x-1.5 border transition-all ${
                   isSelected
-                    ? 'bg-brand-600 border-brand-700 shadow-sm shadow-brand-500/20'
-                    : 'bg-white border-gray-200 active:bg-gray-100'
+                    ? 'bg-neutral-900 border-neutral-900 shadow-sm shadow-neutral-900/20'
+                    : 'bg-white border-neutral-150/90 shadow-2xs active:bg-neutral-50'
                 }`}
               >
                 <Text
-                  className={`text-sm font-bold ${
-                    isSelected ? 'text-white' : 'text-gray-700'
+                  className={`text-xs font-bold ${
+                    isSelected ? 'text-white' : 'text-neutral-700'
                   }`}
                 >
                   {day.short}
@@ -143,13 +143,13 @@ export default function ScheduleBuilderScreen() {
 
                 {count > 0 && (
                   <View
-                    className={`px-1.5 py-0.5 rounded-full ${
-                      isSelected ? 'bg-brand-500' : 'bg-gray-100'
+                    className={`ml-1 px-1.5 py-0.5 rounded-full ${
+                      isSelected ? 'bg-neutral-800' : 'bg-neutral-100'
                     }`}
                   >
                     <Text
                       className={`text-[10px] font-extrabold ${
-                        isSelected ? 'text-white' : 'text-gray-600'
+                        isSelected ? 'text-white' : 'text-neutral-600'
                       }`}
                     >
                       {count}
@@ -165,39 +165,38 @@ export default function ScheduleBuilderScreen() {
       {/* Main Content: Chronological Day Timeline */}
       <ScrollView
         className="flex-1 px-4 pt-4"
-        contentContainerStyle={{ paddingBottom: 100 }}
+        contentContainerStyle={{ paddingBottom: 110 }}
         refreshControl={
-          <RefreshControl refreshing={isFetching} onRefresh={refetch} tintColor="#4f46e5" />
+          <RefreshControl refreshing={isFetching} onRefresh={refetch} tintColor="#18181b" />
         }
       >
         {isLoading ? (
           <View className="py-16 items-center justify-center">
-            <ActivityIndicator size="large" color="#4f46e5" />
-            <Text className="text-sm font-medium text-gray-500 mt-3">
+            <ActivityIndicator size="large" color="#18181b" />
+            <Text className="text-xs font-semibold text-neutral-400 mt-3 tracking-wide">
               Loading timetable...
             </Text>
           </View>
         ) : dayBlocks.length === 0 ? (
           /* Empty State for Selected Day */
-          <View className="items-center justify-center py-16 px-6 bg-white rounded-3xl border border-gray-100 shadow-sm mt-4">
-            <View className="w-16 h-16 rounded-2xl bg-indigo-50 border border-indigo-100 items-center justify-center mb-4">
-              <Calendar size={28} color="#4f46e5" />
+          <View className="py-12 px-6 items-center justify-center bg-white border border-neutral-100/90 rounded-3xl shadow-2xs my-4">
+            <View className="w-14 h-14 rounded-2xl bg-neutral-100 items-center justify-center mb-3">
+              <Calendar size={24} color="#71717a" strokeWidth={1.8} />
             </View>
-            <Text className="text-lg font-bold text-gray-900 text-center mb-1">
-              No Classes on {getDayName(selectedDay)}
+            <Text className="text-base font-black text-neutral-900 mb-1 text-center tracking-tight">
+              No classes on {getDayName(selectedDay)}
             </Text>
-            <Text className="text-sm text-gray-500 text-center leading-relaxed max-w-xs">
-              This day currently has no recurring timetable blocks scheduled for your cohort.
+            <Text className="text-xs font-medium text-neutral-500 text-center max-w-xs mb-5 leading-relaxed">
+              This day is currently unscheduled. Tap the button below to add recurring classes, labs, or prayer breaks.
             </Text>
+
             {isSectionAdmin && (
               <Pressable
-                onPress={() => {
-                  router.push(`/schedule/edit-block?day=${selectedDay}`);
-                }}
-                className="mt-6 flex-row items-center space-x-2 bg-brand-50 px-4 py-2.5 rounded-xl border border-brand-200 active:bg-brand-100"
+                onPress={() => router.push(`/schedule/edit-block?day=${selectedDay}`)}
+                className="flex-row items-center space-x-1.5 bg-neutral-900 px-4 py-2.5 rounded-full active:bg-neutral-800 shadow-2xs"
               >
-                <Plus size={16} color="#4f46e5" strokeWidth={2.5} />
-                <Text className="text-brand-700 font-bold text-xs">
+                <Plus size={14} color="#ffffff" strokeWidth={2.5} />
+                <Text className="text-white font-bold text-xs ml-1">
                   Add First Class for {getDayName(selectedDay)}
                 </Text>
               </Pressable>
@@ -207,7 +206,7 @@ export default function ScheduleBuilderScreen() {
           /* Chronological List of Cards with Free Period Spacers */
           <View>
             <View className="flex-row items-center justify-between mb-3 px-1">
-              <Text className="text-xs font-bold text-gray-400 uppercase tracking-wider">
+              <Text className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider">
                 {getDayName(selectedDay)} Schedule ({dayBlocks.length} session{dayBlocks.length === 1 ? '' : 's'})
               </Text>
             </View>
@@ -252,11 +251,11 @@ export default function ScheduleBuilderScreen() {
             onPress={() => {
               router.push(`/schedule/edit-block?day=${selectedDay}`);
             }}
-            className="flex-row items-center space-x-2 bg-brand-600 px-5 py-3.5 rounded-full shadow-lg shadow-brand-600/40 active:scale-95 active:bg-brand-700 transition-transform"
+            className="flex-row items-center space-x-2 bg-neutral-900 px-5 py-3.5 rounded-full shadow-lg shadow-black/25 active:scale-95 active:bg-neutral-800 transition-transform"
             accessibilityLabel="Add Class Block"
           >
-            <Plus size={20} color="#ffffff" strokeWidth={2.5} />
-            <Text className="text-white font-bold text-sm tracking-wide">
+            <Plus size={18} color="#ffffff" strokeWidth={2.5} />
+            <Text className="text-white font-bold text-sm tracking-wide ml-1">
               Add Class
             </Text>
           </Pressable>

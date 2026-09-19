@@ -6,6 +6,7 @@ import {
   useAppStore,
   type BaseScheduleRow,
   type CourseRow,
+  type WeekParity,
 } from '@/store/useAppStore';
 import type { Tables } from '@/types/database.types';
 
@@ -43,6 +44,8 @@ export function useBaseSchedule() {
     setBaseSchedules,
     upsertLocalScheduleBlock,
     removeLocalScheduleBlock,
+    currentParity,
+    setCurrentParity,
   } = useAppStore();
 
   const queryKey = useMemo(() => ['base_schedule', activeSectionId], [activeSectionId]);
@@ -233,17 +236,32 @@ export function useBaseSchedule() {
     },
   });
 
-  // Helper selector to filter blocks for a specific day of the week
+  // Helper selector to filter blocks for a specific day of the week, respecting week parity
   const getBlocksForDay = useMemo(() => {
-    return (dayOfWeek: number) => {
+    return (dayOfWeek: number, parityOverride?: WeekParity) => {
+      const activeParity = parityOverride ?? currentParity;
       return (baseSchedules || [])
-        .filter((block) => block.day_of_week === dayOfWeek)
+        .filter((block) => {
+          if (block.day_of_week !== dayOfWeek) return false;
+
+          // Strictly filter alternating week classes
+          if (activeParity === 'biweekly_week_a') {
+            return block.frequency !== 'biweekly_week_b';
+          }
+          if (activeParity === 'biweekly_week_b') {
+            return block.frequency !== 'biweekly_week_a';
+          }
+          // 'weekly' mode returns all classes
+          return true;
+        })
         .sort((a, b) => a.start_time.localeCompare(b.start_time));
     };
-  }, [baseSchedules]);
+  }, [baseSchedules, currentParity]);
 
   return {
     schedules: baseSchedules,
+    currentParity,
+    setCurrentParity,
     isLoading: scheduleQuery.isLoading && baseSchedules.length === 0,
     isFetching: scheduleQuery.isFetching,
     isError: scheduleQuery.isError,

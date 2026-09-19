@@ -18,17 +18,21 @@ export type BaseScheduleRow = Tables<'base_schedule'> & {
   course?: Tables<'courses'> | null;
 };
 
+export type WeekParity = 'weekly' | 'biweekly_week_a' | 'biweekly_week_b';
+
 export interface AppState {
   isHydrated: boolean;
   activeSectionId: string | null;
   activeSections: SectionRow[];
   activeCourses: CourseRow[];
   baseSchedules: BaseScheduleRow[];
+  currentParity: WeekParity;
   setHydrated: (isHydrated: boolean) => void;
   setActiveSectionId: (id: string | null) => void;
   setActiveSections: (sections: SectionRow[]) => void;
   setActiveCourses: (courses: CourseRow[]) => void;
   setBaseSchedules: (schedules: BaseScheduleRow[]) => void;
+  setCurrentParity: (parity: WeekParity) => void;
   upsertLocalScheduleBlock: (block: BaseScheduleRow) => void;
   removeLocalScheduleBlock: (blockId: string) => void;
   reset: () => void;
@@ -46,11 +50,13 @@ export const useAppStore = create<AppState>()(
       activeSections: [],
       activeCourses: [],
       baseSchedules: [],
+      currentParity: 'weekly',
       setHydrated: (isHydrated) => set({ isHydrated }),
       setActiveSectionId: (activeSectionId) => set({ activeSectionId }),
       setActiveSections: (activeSections) => set({ activeSections }),
       setActiveCourses: (activeCourses) => set({ activeCourses }),
       setBaseSchedules: (baseSchedules) => set({ baseSchedules }),
+      setCurrentParity: (currentParity) => set({ currentParity }),
       upsertLocalScheduleBlock: (block) =>
         set((state) => {
           const index = state.baseSchedules.findIndex((b) => b.id === block.id);
@@ -71,6 +77,7 @@ export const useAppStore = create<AppState>()(
           activeSections: [],
           activeCourses: [],
           baseSchedules: [],
+          currentParity: 'weekly',
         }),
     }),
     {
@@ -81,6 +88,7 @@ export const useAppStore = create<AppState>()(
         activeSections: state.activeSections,
         activeCourses: state.activeCourses,
         baseSchedules: state.baseSchedules,
+        currentParity: state.currentParity,
       }),
       onRehydrateStorage: () => {
         console.log('💾 [Zustand] Hydrating offline workspace, course, and timetable cache from AsyncStorage...');

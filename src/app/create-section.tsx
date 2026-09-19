@@ -27,7 +27,7 @@ import {
 } from 'lucide-react-native';
 import { useSupabase } from '@/hooks/useSupabase';
 import { useAppStore } from '@/store/useAppStore';
-import { generateJoinCode } from '@/lib/utils/codeGenerator';
+import { generateJoinCode, generateUUID } from '@/lib/utils/codeGenerator';
 
 export default function CreateSectionModal() {
   const router = useRouter();
@@ -64,22 +64,22 @@ export default function CreateSectionModal() {
     setErrorMessage(null);
 
     try {
-      // 1. Generate unique 6-character uppercase join code
-      let joinCode = generateJoinCode(6);
-      console.log(`🚀 [CreateSection] Initiating section creation: "${trimmedName}" (code: ${joinCode})`);
+      // 1. Generate unique 6-character uppercase join code and section ID
+      const joinCode = generateJoinCode(6);
+      const sectionId = generateUUID();
+      console.log(`🚀 [CreateSection] Initiating section creation: "${trimmedName}" (id: ${sectionId}, code: ${joinCode})`);
 
-      // 2. Insert new section
-      const { data: section, error: sectionError } = await supabase
+      // 2. Insert new section (without returning row to avoid SELECT RLS before membership is inserted)
+      const { error: sectionError } = await supabase
         .from('sections')
         .insert({
+          id: sectionId,
           name: trimmedName,
           institution_tag: institution.trim() || null,
           join_code: joinCode,
           timezone: localTimezone,
           created_by: user.id,
-        })
-        .select()
-        .single();
+        });
 
       if (sectionError) {
         console.error('❌ [CreateSection] Error inserting section:', sectionError.message);
@@ -88,11 +88,11 @@ export default function CreateSectionModal() {
         return;
       }
 
-      console.log(`✅ [CreateSection] Section created: id=${section.id}, name="${section.name}", code=${joinCode}`);
+      console.log(`✅ [CreateSection] Section created: id=${sectionId}, name="${trimmedName}", code=${joinCode}`);
 
       // 3. Immediately enroll current user as Genesis CR
       const { error: memberError } = await supabase.from('section_members').insert({
-        section_id: section.id,
+        section_id: sectionId,
         user_id: user.id,
         role: 'genesis_cr',
       });
@@ -104,10 +104,10 @@ export default function CreateSectionModal() {
         return;
       }
 
-      console.log(`👑 [CreateSection] Enrolled user ${user.id} as genesis_cr of section ${section.id}`);
+      console.log(`👑 [CreateSection] Enrolled user ${user.id} as genesis_cr of section ${sectionId}`);
 
       // 4. Update active workspace and invalidate queries
-      setActiveSectionId(section.id);
+      setActiveSectionId(sectionId);
       await queryClient.invalidateQueries({ queryKey: ['workspaces'] });
 
       setCreatedCode(joinCode);

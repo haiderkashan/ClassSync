@@ -21,31 +21,39 @@ export const supabase = createClient<Database>(
   }
 );
 
+let currentTokenGetter: (() => Promise<string | null>) | null = null;
+
+export const setClerkTokenGetter = (getter: () => Promise<string | null>) => {
+  currentTokenGetter = getter;
+};
+
 /**
- * Factory to instantiate a typed Supabase client that dynamically injects 
+ * Singleton typed Supabase client that dynamically injects 
  * Clerk's session JWT into the Authorization headers for RLS verification.
  */
+export const clerkSupabaseClient = createClient<Database>(
+  supabaseUrl,
+  env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
+  {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+    },
+    global: {
+      fetch: async (url, options = {}) => {
+        const clerkToken = currentTokenGetter ? await currentTokenGetter() : null;
+        const headers = new Headers(options?.headers);
+        if (clerkToken) {
+          headers.set('Authorization', `Bearer ${clerkToken}`);
+        }
+        return fetch(url, { ...options, headers });
+      },
+    },
+  }
+);
+
 export const createClerkSupabaseClient = (getToken: () => Promise<string | null>) => {
-  return createClient<Database>(
-    supabaseUrl,
-    env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
-    {
-      auth: {
-        storage: AsyncStorage,
-        autoRefreshToken: false,
-        persistSession: false,
-        detectSessionInUrl: false,
-      },
-      global: {
-        fetch: async (url, options = {}) => {
-          const clerkToken = await getToken();
-          const headers = new Headers(options?.headers);
-          if (clerkToken) {
-            headers.set('Authorization', `Bearer ${clerkToken}`);
-          }
-          return fetch(url, { ...options, headers });
-        },
-      },
-    }
-  );
+  setClerkTokenGetter(getToken);
+  return clerkSupabaseClient;
 };

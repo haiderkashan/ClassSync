@@ -47,7 +47,7 @@ const PARITY_OPTIONS: { id: WeekParity; label: string }[] = [
 
 export default function AgendaScreen() {
   const router = useRouter();
-  const { sections, activeSection, isLoading, isFetching, refetch } = useWorkspaces();
+  const { sections, activeSection, courses, isLoading, isFetching, refetch } = useWorkspaces();
   const { setActiveSectionId } = useAppStore();
   const {
     getBlocksForDay,
@@ -72,7 +72,7 @@ export default function AgendaScreen() {
     await Promise.all([refetch(), refetchSchedule()]);
   };
 
-  if (isLoading && sections.length === 0) {
+  if (isLoading && sections.length === 0 && courses.length === 0) {
     return (
       <SafeAreaView className="flex-1 bg-gray-50 items-center justify-center">
         <ActivityIndicator size="large" color="#4f46e5" />
@@ -83,7 +83,7 @@ export default function AgendaScreen() {
     );
   }
 
-  if (sections.length === 0) {
+  if (sections.length === 0 && courses.length === 0) {
     return (
       <SafeAreaView className="flex-1 bg-gray-50">
         <EmptyState />
@@ -110,10 +110,10 @@ export default function AgendaScreen() {
           <View className="flex-row items-center justify-between">
             <View className="flex-1 mr-3">
               <Text className="text-xs font-bold uppercase tracking-wider text-brand-600 mb-0.5">
-                {activeSection?.institution_tag || 'Active Cohort'}
+                {activeSection?.institution_tag || (courses.length > 0 ? 'Guest Student Enrollment' : 'Active Cohort')}
               </Text>
               <Text className="text-xl font-extrabold text-gray-900" numberOfLines={1}>
-                {activeSection?.name || 'Class Section'}
+                {activeSection?.name || (courses.length > 0 ? 'Enrolled Courses Timetable' : 'Class Section')}
               </Text>
             </View>
 

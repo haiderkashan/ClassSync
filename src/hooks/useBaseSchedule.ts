@@ -46,36 +46,72 @@ export function useBaseSchedule() {
     removeLocalScheduleBlock,
     currentParity,
     setCurrentParity,
+    activeCourses,
   } = useAppStore();
 
-  const queryKey = useMemo(() => ['base_schedule', activeSectionId], [activeSectionId]);
+  const enrolledCourseIds = useMemo(() => {
+    const list = activeCourses.length > 0 ? activeCourses : courses;
+    return list.map((c) => c.id);
+  }, [activeCourses, courses]);
 
-  // 1. Fetch recurring timetable for the active cohort
+  const queryKey = useMemo(
+    () => ['base_schedule', activeSectionId, enrolledCourseIds.slice().sort().join(',')],
+    [activeSectionId, enrolledCourseIds]
+  );
+
+  // 1. Fetch recurring timetable for active cohort and/or standalone guest courses
   const scheduleQuery = useQuery<BaseScheduleRow[]>({
     queryKey,
-    enabled: !!activeSectionId,
+    enabled: !!activeSectionId || enrolledCourseIds.length > 0,
     queryFn: async () => {
-      if (!activeSectionId) {
-        return [];
+      const blockMap = new Map<string, BaseScheduleRow>();
+
+      // Execute section query and guest courses query concurrently
+      const [sectionRes, courseRes] = await Promise.all([
+        activeSectionId
+          ? supabase
+              .from('base_schedule')
+              .select('*, course:courses!inner(*)')
+              .eq('course.section_id', activeSectionId)
+              .order('day_of_week', { ascending: true })
+              .order('start_time', { ascending: true })
+          : Promise.resolve({ data: null, error: null }),
+        enrolledCourseIds.length > 0
+          ? supabase
+              .from('base_schedule')
+              .select('*, course:courses!inner(*)')
+              .in('course_id', enrolledCourseIds)
+              .order('day_of_week', { ascending: true })
+              .order('start_time', { ascending: true })
+          : Promise.resolve({ data: null, error: null }),
+      ]);
+
+      if (sectionRes.error) {
+        console.error('[useBaseSchedule] Error fetching section schedule:', sectionRes.error.message);
+        throw sectionRes.error;
+      }
+      if (courseRes.error) {
+        console.error('[useBaseSchedule] Error fetching enrolled courses schedule:', courseRes.error.message);
+        throw courseRes.error;
       }
 
-      // Query base_schedule inner-joined with courses belonging to this section
-      const { data, error } = await supabase
-        .from('base_schedule')
-        .select('*, course:courses!inner(*)')
-        .eq('course.section_id', activeSectionId)
-        .order('day_of_week', { ascending: true })
-        .order('start_time', { ascending: true });
+      (sectionRes.data ?? []).forEach((row) => {
+        blockMap.set(row.id, {
+          ...row,
+          course: row.course as Tables<'courses'>,
+        });
+      });
 
-      if (error) {
-        console.error('[useBaseSchedule] Error fetching schedule:', error.message);
-        throw error;
-      }
+      (courseRes.data ?? []).forEach((row) => {
+        blockMap.set(row.id, {
+          ...row,
+          course: row.course as Tables<'courses'>,
+        });
+      });
 
-      const rows: BaseScheduleRow[] = (data ?? []).map((row) => ({
-        ...row,
-        course: row.course as Tables<'courses'>,
-      }));
+      const rows = Array.from(blockMap.values()).sort(
+        (a, b) => a.day_of_week - b.day_of_week || a.start_time.localeCompare(b.start_time)
+      );
 
       return rows;
     },

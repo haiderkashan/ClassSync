@@ -229,39 +229,39 @@ export default function SettingsScreen() {
   const avatarUrl = user?.imageUrl;
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50" edges={['top', 'left', 'right']}>
-      <ScrollView className="flex-1 px-5 pt-4" showsVerticalScrollIndicator={false}>
+    <SafeAreaView className="flex-1 bg-[#F8F9FA]" edges={['top', 'left', 'right']}>
+      <ScrollView className="flex-1 px-5 pt-3" showsVerticalScrollIndicator={false}>
         {/* Header */}
-        <View className="mb-5">
-          <Text className="text-2xl font-black text-gray-900 tracking-tight">
+        <View className="mb-4">
+          <Text className="text-2xl font-black text-neutral-900 tracking-tight">
             Account & Settings
           </Text>
-          <Text className="text-xs font-medium text-gray-500 mt-0.5">
+          <Text className="text-xs font-medium text-neutral-500 mt-0.5">
             Manage your student profile, cohort enrollments, and course alerts
           </Text>
         </View>
 
         {/* Profile Card */}
-        <View className="bg-white rounded-3xl p-5 border border-gray-200/80 shadow-sm mb-5">
+        <View className="bg-white rounded-3xl p-5 border border-neutral-100/90 shadow-xs mb-4">
           <View className="flex-row items-center">
             {avatarUrl ? (
               <Image
                 source={{ uri: avatarUrl }}
-                className="w-16 h-16 rounded-2xl bg-gray-100"
+                className="w-16 h-16 rounded-2xl bg-neutral-100 border border-neutral-200/50"
               />
             ) : (
-              <View className="w-16 h-16 rounded-2xl bg-brand-100 items-center justify-center">
-                <UserIcon size={30} color="#4f46e5" />
+              <View className="w-16 h-16 rounded-2xl bg-neutral-100 items-center justify-center border border-neutral-200/50">
+                <UserIcon size={30} color="#18181b" />
               </View>
             )}
 
             <View className="ml-4 flex-1">
-              <Text className="text-lg font-bold text-gray-900" numberOfLines={1}>
+              <Text className="text-lg font-black text-neutral-900" numberOfLines={1}>
                 {displayName}
               </Text>
               <View className="flex-row items-center mt-1">
-                <Mail size={13} color="#6b7280" />
-                <Text className="text-xs text-gray-500 ml-1.5 flex-1" numberOfLines={1}>
+                <Mail size={13} color="#71717a" />
+                <Text className="text-xs text-neutral-500 ml-1.5 flex-1" numberOfLines={1}>
                   {email}
                 </Text>
               </View>
@@ -269,33 +269,35 @@ export default function SettingsScreen() {
           </View>
 
           {/* Verification Chips */}
-          <View className="flex-row items-center justify-between mt-5 pt-4 border-t border-gray-100">
-            <View className="flex-row items-center">
-              <ShieldCheck size={16} color="#10b981" />
-              <Text className="text-xs font-semibold text-emerald-700 ml-1.5">
+          <View className="flex-row items-center justify-between mt-4 pt-3.5 border-t border-neutral-100">
+            <View className="flex-row items-center bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-100/60">
+              <ShieldCheck size={14} color="#059669" />
+              <Text className="text-[11px] font-bold text-emerald-800 ml-1.5">
                 Clerk & Supabase Synced
               </Text>
             </View>
-            <Text className="text-[11px] font-mono text-gray-400">
-              ID: {user?.id ? `${user.id.slice(0, 10)}...` : 'Active'}
-            </Text>
+            <View className="bg-neutral-100 px-2.5 py-1 rounded-full">
+              <Text className="text-[10px] font-mono font-medium text-neutral-500">
+                ID: {user?.id ? `${user.id.slice(0, 10)}...` : 'Active'}
+              </Text>
+            </View>
           </View>
         </View>
 
         {/* Section / Cohort Workspace Card */}
-        <View className="bg-white rounded-3xl p-5 border border-gray-200/80 shadow-sm mb-5">
+        <View className="bg-white rounded-3xl p-5 border border-neutral-100/90 shadow-xs mb-4">
           <View className="flex-row items-center justify-between mb-3">
             <View className="flex-row items-center">
-              <View className="w-8 h-8 rounded-xl bg-brand-50 items-center justify-center mr-2.5">
-                <School size={18} color="#4f46e5" />
+              <View className="w-8 h-8 rounded-full bg-neutral-100 items-center justify-center mr-2.5">
+                <School size={16} color="#18181b" />
               </View>
-              <Text className="text-sm font-bold text-gray-900">
+              <Text className="text-sm font-bold text-neutral-900">
                 Enrolled Section
               </Text>
             </View>
 
             {activeSection?.role === 'genesis_cr' && (
-              <View className="flex-row items-center bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md">
+              <View className="flex-row items-center bg-amber-50 border border-amber-200/70 px-2.5 py-0.5 rounded-full">
                 <Crown size={12} color="#d97706" />
                 <Text className="text-[10px] font-bold text-amber-800 ml-1">
                   Genesis CR
@@ -304,9 +306,9 @@ export default function SettingsScreen() {
             )}
 
             {activeSection?.role === 'co_admin' && (
-              <View className="flex-row items-center bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-md">
-                <ShieldCheck size={12} color="#4f46e5" />
-                <Text className="text-[10px] font-bold text-indigo-800 ml-1">
+              <View className="flex-row items-center bg-purple-50 border border-purple-200/70 px-2.5 py-0.5 rounded-full">
+                <ShieldCheck size={12} color="#7c3aed" />
+                <Text className="text-[10px] font-bold text-purple-800 ml-1">
                   Co-Admin
                 </Text>
               </View>
@@ -352,48 +354,50 @@ export default function SettingsScreen() {
           )}
 
           {activeSection ? (
-            <View className="p-3.5 bg-gray-50 rounded-2xl border border-gray-100">
-              <Text className="text-base font-bold text-gray-900">
+            <View className="p-4 bg-neutral-50/70 rounded-2xl border border-neutral-100">
+              <Text className="text-base font-black text-neutral-900">
                 {activeSection.name}
               </Text>
               {activeSection.institution_tag && (
-                <Text className="text-xs text-gray-500 mt-0.5">
+                <Text className="text-xs text-neutral-500 mt-0.5">
                   {activeSection.institution_tag}
                 </Text>
               )}
 
-              <View className="flex-row items-center justify-between mt-3 pt-2.5 border-t border-gray-200/70">
-                <View className="flex-row items-center">
-                  <Hash size={13} color="#6b7280" />
-                  <Text className="text-xs font-mono font-semibold text-gray-700 ml-1">
-                    Code: {activeSection.join_code}
+              <View className="flex-row items-center justify-between mt-3 pt-2.5 border-t border-neutral-200/60">
+                <View className="flex-row items-center bg-white px-2.5 py-1 rounded-full border border-neutral-200/60 shadow-2xs">
+                  <Hash size={12} color="#71717a" />
+                  <Text className="text-xs font-mono font-bold text-neutral-800 ml-1">
+                    {activeSection.join_code}
                   </Text>
                 </View>
-                <Text className="text-xs text-gray-400">
-                  {activeSection.timezone}
-                </Text>
+                <View className="bg-neutral-100 px-2 py-0.5 rounded-full">
+                  <Text className="text-[10px] text-neutral-500 font-medium">
+                    {activeSection.timezone}
+                  </Text>
+                </View>
               </View>
 
               {/* Roster and Section Management Actions */}
-              <View className="mt-3 pt-3 border-t border-gray-200 flex-row flex-wrap gap-2">
+              <View className="mt-3 pt-3 border-t border-neutral-200/60 flex-row flex-wrap gap-2">
                 {isCR && (
                   <>
                     <Pressable
                       onPress={() => router.push('/schedule/builder')}
-                      className="bg-brand-50 border border-brand-200 px-3 py-2 rounded-xl flex-row items-center active:bg-brand-100 shadow-xs"
+                      className="bg-neutral-900 px-3.5 py-2 rounded-full flex-row items-center active:bg-neutral-800 shadow-xs"
                     >
-                      <Calendar size={14} color="#4f46e5" />
-                      <Text className="text-xs font-bold text-brand-800 ml-1.5">
+                      <Calendar size={13} color="#ffffff" strokeWidth={2.2} />
+                      <Text className="text-xs font-bold text-white ml-1.5">
                         Manage Timetable
                       </Text>
                     </Pressable>
 
                     <Pressable
                       onPress={() => router.push('/section-members')}
-                      className="bg-white border border-gray-200 px-3 py-2 rounded-xl flex-row items-center active:bg-gray-100 shadow-xs"
+                      className="bg-white border border-neutral-200 px-3.5 py-2 rounded-full flex-row items-center active:bg-neutral-50 shadow-xs"
                     >
-                      <Users size={14} color="#4f46e5" />
-                      <Text className="text-xs font-bold text-gray-800 ml-1.5">
+                      <Users size={13} color="#18181b" strokeWidth={2.2} />
+                      <Text className="text-xs font-bold text-neutral-800 ml-1.5">
                         Manage Roster
                       </Text>
                     </Pressable>
@@ -404,51 +408,51 @@ export default function SettingsScreen() {
                   <Pressable
                     onPress={handleArchiveSection}
                     disabled={isPerformingAction}
-                    className="bg-rose-50 border border-rose-200 px-3 py-2 rounded-xl flex-row items-center active:bg-rose-100"
+                    className="bg-rose-50 border border-rose-100 px-3.5 py-2 rounded-full flex-row items-center active:bg-rose-100"
                   >
-                    <Archive size={14} color="#e11d48" />
+                    <Archive size={13} color="#e11d48" strokeWidth={2.2} />
                     <Text className="text-xs font-bold text-rose-700 ml-1.5">
-                      Archive Section
+                      Archive
                     </Text>
                   </Pressable>
                 ) : (
                   <Pressable
                     onPress={handleLeaveSection}
                     disabled={isPerformingAction}
-                    className="bg-gray-100 border border-gray-200 px-3 py-2 rounded-xl flex-row items-center active:bg-gray-200"
+                    className="bg-neutral-100 px-3.5 py-2 rounded-full flex-row items-center active:bg-neutral-200"
                   >
-                    <UserMinus size={14} color="#6b7280" />
-                    <Text className="text-xs font-bold text-gray-700 ml-1.5">
-                      Leave Section
+                    <UserMinus size={13} color="#71717a" strokeWidth={2.2} />
+                    <Text className="text-xs font-bold text-neutral-700 ml-1.5">
+                      Leave
                     </Text>
                   </Pressable>
                 )}
               </View>
             </View>
           ) : (
-            <Text className="text-xs text-gray-500 leading-relaxed mb-3">
+            <Text className="text-xs text-neutral-500 leading-relaxed mb-3">
               You are not enrolled in an active section. Join or create a section to access timetables and course alerts.
             </Text>
           )}
 
           {/* Quick Workspace Switcher / Join Actions */}
-          <View className="flex-row space-x-2 mt-3 pt-3 border-t border-gray-100">
+          <View className="flex-row space-x-2.5 mt-3 pt-3 border-t border-neutral-100">
             <Pressable
               onPress={() => router.push('/join-section')}
-              className="flex-1 bg-gray-50 border border-gray-200 py-2.5 px-3 rounded-xl flex-row items-center justify-center active:bg-gray-100"
+              className="flex-1 bg-neutral-50 border border-neutral-200/70 py-3 px-3 rounded-full flex-row items-center justify-center active:bg-neutral-100"
             >
-              <LogIn size={15} color="#4f46e5" />
-              <Text className="text-xs font-bold text-brand-700 ml-1.5">
+              <LogIn size={14} color="#18181b" />
+              <Text className="text-xs font-bold text-neutral-800 ml-1.5">
                 Join Code
               </Text>
             </Pressable>
 
             <Pressable
               onPress={() => router.push('/create-section')}
-              className="flex-1 bg-gray-50 border border-gray-200 py-2.5 px-3 rounded-xl flex-row items-center justify-center active:bg-gray-100"
+              className="flex-1 bg-neutral-900 py-3 px-3 rounded-full flex-row items-center justify-center active:bg-neutral-800 shadow-xs"
             >
-              <Plus size={15} color="#4f46e5" />
-              <Text className="text-xs font-bold text-brand-700 ml-1.5">
+              <Plus size={14} color="#ffffff" strokeWidth={2.5} />
+              <Text className="text-xs font-bold text-white ml-1.5">
                 Create Section
               </Text>
             </Pressable>
@@ -456,13 +460,13 @@ export default function SettingsScreen() {
         </View>
 
         {/* Course Subscriptions & CR Course Management Card */}
-        <View className="bg-white rounded-3xl p-5 border border-gray-200/80 shadow-sm mb-6">
+        <View className="bg-white rounded-3xl p-5 border border-neutral-100/90 shadow-xs mb-5">
           <View className="flex-row items-center justify-between mb-1.5">
             <View className="flex-row items-center">
-              <View className="w-8 h-8 rounded-xl bg-brand-50 items-center justify-center mr-2.5">
-                <BookOpen size={18} color="#4f46e5" />
+              <View className="w-8 h-8 rounded-full bg-neutral-100 items-center justify-center mr-2.5">
+                <BookOpen size={16} color="#18181b" />
               </View>
-              <Text className="text-sm font-bold text-gray-900">
+              <Text className="text-sm font-bold text-neutral-900">
                 Course Subscriptions
               </Text>
             </View>
@@ -471,38 +475,38 @@ export default function SettingsScreen() {
             {isCR ? (
               <Pressable
                 onPress={() => router.push('/add-course')}
-                className="bg-brand-600 px-3 py-1.5 rounded-xl flex-row items-center active:bg-brand-700 shadow-sm shadow-brand-600/30"
+                className="bg-neutral-900 px-3.5 py-1.5 rounded-full flex-row items-center active:bg-neutral-800 shadow-xs"
               >
-                <Plus size={13} color="#ffffff" strokeWidth={2.5} />
+                <Plus size={12} color="#ffffff" strokeWidth={2.5} />
                 <Text className="text-xs font-bold text-white ml-1">
                   Add Course
                 </Text>
               </Pressable>
             ) : (
-              <Text className="text-xs font-bold text-gray-400">
+              <Text className="text-xs font-bold text-neutral-400">
                 {courses.filter((c) => c.is_active !== false).length}/{courses.length} Active
               </Text>
             )}
           </View>
 
-          <Text className="text-xs text-gray-500 mb-4 leading-relaxed">
+          <Text className="text-xs text-neutral-500 mb-4 leading-relaxed">
             Toggle off courses you do not attend. Share Guest Codes with irregular or retake students.
           </Text>
 
           {isWorkspaceLoading && courses.length === 0 ? (
             <View className="py-6 items-center">
-              <ActivityIndicator size="small" color="#4f46e5" />
-              <Text className="text-xs text-gray-400 mt-2">Loading courses...</Text>
+              <ActivityIndicator size="small" color="#18181b" />
+              <Text className="text-xs text-neutral-400 mt-2">Loading courses...</Text>
             </View>
           ) : courses.length === 0 ? (
-            <View className="py-6 px-4 bg-gray-50 rounded-2xl border border-dashed border-gray-200 items-center">
-              <Text className="text-xs font-semibold text-gray-500 text-center">
+            <View className="py-6 px-4 bg-neutral-50 rounded-2xl border border-dashed border-neutral-200 items-center">
+              <Text className="text-xs font-semibold text-neutral-500 text-center">
                 No courses added to this section yet.
               </Text>
               {isCR ? (
                 <Pressable
                   onPress={() => router.push('/add-course')}
-                  className="mt-3 bg-brand-600 px-4 py-2 rounded-xl flex-row items-center active:bg-brand-700"
+                  className="mt-3 bg-neutral-900 px-4 py-2 rounded-full flex-row items-center active:bg-neutral-800"
                 >
                   <Plus size={14} color="#ffffff" strokeWidth={2.5} />
                   <Text className="text-xs font-bold text-white ml-1.5">
@@ -510,7 +514,7 @@ export default function SettingsScreen() {
                   </Text>
                 </Pressable>
               ) : (
-                <Text className="text-[11px] text-gray-400 text-center mt-1">
+                <Text className="text-[11px] text-neutral-400 text-center mt-1">
                   Your Class Representative can add courses for your timetable.
                 </Text>
               )}
@@ -527,28 +531,28 @@ export default function SettingsScreen() {
                     key={course.id}
                     className={`p-3.5 rounded-2xl border flex-row items-center justify-between transition-all ${
                       isActive
-                        ? 'bg-white border-gray-200/80 shadow-xs'
-                        : 'bg-gray-50/70 border-gray-100 opacity-60'
+                        ? 'bg-neutral-50/50 border-neutral-200/60 shadow-2xs'
+                        : 'bg-neutral-100/40 border-neutral-100 opacity-60'
                     }`}
                   >
                     <View className="flex-row items-center flex-1 mr-3">
                       {/* Color Accent Indicator */}
                       <View
-                        style={{ backgroundColor: course.color_hex || '#4F46E5' }}
-                        className="w-3.5 h-12 rounded-full mr-3"
+                        style={{ backgroundColor: course.color_hex || '#18181B' }}
+                        className="w-3 h-11 rounded-full mr-3"
                       />
 
                       <View className="flex-1">
                         <View className="flex-row items-center">
                           <Text
-                            className="text-sm font-bold text-gray-900"
+                            className="text-sm font-bold text-neutral-900"
                             numberOfLines={1}
                           >
                             {course.name}
                           </Text>
                           {course.is_guest && (
                             <View className="ml-2 flex-row items-center">
-                              <View className="px-1.5 py-0.5 rounded bg-amber-50 border border-amber-200">
+                              <View className="px-2 py-0.5 rounded-full bg-amber-50 border border-amber-200/70">
                                 <Text className="text-[9px] font-bold text-amber-800">
                                   Guest
                                 </Text>
@@ -556,7 +560,7 @@ export default function SettingsScreen() {
                               <Pressable
                                 onPress={() => handleDropGuestCourse(course.id, course.name)}
                                 hitSlop={8}
-                                className="ml-1.5 px-1.5 py-0.5 rounded bg-rose-50 border border-rose-200 active:bg-rose-100"
+                                className="ml-1.5 px-2 py-0.5 rounded-full bg-rose-50 border border-rose-200/70 active:bg-rose-100"
                               >
                                 <Text className="text-[9px] font-bold text-rose-700">Drop</Text>
                               </Pressable>
@@ -569,7 +573,7 @@ export default function SettingsScreen() {
                           <Pressable
                             onPress={() => handleCopyGuestCode(course.join_code!)}
                             hitSlop={8}
-                            className="mt-1.5 flex-row items-center bg-gray-100/90 border border-gray-200/80 px-2 py-0.5 rounded-md self-start active:bg-gray-200"
+                            className="mt-1.5 flex-row items-center bg-white border border-neutral-200 px-2.5 py-0.5 rounded-full self-start active:bg-neutral-100 shadow-2xs"
                           >
                             {isThisCopied ? (
                               <>
@@ -580,9 +584,9 @@ export default function SettingsScreen() {
                               </>
                             ) : (
                               <>
-                                <Copy size={10} color="#6b7280" />
-                                <Text className="text-[10px] font-mono font-medium text-gray-600 ml-1">
-                                  Guest Code: <Text className="font-bold text-brand-700">{course.join_code}</Text>
+                                <Copy size={10} color="#71717a" />
+                                <Text className="text-[10px] font-mono font-medium text-neutral-600 ml-1">
+                                  Guest Code: <Text className="font-bold text-neutral-900">{course.join_code}</Text>
                                 </Text>
                               </>
                             )}
@@ -594,15 +598,15 @@ export default function SettingsScreen() {
                     {/* Native Toggle Switch */}
                     <View className="flex-row items-center">
                       {isActive ? (
-                        <Bell size={14} color="#4f46e5" className="mr-2" />
+                        <Bell size={14} color="#18181b" className="mr-2" />
                       ) : (
-                        <BellOff size={14} color="#9ca3af" className="mr-2" />
+                        <BellOff size={14} color="#a1a1aa" className="mr-2" />
                       )}
                       <Switch
                         value={isActive}
                         onValueChange={() => handleToggleCourse(course.id, isActive)}
                         disabled={isToggling}
-                        trackColor={{ false: '#e5e7eb', true: '#4f46e5' }}
+                        trackColor={{ false: '#e4e4e7', true: '#18181b' }}
                         thumbColor={
                           Platform.OS === 'android'
                             ? isActive
@@ -623,14 +627,14 @@ export default function SettingsScreen() {
         <Pressable
           onPress={handleSignOut}
           disabled={isSigningOut || !isLoaded}
-          className="w-full flex-row items-center justify-center py-3.5 px-4 bg-rose-50 border border-rose-200 rounded-2xl active:bg-rose-100 mb-6"
+          className="w-full flex-row items-center justify-center py-4 px-5 bg-rose-50 border border-rose-100 rounded-full active:bg-rose-100 mb-6 shadow-2xs"
         >
           {isSigningOut ? (
             <ActivityIndicator size="small" color="#e11d48" />
           ) : (
             <>
-              <LogOut size={18} color="#e11d48" />
-              <Text className="text-sm font-semibold text-rose-600 ml-2.5">
+              <LogOut size={16} color="#e11d48" />
+              <Text className="text-sm font-bold text-rose-600 ml-2">
                 Sign Out of ClassSync
               </Text>
             </>

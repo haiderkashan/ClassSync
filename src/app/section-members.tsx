@@ -186,16 +186,16 @@ export default function SectionMembersModal() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-white" edges={['top', 'bottom', 'left', 'right']}>
+    <SafeAreaView className="flex-1 bg-[#F8F9FA]" edges={['top', 'bottom', 'left', 'right']}>
       {/* Header Bar */}
-      <View className="flex-row items-center justify-between px-6 pt-4 pb-4 border-b border-gray-100">
+      <View className="flex-row items-center justify-between px-6 pt-3 pb-3 border-b border-neutral-200/60 bg-white">
         <View className="flex-row items-center">
-          <View className="w-9 h-9 rounded-xl bg-brand-50 items-center justify-center mr-3">
-            <Users size={20} color="#4f46e5" strokeWidth={2.2} />
+          <View className="w-9 h-9 rounded-full bg-neutral-100 items-center justify-center mr-3">
+            <Users size={18} color="#18181b" strokeWidth={2.2} />
           </View>
           <View>
-            <Text className="text-xl font-bold text-gray-900">Section Roster</Text>
-            <Text className="text-xs text-gray-500">
+            <Text className="text-xl font-black text-neutral-900">Section Roster</Text>
+            <Text className="text-xs text-neutral-500">
               {activeSection?.name || 'Class Roster'} • {members?.length ?? 0} members
             </Text>
           </View>
@@ -204,24 +204,26 @@ export default function SectionMembersModal() {
         <Pressable
           onPress={() => router.back()}
           hitSlop={12}
-          className="w-9 h-9 rounded-full bg-gray-100 items-center justify-center active:bg-gray-200"
+          className="w-9 h-9 rounded-full bg-neutral-100 items-center justify-center active:bg-neutral-200"
         >
-          <X size={20} color="#4b5563" />
+          <X size={18} color="#18181b" />
         </Pressable>
       </View>
 
       {/* Main Content */}
-      <ScrollView className="flex-1 px-6 pt-4" showsVerticalScrollIndicator={false}>
+      <ScrollView className="flex-1 px-5 pt-4" showsVerticalScrollIndicator={false}>
         {/* Co-Admin Delegation Capacity Badge */}
         {isGenesisCR && (
-          <View className="mb-4 p-3.5 bg-brand-50/70 border border-brand-100 rounded-2xl flex-row items-center justify-between">
+          <View className="mb-4 p-4 bg-purple-50/70 border border-purple-100/80 rounded-3xl flex-row items-center justify-between shadow-2xs">
             <View className="flex-row items-center flex-1 mr-2">
-              <ShieldCheck size={18} color="#4f46e5" className="mr-2" />
+              <View className="w-8 h-8 rounded-full bg-purple-100 items-center justify-center mr-2.5">
+                <ShieldCheck size={16} color="#7c3aed" />
+              </View>
               <View className="flex-1">
-                <Text className="text-xs font-bold text-brand-900">
+                <Text className="text-xs font-bold text-purple-900">
                   Co-Admin Delegation ({coAdminsCount}/2)
                 </Text>
-                <Text className="text-[11px] text-brand-700">
+                <Text className="text-[11px] text-purple-700 leading-4">
                   You can appoint up to 2 classmates to help broadcast timetable changes.
                 </Text>
               </View>
@@ -231,24 +233,24 @@ export default function SectionMembersModal() {
 
         {/* Action Error Banner */}
         {actionError && (
-          <View className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl flex-row items-start">
-            <AlertCircle size={16} color="#dc2626" className="mt-0.5 mr-2 flex-shrink-0" />
-            <Text className="text-xs text-red-700 flex-1 ml-1">{actionError}</Text>
+          <View className="mb-4 p-3 bg-rose-50 border border-rose-200/70 rounded-2xl flex-row items-start">
+            <AlertCircle size={16} color="#e11d48" className="mt-0.5 mr-2 flex-shrink-0" />
+            <Text className="text-xs text-rose-700 flex-1 ml-1">{actionError}</Text>
           </View>
         )}
 
         {/* Members List */}
         {isLoading ? (
           <View className="py-12 items-center">
-            <ActivityIndicator size="small" color="#4f46e5" />
-            <Text className="text-xs text-gray-400 mt-2">Loading member roster...</Text>
+            <ActivityIndicator size="small" color="#18181b" />
+            <Text className="text-xs text-neutral-400 mt-2">Loading member roster...</Text>
           </View>
         ) : (members ?? []).length === 0 ? (
           <View className="py-12 items-center">
-            <Text className="text-sm font-semibold text-gray-500">No members found</Text>
+            <Text className="text-sm font-semibold text-neutral-500">No members found</Text>
           </View>
         ) : (
-          <View className="space-y-3 pb-8">
+          <View className="space-y-2.5 pb-8">
             {members!.map((member) => {
               const profile = member.profile as Tables<'profiles'> | null;
               const isCaller = member.user_id === user?.id;
@@ -263,36 +265,38 @@ export default function SectionMembersModal() {
               return (
                 <View
                   key={member.id}
-                  className="p-4 bg-gray-50/80 border border-gray-200/80 rounded-2xl"
+                  className="p-4 bg-white border border-neutral-100/90 rounded-3xl shadow-2xs"
                 >
                   <View className="flex-row items-center justify-between">
                     <View className="flex-row items-center flex-1 mr-2">
                       {memberAvatar ? (
                         <Image
                           source={{ uri: memberAvatar }}
-                          className="w-11 h-11 rounded-full bg-gray-200 mr-3"
+                          className="w-11 h-11 rounded-full bg-neutral-100 mr-3 border border-neutral-200/60"
                         />
                       ) : (
-                        <View className="w-11 h-11 rounded-full bg-brand-100 items-center justify-center mr-3">
-                          <UserIcon size={20} color="#4f46e5" />
+                        <View className="w-11 h-11 rounded-full bg-neutral-100 items-center justify-center mr-3 border border-neutral-200/60">
+                          <UserIcon size={18} color="#18181b" />
                         </View>
                       )}
 
                       <View className="flex-1">
                         <View className="flex-row items-center">
                           <Text
-                            className="text-sm font-bold text-gray-900 mr-1.5"
+                            className="text-sm font-bold text-neutral-900 mr-1.5"
                             numberOfLines={1}
                           >
                             {memberName}
                           </Text>
                           {isCaller && (
-                            <Text className="text-[10px] font-bold text-brand-600 bg-brand-50 px-1.5 py-0.5 rounded">
-                              You
-                            </Text>
+                            <View className="bg-neutral-100 px-2 py-0.5 rounded-full">
+                              <Text className="text-[10px] font-bold text-neutral-800">
+                                You
+                              </Text>
+                            </View>
                           )}
                         </View>
-                        <Text className="text-xs text-gray-500 mt-0.5" numberOfLines={1}>
+                        <Text className="text-xs text-neutral-500 mt-0.5" numberOfLines={1}>
                           {memberEmail}
                         </Text>
                       </View>
@@ -300,41 +304,41 @@ export default function SectionMembersModal() {
 
                     {/* Role Pill */}
                     {isMemberGenesisCR ? (
-                      <View className="flex-row items-center bg-amber-50 border border-amber-200 px-2 py-1 rounded-lg">
+                      <View className="flex-row items-center bg-amber-50 border border-amber-200/70 px-2.5 py-1 rounded-full">
                         <Crown size={12} color="#d97706" />
                         <Text className="text-[10px] font-bold text-amber-800 ml-1">
                           Genesis CR
                         </Text>
                       </View>
                     ) : isMemberCoAdmin ? (
-                      <View className="flex-row items-center bg-indigo-50 border border-indigo-200 px-2 py-1 rounded-lg">
-                        <ShieldCheck size={12} color="#4f46e5" />
-                        <Text className="text-[10px] font-bold text-indigo-800 ml-1">
+                      <View className="flex-row items-center bg-purple-50 border border-purple-200/70 px-2.5 py-1 rounded-full">
+                        <ShieldCheck size={12} color="#7c3aed" />
+                        <Text className="text-[10px] font-bold text-purple-800 ml-1">
                           Co-Admin
                         </Text>
                       </View>
                     ) : (
-                      <View className="bg-gray-200/70 px-2 py-1 rounded-lg">
-                        <Text className="text-[10px] font-semibold text-gray-600">Member</Text>
+                      <View className="bg-neutral-100 px-2.5 py-1 rounded-full">
+                        <Text className="text-[10px] font-semibold text-neutral-600">Member</Text>
                       </View>
                     )}
                   </View>
 
                   {/* Genesis CR Management Actions for Other Members */}
                   {isGenesisCR && !isCaller && (
-                    <View className="mt-3 pt-3 border-t border-gray-200 flex-row flex-wrap gap-2 items-center justify-end">
+                    <View className="mt-3 pt-3 border-t border-neutral-100 flex-row flex-wrap gap-2 items-center justify-end">
                       {isProcessing ? (
-                        <ActivityIndicator size="small" color="#4f46e5" />
+                        <ActivityIndicator size="small" color="#18181b" />
                       ) : (
                         <>
                           {/* Promote / Demote Co-Admin */}
                           {isMemberCoAdmin ? (
                             <Pressable
                               onPress={() => handleRoleChange(member.user_id, 'member')}
-                              className="px-2.5 py-1.5 bg-white border border-gray-200 rounded-lg flex-row items-center active:bg-gray-100"
+                              className="px-3 py-1.5 bg-neutral-50 border border-neutral-200 rounded-full flex-row items-center active:bg-neutral-100"
                             >
-                              <ArrowDownRight size={12} color="#4b5563" />
-                              <Text className="text-[11px] font-semibold text-gray-700 ml-1">
+                              <ArrowDownRight size={12} color="#71717a" />
+                              <Text className="text-[11px] font-semibold text-neutral-700 ml-1">
                                 Demote to Member
                               </Text>
                             </Pressable>
@@ -342,10 +346,10 @@ export default function SectionMembersModal() {
                             coAdminsCount < 2 && (
                               <Pressable
                                 onPress={() => handleRoleChange(member.user_id, 'co_admin')}
-                                className="px-2.5 py-1.5 bg-indigo-50 border border-indigo-200 rounded-lg flex-row items-center active:bg-indigo-100"
+                                className="px-3 py-1.5 bg-purple-50 border border-purple-200/70 rounded-full flex-row items-center active:bg-purple-100"
                               >
-                                <ArrowUpRight size={12} color="#4f46e5" />
-                                <Text className="text-[11px] font-bold text-indigo-700 ml-1">
+                                <ArrowUpRight size={12} color="#7c3aed" />
+                                <Text className="text-[11px] font-bold text-purple-700 ml-1">
                                   Make Co-Admin
                                 </Text>
                               </Pressable>

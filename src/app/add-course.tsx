@@ -96,44 +96,46 @@ export default function AddCourseModal() {
   const isButtonDisabled = !title.trim() || isLoading || !!createdJoinCode;
 
   return (
-    <SafeAreaView className="flex-1 bg-white" edges={['top', 'bottom', 'left', 'right']}>
+    <SafeAreaView className="flex-1 bg-[#F8F9FA]" edges={['top', 'bottom', 'left', 'right']}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         className="flex-1"
       >
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-          <View className="flex-1 px-6 pt-4 pb-8 justify-between">
+          <View className="flex-1 px-6 pt-3 pb-6 justify-between">
             <ScrollView
               showsVerticalScrollIndicator={false}
               contentContainerStyle={{ flexGrow: 1 }}
             >
               {/* Header */}
-              <View className="flex-row items-center justify-between pb-4 border-b border-gray-100">
+              <View className="flex-row items-center justify-between pb-3 border-b border-neutral-200/60">
                 <View className="flex-row items-center">
-                  <View className="w-9 h-9 rounded-xl bg-brand-50 items-center justify-center mr-3">
-                    <BookOpen size={20} color="#4f46e5" strokeWidth={2.2} />
+                  <View className="w-9 h-9 rounded-full bg-neutral-100 items-center justify-center mr-3">
+                    <BookOpen size={18} color="#18181b" strokeWidth={2.2} />
                   </View>
-                  <Text className="text-xl font-bold text-gray-900">Add Course</Text>
+                  <Text className="text-xl font-black text-neutral-900">Add Course</Text>
                 </View>
 
                 <Pressable
                   onPress={() => router.back()}
                   hitSlop={12}
-                  className="w-9 h-9 rounded-full bg-gray-100 items-center justify-center active:bg-gray-200"
+                  className="w-9 h-9 rounded-full bg-neutral-100 items-center justify-center active:bg-neutral-200"
                 >
-                  <X size={20} color="#4b5563" />
+                  <X size={18} color="#18181b" />
                 </Pressable>
               </View>
 
               {/* Active Section Info Card */}
               {activeSection && (
-                <View className="mt-5 p-3.5 bg-gray-50 border border-gray-200 rounded-2xl flex-row items-center">
-                  <School size={18} color="#4f46e5" className="mr-2.5" />
-                  <View className="flex-1 ml-2">
-                    <Text className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+                <View className="mt-5 p-4 bg-white border border-neutral-100 rounded-2xl flex-row items-center shadow-2xs">
+                  <View className="w-8 h-8 rounded-full bg-neutral-100 items-center justify-center mr-3">
+                    <School size={16} color="#18181b" />
+                  </View>
+                  <View className="flex-1">
+                    <Text className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">
                       Target Cohort Section
                     </Text>
-                    <Text className="text-sm font-bold text-gray-900">
+                    <Text className="text-sm font-bold text-neutral-900">
                       {activeSection.name}
                     </Text>
                   </View>
@@ -142,10 +144,10 @@ export default function AddCourseModal() {
 
               {/* Form Input */}
               <View className="mt-6">
-                <Text className="text-xs font-bold uppercase tracking-wider text-gray-600 mb-1.5">
-                  Course Title <Text className="text-red-500">*</Text>
+                <Text className="text-[11px] font-bold uppercase tracking-wider text-neutral-400 mb-1.5">
+                  Course Title <Text className="text-rose-500">*</Text>
                 </Text>
-                <View className="border border-gray-200 rounded-xl bg-gray-50/60 px-4 py-3.5 focus:border-brand-600 focus:bg-white transition-all">
+                <View className="border border-neutral-200/90 rounded-2xl bg-white px-4 py-3.5 shadow-2xs">
                   <TextInput
                     value={title}
                     onChangeText={(t) => {
@@ -153,34 +155,34 @@ export default function AddCourseModal() {
                       if (errorMessage) setErrorMessage(null);
                     }}
                     placeholder="e.g. Web Engineering, Data Structures"
-                    placeholderTextColor="#9ca3af"
+                    placeholderTextColor="#a1a1aa"
                     autoCapitalize="words"
                     autoCorrect={false}
                     returnKeyType="done"
                     onSubmitEditing={handleCreateCourse}
-                    className="text-base text-gray-900"
+                    className="text-base text-neutral-900 font-medium"
                   />
                 </View>
               </View>
 
               {/* Automatic Enrollment Explainer */}
-              <View className="mt-5 p-3.5 bg-brand-50/60 border border-brand-100 rounded-2xl">
+              <View className="mt-5 p-4 bg-emerald-50/70 border border-emerald-100/80 rounded-3xl shadow-2xs">
                 <View className="flex-row items-center mb-1">
-                  <Users size={16} color="#4f46e5" className="mr-2" />
-                  <Text className="text-xs font-bold text-brand-900">
+                  <Users size={15} color="#059669" className="mr-2" />
+                  <Text className="text-xs font-bold text-emerald-900">
                     Automatic Cohort Enrollment
                   </Text>
                 </View>
-                <Text className="text-xs text-brand-700 leading-relaxed">
+                <Text className="text-xs text-emerald-700 leading-relaxed">
                   All current students in this section will instantly receive this course. A unique 6-character Guest code will be generated for irregular/retake students.
                 </Text>
               </View>
 
               {/* Error Alert */}
               {errorMessage && (
-                <View className="mt-4 p-3.5 bg-red-50 border border-red-200 rounded-xl flex-row items-start">
-                  <AlertCircle size={18} color="#dc2626" className="mt-0.5 mr-2.5 flex-shrink-0" />
-                  <Text className="text-sm text-red-700 flex-1 ml-2 leading-tight">
+                <View className="mt-4 p-3.5 bg-rose-50 border border-rose-200/70 rounded-2xl flex-row items-start">
+                  <AlertCircle size={16} color="#e11d48" className="mt-0.5 mr-2 flex-shrink-0" />
+                  <Text className="text-xs text-rose-800 font-semibold flex-1 ml-2 leading-tight">
                     {errorMessage}
                   </Text>
                 </View>
@@ -188,19 +190,19 @@ export default function AddCourseModal() {
 
               {/* Success Feedback with Guest Code */}
               {createdJoinCode && (
-                <View className="mt-5 p-4 bg-emerald-50 border border-emerald-200 rounded-2xl">
+                <View className="mt-5 p-5 bg-emerald-50/80 border border-emerald-200/80 rounded-3xl shadow-xs">
                   <View className="flex-row items-center mb-2">
-                    <CheckCircle2 size={20} color="#059669" />
+                    <CheckCircle2 size={18} color="#059669" />
                     <Text className="text-base font-bold text-emerald-900 ml-2">
                       Course Added Successfully!
                     </Text>
                   </View>
-                  <Text className="text-xs text-emerald-700 mb-2">
+                  <Text className="text-xs text-emerald-700 mb-3">
                     Guest Join Code for Irregular Students:
                   </Text>
-                  <View className="bg-white border border-emerald-300 py-2.5 px-4 rounded-xl items-center flex-row justify-center">
+                  <View className="bg-white border border-emerald-200 py-3 px-4 rounded-2xl items-center flex-row justify-center shadow-2xs">
                     <KeyRound size={16} color="#059669" className="mr-2" />
-                    <Text className="text-2xl font-mono font-extrabold text-emerald-800 tracking-widest ml-2">
+                    <Text className="text-2xl font-mono font-black text-emerald-800 tracking-widest ml-2">
                       {createdJoinCode}
                     </Text>
                   </View>
@@ -213,22 +215,22 @@ export default function AddCourseModal() {
               <Pressable
                 onPress={handleCreateCourse}
                 disabled={isButtonDisabled}
-                className={`w-full py-4 rounded-2xl flex-row items-center justify-center shadow-md transition-all ${
+                className={`w-full py-4 rounded-full flex-row items-center justify-center shadow-md transition-all ${
                   isButtonDisabled
-                    ? 'bg-gray-200 shadow-none'
-                    : 'bg-brand-600 active:bg-brand-700 shadow-brand-600/30 active:scale-[0.99]'
+                    ? 'bg-neutral-200 shadow-none'
+                    : 'bg-neutral-900 active:bg-neutral-800 shadow-neutral-900/20 active:scale-[0.99]'
                 }`}
               >
                 {isLoading ? (
                   <ActivityIndicator size="small" color="#ffffff" />
                 ) : createdJoinCode ? (
-                  <Text className="text-white text-base font-bold">Course Added!</Text>
+                  <Text className="text-white text-sm font-bold">Course Added!</Text>
                 ) : (
                   <>
-                    <Plus size={18} color={isButtonDisabled ? '#9ca3af' : '#ffffff'} strokeWidth={2.4} />
+                    <Plus size={16} color={isButtonDisabled ? '#a1a1aa' : '#ffffff'} strokeWidth={2.4} />
                     <Text
-                      className={`text-base font-bold ml-2 ${
-                        isButtonDisabled ? 'text-gray-400' : 'text-white'
+                      className={`text-sm font-bold ml-2 ${
+                        isButtonDisabled ? 'text-neutral-400' : 'text-white'
                       }`}
                     >
                       Add Course to Section

@@ -56,53 +56,67 @@ export default function SignInScreen() {
   const activeError = googleAuth.error || appleAuth.error;
 
   return (
-    <SafeAreaView className="flex-1 bg-white" edges={['top', 'bottom', 'left', 'right']}>
-      <View className="flex-1 justify-between px-6 py-8">
-        {/* Hero Section */}
-        <View className="items-center mt-6">
-          <View className="w-20 h-20 rounded-3xl bg-brand-600 items-center justify-center mb-6 shadow-xl shadow-brand-600/30">
-            <Calendar size={40} color="#ffffff" strokeWidth={2.2} />
+    <SafeAreaView className="flex-1 bg-[#F8F9FA]" edges={['top', 'bottom', 'left', 'right']}>
+      <View className="flex-1 justify-between px-6 py-6">
+        {/* Top Floating Hero Container */}
+        <View className="items-center mt-2">
+          {/* Branded Icon Container */}
+          <View className="w-20 h-20 rounded-3xl bg-neutral-900 items-center justify-center mb-5 shadow-lg shadow-neutral-900/15">
+            <Calendar size={38} color="#ffffff" strokeWidth={2.2} />
           </View>
 
-          <Text className="text-3xl font-extrabold text-gray-900 tracking-tight text-center">
+          {/* Heading */}
+          <Text className="text-3xl font-black text-neutral-900 tracking-tight text-center">
             ClassSync
           </Text>
-          <Text className="text-base font-semibold text-brand-600 mt-1 text-center">
-            The Academic Hub for Modern Cohorts
-          </Text>
-          <Text className="text-sm text-gray-500 text-center mt-2 px-4 leading-5">
+          <View className="mt-1.5 bg-brand-50 px-3.5 py-1 rounded-full border border-brand-100/60">
+            <Text className="text-xs font-bold text-brand-700 tracking-wide">
+              The Academic Hub for Modern Cohorts
+            </Text>
+          </View>
+          <Text className="text-sm text-neutral-500 text-center mt-3 px-3 leading-5">
             Centralized timetables, instant class status overrides, and deadline alerts. No noise, zero spam.
           </Text>
 
-          {/* Core Feature Highlights */}
-          <View className="w-full mt-8 space-y-3 bg-brand-50/70 p-4 rounded-2xl border border-brand-100">
-            <View className="flex-row items-center">
-              <View className="w-8 h-8 rounded-full bg-brand-100 items-center justify-center mr-3">
-                <Clock size={16} color="#4f46e5" />
+          {/* Core Feature Highlights as Floating Soft Pastel Cards */}
+          <View className="w-full mt-6 space-y-2.5">
+            <View className="flex-row items-center bg-white/90 p-3.5 rounded-2xl border border-neutral-100 shadow-xs">
+              <View className="w-9 h-9 rounded-xl bg-emerald-50 items-center justify-center mr-3 border border-emerald-100/50">
+                <Clock size={18} color="#059669" strokeWidth={2.2} />
               </View>
-              <Text className="text-xs font-medium text-gray-700 flex-1">
-                Sub-second live status updates (Started, Delayed, Cancelled)
-              </Text>
+              <View className="flex-1">
+                <Text className="text-xs font-bold text-neutral-800">
+                  Sub-Second Live Overrides
+                </Text>
+                <Text className="text-[11px] text-neutral-500 mt-0.5">
+                  Instant push updates for cancellations, delays & room moves
+                </Text>
+              </View>
             </View>
 
-            <View className="flex-row items-center mt-2.5">
-              <View className="w-8 h-8 rounded-full bg-brand-100 items-center justify-center mr-3">
-                <Sparkles size={16} color="#4f46e5" />
+            <View className="flex-row items-center bg-white/90 p-3.5 rounded-2xl border border-neutral-100 shadow-xs mt-2.5">
+              <View className="w-9 h-9 rounded-xl bg-purple-50 items-center justify-center mr-3 border border-purple-100/50">
+                <Sparkles size={18} color="#7c3aed" strokeWidth={2.2} />
               </View>
-              <Text className="text-xs font-medium text-gray-700 flex-1">
-                Deterministic Base Loop & alternating A/B week schedules
-              </Text>
+              <View className="flex-1">
+                <Text className="text-xs font-bold text-neutral-800">
+                  Deterministic Timetable Engine
+                </Text>
+                <Text className="text-[11px] text-neutral-500 mt-0.5">
+                  Deterministic base loop with alternating A/B week cycles
+                </Text>
+              </View>
             </View>
           </View>
         </View>
 
         {/* Action & OAuth Buttons Section */}
-        <View className="w-full space-y-3">
+        <View className="w-full space-y-3 pb-2">
           {/* Error Banner */}
           {activeError && (
-            <View className="flex-row items-center bg-red-50 border border-red-200 p-3 rounded-xl mb-3">
-              <AlertCircle size={18} color="#ef4444" />
-              <Text className="text-xs text-red-700 font-medium ml-2 flex-1">
+            <View className="flex-row items-center bg-rose-50 border border-rose-200/80 p-3.5 rounded-2xl mb-3">
+              <AlertCircle size={18} color="#e11d48" />
+              <Text className="text-xs text-rose-800 font-semibold ml-2.5 flex-1">
                 {activeError}
               </Text>
             </View>
@@ -112,32 +126,32 @@ export default function SignInScreen() {
           <Pressable
             onPress={() => googleAuth.startFlow()}
             disabled={isAnyLoading}
-            className="w-full flex-row items-center justify-center py-3.5 px-4 bg-white border border-gray-300 rounded-2xl shadow-sm active:bg-gray-50"
+            className="w-full flex-row items-center justify-center py-4 px-5 bg-white border border-neutral-200/80 rounded-full shadow-xs active:bg-neutral-50"
           >
             {googleAuth.isLoading ? (
-              <ActivityIndicator size="small" color="#4f46e5" />
+              <ActivityIndicator size="small" color="#18181b" />
             ) : (
               <>
                 <GoogleIcon />
-                <Text className="text-sm font-semibold text-gray-800 ml-3">
+                <Text className="text-sm font-bold text-neutral-800 ml-3">
                   Continue with Google
                 </Text>
               </>
             )}
           </Pressable>
 
-          {/* Apple Sign-In Button (Standard on iOS & supported cross-platform) */}
+          {/* Apple Sign-In Button (Dark Pill) */}
           <Pressable
             onPress={() => appleAuth.startFlow()}
             disabled={isAnyLoading}
-            className="w-full flex-row items-center justify-center py-3.5 px-4 bg-black rounded-2xl shadow-sm active:bg-gray-900 mt-3"
+            className="w-full flex-row items-center justify-center py-4 px-5 bg-neutral-900 rounded-full shadow-md shadow-neutral-900/20 active:bg-neutral-800 mt-2.5"
           >
             {appleAuth.isLoading ? (
               <ActivityIndicator size="small" color="#ffffff" />
             ) : (
               <>
                 <AppleIcon color="#ffffff" />
-                <Text className="text-sm font-semibold text-white ml-3">
+                <Text className="text-sm font-bold text-white ml-3 tracking-wide">
                   Continue with Apple
                 </Text>
               </>
@@ -145,10 +159,10 @@ export default function SignInScreen() {
           </Pressable>
 
           {/* App Store Compliance Disclaimers */}
-          <Text className="text-[11px] text-gray-400 text-center leading-4 mt-4 px-2">
+          <Text className="text-[11px] text-neutral-400 text-center leading-4 mt-4 px-4">
             By continuing, you agree to ClassSync's{' '}
-            <Text className="text-brand-600 font-medium">Terms of Service</Text> and{' '}
-            <Text className="text-brand-600 font-medium">Privacy Policy</Text>.
+            <Text className="text-neutral-700 font-semibold underline">Terms</Text> and{' '}
+            <Text className="text-neutral-700 font-semibold underline">Privacy Policy</Text>.
           </Text>
         </View>
       </View>

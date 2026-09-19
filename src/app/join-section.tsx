@@ -131,89 +131,91 @@ export default function JoinSectionModal() {
   const isButtonDisabled = code.length !== 6 || isLoading || !!successMessage;
 
   return (
-    <SafeAreaView className="flex-1 bg-white" edges={['top', 'bottom', 'left', 'right']}>
+    <SafeAreaView className="flex-1 bg-[#F8F9FA]" edges={['top', 'bottom', 'left', 'right']}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         className="flex-1"
       >
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-          <View className="flex-1 px-6 pt-4 pb-8 justify-between">
+          <View className="flex-1 px-6 pt-3 pb-6 justify-between">
             {/* Top Navigation Bar */}
             <View>
-              <View className="flex-row items-center justify-between pb-4 border-b border-gray-100">
+              <View className="flex-row items-center justify-between pb-3 border-b border-neutral-200/60">
                 <View className="flex-row items-center">
-                  <View className="w-9 h-9 rounded-xl bg-brand-50 items-center justify-center mr-3">
-                    <KeyRound size={20} color="#4f46e5" strokeWidth={2.2} />
+                  <View className="w-9 h-9 rounded-full bg-neutral-100 items-center justify-center mr-3">
+                    <KeyRound size={18} color="#18181b" strokeWidth={2.2} />
                   </View>
-                  <Text className="text-xl font-bold text-gray-900">Join with Code</Text>
+                  <Text className="text-xl font-black text-neutral-900">Join with Code</Text>
                 </View>
 
                 <Pressable
                   onPress={() => router.back()}
                   hitSlop={12}
-                  className="w-9 h-9 rounded-full bg-gray-100 items-center justify-center active:bg-gray-200"
+                  className="w-9 h-9 rounded-full bg-neutral-100 items-center justify-center active:bg-neutral-200"
                 >
-                  <X size={20} color="#4b5563" />
+                  <X size={18} color="#18181b" />
                 </Pressable>
               </View>
 
               {/* Instructional Context */}
-              <View className="mt-6">
-                <Text className="text-base text-gray-600 leading-relaxed">
+              <View className="mt-5">
+                <Text className="text-sm text-neutral-500 leading-relaxed">
                   Enter any 6-character code to join your entire cohort section or enroll in an individual course as a Guest student.
                 </Text>
               </View>
 
               {/* Join Code Input Form */}
-              <View className="mt-8">
-                <Text className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">
-                  Enter 6-Character Code
+              <View className="mt-6">
+                <Text className="text-[11px] font-bold uppercase tracking-wider text-neutral-400 mb-2">
+                  6-Character Join Code
                 </Text>
 
-                <View className="border-2 border-brand-200 rounded-2xl bg-gray-50/70 px-4 py-4 focus:border-brand-600 focus:bg-white transition-all">
+                <View className="border border-neutral-200/90 rounded-3xl bg-white px-4 py-4 shadow-xs">
                   <TextInput
                     value={code}
                     onChangeText={handleCodeChange}
                     placeholder="e.g. K7M9P2"
-                    placeholderTextColor="#9ca3af"
+                    placeholderTextColor="#a1a1aa"
                     autoCapitalize="characters"
                     autoCorrect={false}
                     spellCheck={false}
                     maxLength={6}
                     returnKeyType="done"
                     onSubmitEditing={handleJoin}
-                    className="text-center font-mono text-3xl font-extrabold text-gray-900 tracking-widest"
+                    className="text-center font-mono text-3xl font-black text-neutral-900 tracking-widest"
                   />
                 </View>
 
                 {/* Progress Indicators */}
                 <View className="flex-row justify-between items-center mt-2 px-1">
-                  <Text className="text-xs text-gray-400">
-                    Supports both Section codes & Course Guest codes
+                  <Text className="text-[11px] text-neutral-400">
+                    Supports Section & Course Guest codes
                   </Text>
-                  <Text
-                    className={`text-xs font-semibold ${
-                      code.length === 6 ? 'text-brand-600' : 'text-gray-400'
-                    }`}
-                  >
-                    {code.length}/6
-                  </Text>
+                  <View className="bg-neutral-100 px-2 py-0.5 rounded-full">
+                    <Text
+                      className={`text-[10px] font-mono font-bold ${
+                        code.length === 6 ? 'text-neutral-900' : 'text-neutral-500'
+                      }`}
+                    >
+                      {code.length}/6
+                    </Text>
+                  </View>
                 </View>
 
                 {/* Feedback Alerts */}
                 {errorMessage && (
-                  <View className="mt-4 p-3.5 bg-red-50 border border-red-200 rounded-xl flex-row items-start">
-                    <AlertCircle size={18} color="#dc2626" className="mt-0.5 mr-2.5 flex-shrink-0" />
-                    <Text className="text-sm text-red-700 flex-1 leading-tight ml-2">
+                  <View className="mt-3.5 p-3.5 bg-rose-50 border border-rose-200/70 rounded-2xl flex-row items-start">
+                    <AlertCircle size={16} color="#e11d48" className="mt-0.5 mr-2 flex-shrink-0" />
+                    <Text className="text-xs text-rose-800 font-semibold flex-1 leading-tight ml-2">
                       {errorMessage}
                     </Text>
                   </View>
                 )}
 
                 {successMessage && (
-                  <View className="mt-4 p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl flex-row items-center">
-                    <CheckCircle2 size={18} color="#059669" className="mr-2.5 flex-shrink-0" />
-                    <Text className="text-sm font-semibold text-emerald-800 ml-2">
+                  <View className="mt-3.5 p-3.5 bg-emerald-50 border border-emerald-200/70 rounded-2xl flex-row items-center">
+                    <CheckCircle2 size={16} color="#059669" className="mr-2 flex-shrink-0" />
+                    <Text className="text-xs font-bold text-emerald-800 ml-2">
                       {successMessage}
                     </Text>
                   </View>
@@ -221,17 +223,21 @@ export default function JoinSectionModal() {
               </View>
 
               {/* Code Types Guide */}
-              <View className="mt-8 p-4 bg-gray-50 rounded-2xl border border-gray-200 space-y-3">
+              <View className="mt-6 p-4 bg-white rounded-3xl border border-neutral-100 shadow-2xs space-y-2.5">
                 <View className="flex-row items-center">
-                  <Users size={16} color="#4f46e5" className="mr-2.5" />
-                  <Text className="text-xs text-gray-600 flex-1">
-                    <Text className="font-bold text-gray-800">Section Code:</Text> Enrolls you in the cohort and all of its scheduled courses.
+                  <View className="w-6 h-6 rounded-full bg-neutral-100 items-center justify-center mr-2.5">
+                    <Users size={13} color="#18181b" />
+                  </View>
+                  <Text className="text-xs text-neutral-600 flex-1">
+                    <Text className="font-bold text-neutral-900">Section Code:</Text> Enrolls you in the cohort and all of its scheduled courses.
                   </Text>
                 </View>
                 <View className="flex-row items-center mt-2">
-                  <BookOpen size={16} color="#d97706" className="mr-2.5" />
-                  <Text className="text-xs text-gray-600 flex-1">
-                    <Text className="font-bold text-gray-800">Guest Course Code:</Text> Enrolls you only in that specific retake or elective course.
+                  <View className="w-6 h-6 rounded-full bg-amber-50 items-center justify-center mr-2.5">
+                    <BookOpen size={13} color="#d97706" />
+                  </View>
+                  <Text className="text-xs text-neutral-600 flex-1">
+                    <Text className="font-bold text-neutral-900">Guest Course Code:</Text> Enrolls you only in that specific retake or elective course.
                   </Text>
                 </View>
               </View>
@@ -242,28 +248,28 @@ export default function JoinSectionModal() {
               <Pressable
                 onPress={handleJoin}
                 disabled={isButtonDisabled}
-                className={`w-full py-4 rounded-2xl flex-row items-center justify-center shadow-md transition-all ${
+                className={`w-full py-4 rounded-full flex-row items-center justify-center shadow-md transition-all ${
                   isButtonDisabled
-                    ? 'bg-gray-200 shadow-none'
-                    : 'bg-brand-600 active:bg-brand-700 shadow-brand-600/30 active:scale-[0.99]'
+                    ? 'bg-neutral-200 shadow-none'
+                    : 'bg-neutral-900 active:bg-neutral-800 shadow-neutral-900/20 active:scale-[0.99]'
                 }`}
               >
                 {isLoading ? (
                   <ActivityIndicator size="small" color="#ffffff" />
                 ) : successMessage ? (
-                  <Text className="text-white text-base font-bold">Joined!</Text>
+                  <Text className="text-white text-sm font-bold">Joined!</Text>
                 ) : (
                   <>
                     <Text
-                      className={`text-base font-bold mr-2 ${
-                        isButtonDisabled ? 'text-gray-400' : 'text-white'
+                      className={`text-sm font-bold mr-2 ${
+                        isButtonDisabled ? 'text-neutral-400' : 'text-white'
                       }`}
                     >
                       Join with Code
                     </Text>
                     <ArrowRight
-                      size={18}
-                      color={isButtonDisabled ? '#9ca3af' : '#ffffff'}
+                      size={16}
+                      color={isButtonDisabled ? '#a1a1aa' : '#ffffff'}
                       strokeWidth={2.4}
                     />
                   </>

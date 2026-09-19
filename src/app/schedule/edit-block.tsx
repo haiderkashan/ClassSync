@@ -277,14 +277,14 @@ export default function EditBlockModal() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-white" edges={['top', 'bottom', 'left', 'right']}>
+    <SafeAreaView className="flex-1 bg-[#F8F9FA]" edges={['top', 'bottom', 'left', 'right']}>
       {/* Modal Header */}
-      <View className="px-5 py-4 border-b border-gray-100 flex-row items-center justify-between">
+      <View className="px-5 py-3.5 border-b border-neutral-200/60 flex-row items-center justify-between bg-white">
         <View>
-          <Text className="text-lg font-extrabold text-gray-900 tracking-tight">
+          <Text className="text-lg font-black text-neutral-900 tracking-tight">
             {params.id ? 'Edit Timetable Block' : 'New Timetable Block'}
           </Text>
-          <Text className="text-xs text-gray-500 font-medium">
+          <Text className="text-xs text-neutral-500 font-medium">
             {activeSection?.name || 'Cohort'} • {getDayName(dayOfWeek)}
           </Text>
         </View>
@@ -293,22 +293,22 @@ export default function EditBlockModal() {
             <Pressable
               onPress={handleDelete}
               disabled={isDeleting}
-              className="w-9 h-9 rounded-full bg-red-50 items-center justify-center active:bg-red-100"
+              className="w-9 h-9 rounded-full bg-rose-50 items-center justify-center active:bg-rose-100"
               accessibilityLabel="Delete Block"
             >
               {isDeleting ? (
-                <ActivityIndicator size="small" color="#dc2626" />
+                <ActivityIndicator size="small" color="#e11d48" />
               ) : (
-                <Trash2 size={17} color="#dc2626" />
+                <Trash2 size={16} color="#e11d48" />
               )}
             </Pressable>
           )}
           <Pressable
             onPress={() => router.back()}
-            className="w-9 h-9 rounded-full bg-gray-100 items-center justify-center active:bg-gray-200"
+            className="w-9 h-9 rounded-full bg-neutral-100 items-center justify-center active:bg-neutral-200"
             accessibilityLabel="Close"
           >
-            <X size={18} color="#374151" />
+            <X size={18} color="#18181b" />
           </Pressable>
         </View>
       </View>
@@ -320,7 +320,7 @@ export default function EditBlockModal() {
         <ScrollView className="flex-1 px-5 pt-4" contentContainerStyle={{ paddingBottom: 80 }}>
           {/* 1. Session Type Selector */}
           <View className="mb-5">
-            <Text className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2.5">
+            <Text className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider mb-2.5">
               Session Type
             </Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} className="-mx-1 flex-row">
@@ -339,20 +339,20 @@ export default function EditBlockModal() {
                         setSelectedCourseId(courses[0].id);
                       }
                     }}
-                    className={`mx-1 px-3.5 py-2.5 rounded-2xl flex-row items-center space-x-2 border transition-all ${
+                    className={`mx-1 px-3.5 py-2 rounded-full flex-row items-center space-x-1.5 border transition-all ${
                       isSelected
-                        ? 'bg-brand-600 border-brand-700 shadow-sm shadow-brand-500/20'
-                        : 'bg-gray-50 border-gray-200 active:bg-gray-100'
+                        ? 'bg-neutral-900 border-neutral-900 shadow-2xs'
+                        : 'bg-white border-neutral-200/80 active:bg-neutral-100'
                     }`}
                   >
                     <IconComponent
-                      size={15}
+                      size={14}
                       color={isSelected ? '#ffffff' : type.color}
                       strokeWidth={2}
                     />
                     <Text
                       className={`text-xs font-bold ${
-                        isSelected ? 'text-white' : 'text-gray-800'
+                        isSelected ? 'text-white' : 'text-neutral-800'
                       }`}
                     >
                       {type.label}
@@ -365,18 +365,18 @@ export default function EditBlockModal() {
 
           {/* 2. Frequency Segmented Control */}
           <View className="mb-5">
-            <Text className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+            <Text className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider mb-2">
               Recurrence Frequency
             </Text>
-            <View className="flex-row p-1 bg-gray-100 rounded-2xl">
+            <View className="flex-row p-1 bg-neutral-200/60 rounded-full">
               {FREQUENCIES.map((freq) => {
                 const isSelected = frequency === freq.id;
                 return (
                   <Pressable
                     key={freq.id}
                     onPress={() => setFrequency(freq.id)}
-                    className={`flex-1 py-2 rounded-xl items-center justify-center transition-all ${
-                      isSelected ? 'bg-white shadow-xs' : 'active:bg-gray-200'
+                    className={`flex-1 py-2 rounded-full items-center justify-center transition-all ${
+                      isSelected ? 'bg-white shadow-2xs' : 'active:bg-neutral-200'
                     }`}
                   >
                     <Text
@@ -628,10 +628,10 @@ export default function EditBlockModal() {
 
           {/* 6. Real-Time Soft Clash Warning Banner */}
           {conflictResult.hasConflict && (
-            <View className="p-4 rounded-2xl bg-amber-50 border border-amber-200 mb-6">
+            <View className="p-4 rounded-3xl bg-amber-50/80 border border-amber-200/70 mb-6 shadow-2xs">
               <View className="flex-row items-center space-x-2 mb-1.5">
-                <AlertTriangle size={18} color="#d97706" />
-                <Text className="text-xs font-bold text-amber-900 uppercase tracking-wider">
+                <AlertTriangle size={16} color="#d97706" />
+                <Text className="text-xs font-bold text-amber-900 uppercase tracking-wider ml-1.5">
                   Soft Clash Detected (Override Allowed)
                 </Text>
               </View>
@@ -648,11 +648,11 @@ export default function EditBlockModal() {
         </ScrollView>
 
         {/* Bottom Save Bar */}
-        <View className="px-5 py-3.5 border-t border-gray-100 bg-white">
+        <View className="px-5 py-3.5 border-t border-neutral-200/60 bg-white">
           {errorMessage && (
-            <View className="mb-3 p-3 bg-red-50 border border-red-200 rounded-xl flex-row items-center space-x-2">
-              <AlertCircle size={16} color="#dc2626" />
-              <Text className="text-xs text-red-700 font-semibold flex-1">
+            <View className="mb-3 p-3 bg-rose-50 border border-rose-200/70 rounded-2xl flex-row items-center space-x-2">
+              <AlertCircle size={16} color="#e11d48" />
+              <Text className="text-xs text-rose-700 font-semibold flex-1 ml-1.5">
                 {errorMessage}
               </Text>
             </View>
@@ -661,10 +661,10 @@ export default function EditBlockModal() {
           <Pressable
             onPress={handleSave}
             disabled={isUpserting}
-            className={`w-full py-3.5 rounded-2xl items-center justify-center flex-row space-x-2 shadow-sm ${
+            className={`w-full py-4 rounded-full items-center justify-center flex-row space-x-2 shadow-md ${
               isUpserting
-                ? 'bg-brand-400'
-                : 'bg-brand-600 active:bg-brand-700 shadow-brand-600/20'
+                ? 'bg-neutral-400'
+                : 'bg-neutral-900 active:bg-neutral-800 shadow-neutral-900/15'
             }`}
           >
             {isUpserting ? (
@@ -672,7 +672,7 @@ export default function EditBlockModal() {
             ) : (
               <>
                 <Check size={18} color="#ffffff" strokeWidth={2.5} />
-                <Text className="text-white text-sm font-bold tracking-wide">
+                <Text className="text-white text-sm font-bold tracking-wide ml-1.5">
                   {params.id ? 'Save Changes' : 'Add to Schedule'}
                 </Text>
               </>

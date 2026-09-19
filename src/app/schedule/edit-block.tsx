@@ -23,9 +23,13 @@ import {
   ChevronDown,
   Clock,
   ArrowRight,
+  MapPin,
+  User,
+  AlertTriangle,
   Sparkles,
 } from 'lucide-react-native';
 import { useWorkspaces } from '@/hooks/useWorkspaces';
+import { useAppStore } from '@/store/useAppStore';
 import {
   getDayName,
   formatTime12Hour,
@@ -33,6 +37,10 @@ import {
   formatDuration,
   addMinutesToTime,
 } from '@/lib/schedule/timeUtils';
+import {
+  detectScheduleConflicts,
+  type ScheduleBlockInterval,
+} from '@/lib/schedule/conflictDetector';
 import type { CourseRow } from '@/store/useAppStore';
 
 const SESSION_TYPES = [
@@ -64,6 +72,7 @@ export default function EditBlockModal() {
   const router = useRouter();
   const params = useLocalSearchParams<{ day?: string; id?: string }>();
   const { courses, activeSection } = useWorkspaces();
+  const { baseSchedules } = useAppStore();
 
   const initialDay = params.day ? parseInt(params.day, 10) : 1;
   const [dayOfWeek, setDayOfWeek] = useState<number>(initialDay);
@@ -78,12 +87,77 @@ export default function EditBlockModal() {
   const [endTime, setEndTime] = useState<string>('10:30');
   const [selectedPreset, setSelectedPreset] = useState<number | null>(90);
 
+  // Room and instructor inputs
+  const [room, setRoom] = useState<string>('');
+  const [instructor, setInstructor] = useState<string>('');
+
   // Determine if this session type requires a course association
   const isGeneralSession = sessionType === 'break' || sessionType === 'prayer' || sessionType === 'meeting';
 
   // Calculate duration dynamically
   const durationMinutes = calculateDurationMinutes(startTime, endTime);
   const durationLabel = formatDuration(durationMinutes);
+
+  // Derive unique historical room & instructor suggestions from Zustand store
+  const roomSuggestions = useMemo(() => {
+    const set = new Set<string>();
+    baseSchedules.forEach((b) => {
+      if (b.room?.trim()) set.add(b.room.trim());
+    });
+    return Array.from(set).slice(0, 5);
+  }, [baseSchedules]);
+
+  const instructorSuggestions = useMemo(() => {
+    const set = new Set<string>();
+    baseSchedules.forEach((b) => {
+      if (b.instructor?.trim()) set.add(b.instructor.trim());
+    });
+    return Array.from(set).slice(0, 5);
+  }, [baseSchedules]);
+
+  // Real-time conflict detection against local Zustand store
+  const conflictResult = useMemo(() => {
+    const selectedCourse = courses.find((c) => c.id === selectedCourseId);
+    const candidate: ScheduleBlockInterval = {
+      id: params.id,
+      courseId: selectedCourseId || undefined,
+      courseTitle: selectedCourse?.name || (isGeneralSession ? sessionType.toUpperCase() : 'New Session'),
+      courseCode: selectedCourse?.code || undefined,
+      dayOfWeek,
+      startTime,
+      endTime,
+      frequency,
+      room: room.trim() || null,
+      sessionType,
+    };
+
+    const existingIntervals: ScheduleBlockInterval[] = baseSchedules.map((b) => ({
+      id: b.id,
+      courseId: b.course_id,
+      courseTitle: b.course?.name || b.session_type.toUpperCase(),
+      courseCode: b.course?.code || undefined,
+      dayOfWeek: b.day_of_week,
+      startTime: b.start_time,
+      endTime: b.end_time,
+      frequency: b.frequency,
+      room: b.room,
+      sessionType: b.session_type,
+    }));
+
+    return detectScheduleConflicts(candidate, existingIntervals);
+  }, [
+    params.id,
+    selectedCourseId,
+    courses,
+    isGeneralSession,
+    sessionType,
+    dayOfWeek,
+    startTime,
+    endTime,
+    frequency,
+    room,
+    baseSchedules,
+  ]);
 
   const handleSelectPreset = (presetMinutes: number | null) => {
     setSelectedPreset(presetMinutes);
@@ -131,7 +205,7 @@ export default function EditBlockModal() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         className="flex-1"
       >
-        <ScrollView className="flex-1 px-5 pt-4" contentContainerStyle={{ paddingBottom: 60 }}>
+        <ScrollView className="flex-1 px-5 pt-4" contentContainerStyle={{ paddingBottom: 80 }}>
           {/* 1. Session Type Selector */}
           <View className="mb-5">
             <Text className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2.5">
@@ -372,6 +446,93 @@ export default function EditBlockModal() {
               </View>
             </View>
           </View>
+
+          {/* 5. Room & Instructor Text Inputs with Autocomplete */}
+          <View className="mb-5">
+            {/* Room / Location */}
+            <View className="mb-4">
+              <Text className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">
+                Room / Venue (Optional)
+              </Text>
+              <View className="flex-row items-center bg-gray-50 border border-gray-200 rounded-2xl px-3.5 py-2.5">
+                <MapPin size={16} color="#6b7280" className="mr-2" />
+                <TextInput
+                  value={room}
+                  onChangeText={setRoom}
+                  placeholder="e.g. Room 302, CS Lab 1"
+                  placeholderTextColor="#9ca3af"
+                  className="flex-1 text-sm font-medium text-gray-900"
+                />
+              </View>
+              {roomSuggestions.length > 0 && (
+                <View className="flex-row flex-wrap gap-1.5 mt-2">
+                  {roomSuggestions.map((s) => (
+                    <Pressable
+                      key={s}
+                      onPress={() => setRoom(s)}
+                      className="bg-gray-100 px-2.5 py-1 rounded-lg border border-gray-200 active:bg-gray-200"
+                    >
+                      <Text className="text-[11px] font-medium text-gray-600">
+                        {s}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              )}
+            </View>
+
+            {/* Instructor Name */}
+            <View>
+              <Text className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">
+                Instructor / Teacher (Optional)
+              </Text>
+              <View className="flex-row items-center bg-gray-50 border border-gray-200 rounded-2xl px-3.5 py-2.5">
+                <User size={16} color="#6b7280" className="mr-2" />
+                <TextInput
+                  value={instructor}
+                  onChangeText={setInstructor}
+                  placeholder="e.g. Dr. Jane Smith"
+                  placeholderTextColor="#9ca3af"
+                  className="flex-1 text-sm font-medium text-gray-900"
+                />
+              </View>
+              {instructorSuggestions.length > 0 && (
+                <View className="flex-row flex-wrap gap-1.5 mt-2">
+                  {instructorSuggestions.map((s) => (
+                    <Pressable
+                      key={s}
+                      onPress={() => setInstructor(s)}
+                      className="bg-gray-100 px-2.5 py-1 rounded-lg border border-gray-200 active:bg-gray-200"
+                    >
+                      <Text className="text-[11px] font-medium text-gray-600">
+                        {s}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              )}
+            </View>
+          </View>
+
+          {/* 6. Real-Time Soft Clash Warning Banner */}
+          {conflictResult.hasConflict && (
+            <View className="p-4 rounded-2xl bg-amber-50 border border-amber-200 mb-6">
+              <View className="flex-row items-center space-x-2 mb-1.5">
+                <AlertTriangle size={18} color="#d97706" />
+                <Text className="text-xs font-bold text-amber-900 uppercase tracking-wider">
+                  Soft Clash Detected (Override Allowed)
+                </Text>
+              </View>
+              {conflictResult.conflicts.map((conflict, idx) => (
+                <Text key={idx} className="text-xs text-amber-800 leading-relaxed font-medium">
+                  • {conflict.message}
+                </Text>
+              ))}
+              <Text className="text-[11px] text-amber-700 mt-1.5">
+                You can still save this session if your cohort runs parallel electives or split lab groups.
+              </Text>
+            </View>
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

@@ -174,6 +174,19 @@ export default function ScheduleBuilderScreen() {
             <Text className="text-sm text-gray-500 text-center leading-relaxed max-w-xs">
               This day currently has no recurring timetable blocks scheduled for your cohort.
             </Text>
+            {isSectionAdmin && (
+              <Pressable
+                onPress={() => {
+                  console.log('Open Form', { selectedDay });
+                }}
+                className="mt-6 flex-row items-center space-x-2 bg-brand-50 px-4 py-2.5 rounded-xl border border-brand-200 active:bg-brand-100"
+              >
+                <Plus size={16} color="#4f46e5" strokeWidth={2.5} />
+                <Text className="text-brand-700 font-bold text-xs">
+                  Add First Class for {getDayName(selectedDay)}
+                </Text>
+              </Pressable>
+            )}
           </View>
         ) : (
           /* Chronological List of Cards with Free Period Spacers */
@@ -216,6 +229,24 @@ export default function ScheduleBuilderScreen() {
           </View>
         )}
       </ScrollView>
+
+      {/* Floating Action Button (FAB) for adding new schedule block */}
+      {isSectionAdmin && (
+        <View className="absolute bottom-6 right-6">
+          <Pressable
+            onPress={() => {
+              console.log('Open Form', { selectedDay });
+            }}
+            className="flex-row items-center space-x-2 bg-brand-600 px-5 py-3.5 rounded-full shadow-lg shadow-brand-600/40 active:scale-95 active:bg-brand-700 transition-transform"
+            accessibilityLabel="Add Class Block"
+          >
+            <Plus size={20} color="#ffffff" strokeWidth={2.5} />
+            <Text className="text-white font-bold text-sm tracking-wide">
+              Add Class
+            </Text>
+          </Pressable>
+        </View>
+      )}
     </SafeAreaView>
   );
 }

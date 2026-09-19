@@ -6,8 +6,10 @@ import { Database } from '@/types/database.types';
 /**
  * Standard typed Supabase client configured with AsyncStorage persistence for React Native.
  */
+const supabaseUrl = env.EXPO_PUBLIC_SUPABASE_URL.replace(/\/rest\/v1\/?$/, '').replace(/\/+$/, '');
+
 export const supabase = createClient<Database>(
-  env.EXPO_PUBLIC_SUPABASE_URL,
+  supabaseUrl,
   env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
   {
     auth: {
@@ -25,7 +27,7 @@ export const supabase = createClient<Database>(
  */
 export const createClerkSupabaseClient = (getToken: () => Promise<string | null>) => {
   return createClient<Database>(
-    env.EXPO_PUBLIC_SUPABASE_URL,
+    supabaseUrl,
     env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
     {
       auth: {

@@ -87,6 +87,13 @@ function NavigationGuard() {
             headerShown: false,
           }}
         />
+        <Stack.Screen
+          name="schedule/edit-block"
+          options={{
+            presentation: 'modal',
+            headerShown: false,
+          }}
+        />
       </Stack>
     </>
   );

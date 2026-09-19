@@ -177,7 +177,7 @@ export default function ScheduleBuilderScreen() {
             {isSectionAdmin && (
               <Pressable
                 onPress={() => {
-                  console.log('Open Form', { selectedDay });
+                  router.push(`/schedule/edit-block?day=${selectedDay}`);
                 }}
                 className="mt-6 flex-row items-center space-x-2 bg-brand-50 px-4 py-2.5 rounded-xl border border-brand-200 active:bg-brand-100"
               >
@@ -220,7 +220,7 @@ export default function ScheduleBuilderScreen() {
                   <ScheduleBlockCard
                     block={block}
                     onPress={(b) => {
-                      console.log('[ScheduleBuilder] Tap block:', b.id);
+                      router.push(`/schedule/edit-block?day=${selectedDay}&id=${b.id}`);
                     }}
                   />
                 </React.Fragment>
@@ -235,7 +235,7 @@ export default function ScheduleBuilderScreen() {
         <View className="absolute bottom-6 right-6">
           <Pressable
             onPress={() => {
-              console.log('Open Form', { selectedDay });
+              router.push(`/schedule/edit-block?day=${selectedDay}`);
             }}
             className="flex-row items-center space-x-2 bg-brand-600 px-5 py-3.5 rounded-full shadow-lg shadow-brand-600/40 active:scale-95 active:bg-brand-700 transition-transform"
             accessibilityLabel="Add Class Block"

@@ -4,6 +4,7 @@ import {
   Text,
   ScrollView,
   Pressable,
+  TextInput,
   SafeAreaView,
   KeyboardAvoidingView,
   Platform,
@@ -20,10 +21,18 @@ import {
   Calendar,
   Check,
   ChevronDown,
+  Clock,
+  ArrowRight,
   Sparkles,
 } from 'lucide-react-native';
 import { useWorkspaces } from '@/hooks/useWorkspaces';
-import { getDayName } from '@/lib/schedule/timeUtils';
+import {
+  getDayName,
+  formatTime12Hour,
+  calculateDurationMinutes,
+  formatDuration,
+  addMinutesToTime,
+} from '@/lib/schedule/timeUtils';
 import type { CourseRow } from '@/store/useAppStore';
 
 const SESSION_TYPES = [
@@ -42,6 +51,15 @@ const FREQUENCIES = [
   { id: 'biweekly_week_b', label: 'Week B Only' },
 ];
 
+const DURATION_PRESETS = [
+  { label: '+50m', minutes: 50 },
+  { label: '+60m', minutes: 60 },
+  { label: '+90m', minutes: 90 },
+  { label: '+120m', minutes: 120 },
+  { label: '+180m', minutes: 180 },
+  { label: 'Custom', minutes: null },
+];
+
 export default function EditBlockModal() {
   const router = useRouter();
   const params = useLocalSearchParams<{ day?: string; id?: string }>();
@@ -55,8 +73,38 @@ export default function EditBlockModal() {
     courses.length > 0 ? courses[0].id : null
   );
 
+  // Time and dynamic duration presets
+  const [startTime, setStartTime] = useState<string>('09:00');
+  const [endTime, setEndTime] = useState<string>('10:30');
+  const [selectedPreset, setSelectedPreset] = useState<number | null>(90);
+
   // Determine if this session type requires a course association
   const isGeneralSession = sessionType === 'break' || sessionType === 'prayer' || sessionType === 'meeting';
+
+  // Calculate duration dynamically
+  const durationMinutes = calculateDurationMinutes(startTime, endTime);
+  const durationLabel = formatDuration(durationMinutes);
+
+  const handleSelectPreset = (presetMinutes: number | null) => {
+    setSelectedPreset(presetMinutes);
+    if (presetMinutes !== null && startTime) {
+      const computedEnd = addMinutesToTime(startTime, presetMinutes);
+      setEndTime(computedEnd);
+    }
+  };
+
+  const handleStartTimeChange = (newStart: string) => {
+    setStartTime(newStart);
+    if (selectedPreset !== null && newStart.length === 5) {
+      const computedEnd = addMinutesToTime(newStart, selectedPreset);
+      setEndTime(computedEnd);
+    }
+  };
+
+  const handleEndTimeChange = (newEnd: string) => {
+    setEndTime(newEnd);
+    setSelectedPreset(null);
+  };
 
   return (
     <SafeAreaView className="flex-1 bg-white">
@@ -228,6 +276,101 @@ export default function EditBlockModal() {
                 })}
               </View>
             )}
+          </View>
+
+          {/* 4. Smart Time Picker & Dynamic Duration Presets */}
+          <View className="mb-5">
+            <View className="flex-row items-center justify-between mb-2">
+              <Text className="text-xs font-bold text-gray-500 uppercase tracking-wider">
+                Session Time Window
+              </Text>
+              {durationMinutes > 0 && (
+                <View className="bg-brand-50 px-2 py-0.5 rounded-full border border-brand-100">
+                  <Text className="text-[11px] font-bold text-brand-700">
+                    Duration: {durationLabel}
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            {/* Start and End Time Inputs */}
+            <View className="flex-row items-center space-x-3">
+              {/* Start Time Input */}
+              <View className="flex-1">
+                <Text className="text-[11px] font-semibold text-gray-400 mb-1">
+                  START TIME
+                </Text>
+                <View className="flex-row items-center bg-gray-50 border border-gray-200 rounded-2xl px-3 py-2.5">
+                  <Clock size={16} color="#6b7280" className="mr-2" />
+                  <TextInput
+                    value={startTime}
+                    onChangeText={handleStartTimeChange}
+                    placeholder="09:00"
+                    placeholderTextColor="#9ca3af"
+                    className="flex-1 text-sm font-bold text-gray-900 font-mono"
+                    maxLength={5}
+                  />
+                  <Text className="text-xs font-semibold text-gray-400 ml-1">
+                    {formatTime12Hour(startTime)}
+                  </Text>
+                </View>
+              </View>
+
+              <ArrowRight size={16} color="#9ca3af" className="mt-5" />
+
+              {/* End Time Input */}
+              <View className="flex-1">
+                <Text className="text-[11px] font-semibold text-gray-400 mb-1">
+                  END TIME
+                </Text>
+                <View className="flex-row items-center bg-gray-50 border border-gray-200 rounded-2xl px-3 py-2.5">
+                  <Clock size={16} color="#6b7280" className="mr-2" />
+                  <TextInput
+                    value={endTime}
+                    onChangeText={handleEndTimeChange}
+                    placeholder="10:30"
+                    placeholderTextColor="#9ca3af"
+                    className="flex-1 text-sm font-bold text-gray-900 font-mono"
+                    maxLength={5}
+                  />
+                  <Text className="text-xs font-semibold text-gray-400 ml-1">
+                    {formatTime12Hour(endTime)}
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Quick-Duration Presets Row */}
+            <View className="mt-3">
+              <Text className="text-[11px] font-semibold text-gray-400 mb-1.5">
+                QUICK DURATION PRESETS
+              </Text>
+              <View className="flex-row flex-wrap gap-2">
+                {DURATION_PRESETS.map((preset) => {
+                  const isSelected = selectedPreset === preset.minutes;
+
+                  return (
+                    <Pressable
+                      key={preset.label}
+                      onPress={() => handleSelectPreset(preset.minutes)}
+                      className={`px-3 py-1.5 rounded-xl border transition-all ${
+                        isSelected
+                          ? 'bg-brand-600 border-brand-700 shadow-xs'
+                          : 'bg-white border-gray-200 active:bg-gray-100'
+                      }`}
+                    >
+                      <Text
+                        className={`text-xs font-bold ${
+                          isSelected ? 'text-white' : 'text-gray-700'
+                        }`}
+                      >
+                        {preset.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>

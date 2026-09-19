@@ -14,21 +14,29 @@ export type CourseRow = Tables<'courses'> & {
   enrollment_id?: string;
 };
 
+export type BaseScheduleRow = Tables<'base_schedule'> & {
+  course?: Tables<'courses'> | null;
+};
+
 export interface AppState {
   isHydrated: boolean;
   activeSectionId: string | null;
   activeSections: SectionRow[];
   activeCourses: CourseRow[];
+  baseSchedules: BaseScheduleRow[];
   setHydrated: (isHydrated: boolean) => void;
   setActiveSectionId: (id: string | null) => void;
   setActiveSections: (sections: SectionRow[]) => void;
   setActiveCourses: (courses: CourseRow[]) => void;
+  setBaseSchedules: (schedules: BaseScheduleRow[]) => void;
+  upsertLocalScheduleBlock: (block: BaseScheduleRow) => void;
+  removeLocalScheduleBlock: (blockId: string) => void;
   reset: () => void;
 }
 
 /**
  * Global application store for fast client state management and offline-first
- * workspace/course caching backed by AsyncStorage persistence.
+ * workspace, course, and timetable caching backed by AsyncStorage persistence.
  */
 export const useAppStore = create<AppState>()(
   persist(
@@ -37,15 +45,32 @@ export const useAppStore = create<AppState>()(
       activeSectionId: null,
       activeSections: [],
       activeCourses: [],
+      baseSchedules: [],
       setHydrated: (isHydrated) => set({ isHydrated }),
       setActiveSectionId: (activeSectionId) => set({ activeSectionId }),
       setActiveSections: (activeSections) => set({ activeSections }),
       setActiveCourses: (activeCourses) => set({ activeCourses }),
+      setBaseSchedules: (baseSchedules) => set({ baseSchedules }),
+      upsertLocalScheduleBlock: (block) =>
+        set((state) => {
+          const index = state.baseSchedules.findIndex((b) => b.id === block.id);
+          if (index >= 0) {
+            const updated = [...state.baseSchedules];
+            updated[index] = { ...updated[index], ...block };
+            return { baseSchedules: updated };
+          }
+          return { baseSchedules: [...state.baseSchedules, block] };
+        }),
+      removeLocalScheduleBlock: (blockId) =>
+        set((state) => ({
+          baseSchedules: state.baseSchedules.filter((b) => b.id !== blockId),
+        })),
       reset: () =>
         set({
           activeSectionId: null,
           activeSections: [],
           activeCourses: [],
+          baseSchedules: [],
         }),
     }),
     {
@@ -55,15 +80,16 @@ export const useAppStore = create<AppState>()(
         activeSectionId: state.activeSectionId,
         activeSections: state.activeSections,
         activeCourses: state.activeCourses,
+        baseSchedules: state.baseSchedules,
       }),
       onRehydrateStorage: () => {
-        console.log('💾 [Zustand] Hydrating offline workspace and course cache from AsyncStorage...');
+        console.log('💾 [Zustand] Hydrating offline workspace, course, and timetable cache from AsyncStorage...');
         return (state, error) => {
           if (error) {
             console.error('❌ [Zustand] Failed to rehydrate offline storage:', error);
           } else {
             console.log(
-              `💾 [Zustand] Offline workspace hydration completed: ${state?.activeSections.length ?? 0} section(s), ${state?.activeCourses.length ?? 0} course(s), activeSectionId=${state?.activeSectionId ?? 'none'}`
+              `💾 [Zustand] Offline workspace hydration completed: ${state?.activeSections.length ?? 0} section(s), ${state?.activeCourses.length ?? 0} course(s), ${state?.baseSchedules.length ?? 0} schedule block(s), activeSectionId=${state?.activeSectionId ?? 'none'}`
             );
             state?.setHydrated(true);
           }

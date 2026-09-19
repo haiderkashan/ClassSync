@@ -8,6 +8,7 @@ import {
   SafeAreaView,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import {
@@ -26,16 +27,20 @@ import {
   MapPin,
   User,
   AlertTriangle,
+  AlertCircle,
+  Trash2,
   Sparkles,
 } from 'lucide-react-native';
 import { useWorkspaces } from '@/hooks/useWorkspaces';
 import { useAppStore } from '@/store/useAppStore';
+import { useBaseSchedule } from '@/hooks/useBaseSchedule';
 import {
   getDayName,
   formatTime12Hour,
   calculateDurationMinutes,
   formatDuration,
   addMinutesToTime,
+  isValidTimeRange,
 } from '@/lib/schedule/timeUtils';
 import {
   detectScheduleConflicts,
@@ -73,23 +78,54 @@ export default function EditBlockModal() {
   const params = useLocalSearchParams<{ day?: string; id?: string }>();
   const { courses, activeSection } = useWorkspaces();
   const { baseSchedules } = useAppStore();
+  const { upsertBlock, isUpserting, deleteBlock, isDeleting } = useBaseSchedule();
 
-  const initialDay = params.day ? parseInt(params.day, 10) : 1;
+  // Find existing block if editing
+  const existingBlock = useMemo(() => {
+    if (!params.id) return null;
+    return baseSchedules.find((b) => b.id === params.id) || null;
+  }, [params.id, baseSchedules]);
+
+  const initialDay = params.day
+    ? parseInt(params.day, 10)
+    : existingBlock?.day_of_week ?? 1;
+
   const [dayOfWeek, setDayOfWeek] = useState<number>(initialDay);
-  const [sessionType, setSessionType] = useState<string>('lecture');
-  const [frequency, setFrequency] = useState<string>('weekly');
+  const [sessionType, setSessionType] = useState<string>(
+    existingBlock?.session_type ?? 'lecture'
+  );
+  const [frequency, setFrequency] = useState<string>(
+    existingBlock?.frequency ?? 'weekly'
+  );
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(
-    courses.length > 0 ? courses[0].id : null
+    existingBlock?.course_id ?? (courses.length > 0 ? courses[0].id : null)
   );
 
   // Time and dynamic duration presets
-  const [startTime, setStartTime] = useState<string>('09:00');
-  const [endTime, setEndTime] = useState<string>('10:30');
-  const [selectedPreset, setSelectedPreset] = useState<number | null>(90);
+  const [startTime, setStartTime] = useState<string>(
+    existingBlock ? existingBlock.start_time.slice(0, 5) : '09:00'
+  );
+  const [endTime, setEndTime] = useState<string>(
+    existingBlock ? existingBlock.end_time.slice(0, 5) : '10:30'
+  );
+  const [selectedPreset, setSelectedPreset] = useState<number | null>(() => {
+    if (existingBlock) {
+      const dur = calculateDurationMinutes(
+        existingBlock.start_time.slice(0, 5),
+        existingBlock.end_time.slice(0, 5)
+      );
+      const match = DURATION_PRESETS.find((p) => p.minutes === dur);
+      return match ? match.minutes : null;
+    }
+    return 90;
+  });
 
   // Room and instructor inputs
-  const [room, setRoom] = useState<string>('');
-  const [instructor, setInstructor] = useState<string>('');
+  const [room, setRoom] = useState<string>(existingBlock?.room ?? '');
+  const [instructor, setInstructor] = useState<string>(
+    existingBlock?.instructor ?? ''
+  );
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Determine if this session type requires a course association
   const isGeneralSession = sessionType === 'break' || sessionType === 'prayer' || sessionType === 'meeting';
@@ -180,25 +216,101 @@ export default function EditBlockModal() {
     setSelectedPreset(null);
   };
 
+  const handleSave = async () => {
+    setErrorMessage(null);
+
+    // Validate times
+    if (!isValidTimeRange(startTime, endTime)) {
+      setErrorMessage('End time must be strictly after start time.');
+      return;
+    }
+
+    // Determine target courseId
+    let targetCourseId = selectedCourseId;
+    if (isGeneralSession && !targetCourseId) {
+      if (courses.length > 0) {
+        targetCourseId = courses[0].id;
+      } else {
+        setErrorMessage(
+          'Cannot schedule session: cohort must have at least one registered course.'
+        );
+        return;
+      }
+    }
+
+    if (!targetCourseId) {
+      setErrorMessage('Please select a course for this academic session.');
+      return;
+    }
+
+    try {
+      await upsertBlock({
+        id: params.id,
+        course_id: targetCourseId,
+        day_of_week: dayOfWeek,
+        start_time: startTime.length === 5 ? `${startTime}:00` : startTime,
+        end_time: endTime.length === 5 ? `${endTime}:00` : endTime,
+        room: room.trim() || null,
+        instructor: instructor.trim() || null,
+        session_type: sessionType,
+        frequency,
+      });
+
+      router.back();
+    } catch (err: any) {
+      console.error('[EditBlockModal] Failed to save block:', err);
+      setErrorMessage(
+        err?.message || 'Failed to save timetable block. Please check your inputs.'
+      );
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!params.id) return;
+    try {
+      await deleteBlock(params.id);
+      router.back();
+    } catch (err: any) {
+      console.error('[EditBlockModal] Failed to delete block:', err);
+      setErrorMessage(err?.message || 'Failed to delete block.');
+    }
+  };
+
   return (
     <SafeAreaView className="flex-1 bg-white">
       {/* Modal Header */}
       <View className="px-5 py-4 border-b border-gray-100 flex-row items-center justify-between">
         <View>
           <Text className="text-lg font-extrabold text-gray-900 tracking-tight">
-            New Timetable Block
+            {params.id ? 'Edit Timetable Block' : 'New Timetable Block'}
           </Text>
           <Text className="text-xs text-gray-500 font-medium">
             {activeSection?.name || 'Cohort'} • {getDayName(dayOfWeek)}
           </Text>
         </View>
-        <Pressable
-          onPress={() => router.back()}
-          className="w-9 h-9 rounded-full bg-gray-100 items-center justify-center active:bg-gray-200"
-          accessibilityLabel="Close"
-        >
-          <X size={18} color="#374151" />
-        </Pressable>
+        <View className="flex-row items-center space-x-2">
+          {params.id && (
+            <Pressable
+              onPress={handleDelete}
+              disabled={isDeleting}
+              className="w-9 h-9 rounded-full bg-red-50 items-center justify-center active:bg-red-100"
+              accessibilityLabel="Delete Block"
+            >
+              {isDeleting ? (
+                <ActivityIndicator size="small" color="#dc2626" />
+              ) : (
+                <Trash2 size={17} color="#dc2626" />
+              )}
+            </Pressable>
+          )}
+          <Pressable
+            onPress={() => router.back()}
+            className="w-9 h-9 rounded-full bg-gray-100 items-center justify-center active:bg-gray-200"
+            accessibilityLabel="Close"
+          >
+            <X size={18} color="#374151" />
+          </Pressable>
+        </View>
       </View>
 
       <KeyboardAvoidingView
@@ -534,6 +646,39 @@ export default function EditBlockModal() {
             </View>
           )}
         </ScrollView>
+
+        {/* Bottom Save Bar */}
+        <View className="px-5 py-3.5 border-t border-gray-100 bg-white">
+          {errorMessage && (
+            <View className="mb-3 p-3 bg-red-50 border border-red-200 rounded-xl flex-row items-center space-x-2">
+              <AlertCircle size={16} color="#dc2626" />
+              <Text className="text-xs text-red-700 font-semibold flex-1">
+                {errorMessage}
+              </Text>
+            </View>
+          )}
+
+          <Pressable
+            onPress={handleSave}
+            disabled={isUpserting}
+            className={`w-full py-3.5 rounded-2xl items-center justify-center flex-row space-x-2 shadow-sm ${
+              isUpserting
+                ? 'bg-brand-400'
+                : 'bg-brand-600 active:bg-brand-700 shadow-brand-600/20'
+            }`}
+          >
+            {isUpserting ? (
+              <ActivityIndicator size="small" color="#ffffff" />
+            ) : (
+              <>
+                <Check size={18} color="#ffffff" strokeWidth={2.5} />
+                <Text className="text-white text-sm font-bold tracking-wide">
+                  {params.id ? 'Save Changes' : 'Add to Schedule'}
+                </Text>
+              </>
+            )}
+          </Pressable>
+        </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

@@ -90,9 +90,32 @@ export function ScheduleBlockCard({ block, onPress, onLongPress }: ScheduleBlock
   const durationLabel = formatDuration(durationMins);
   const timeWindow = `${formatTime12Hour(block.start_time)} - ${formatTime12Hour(block.end_time)}`;
 
-  const accentColor = block.color_override || block.course?.color_hex || '#4F46E5';
-  const courseTitle = block.course?.name || 'Academic Session';
-  const courseCode = block.course?.code;
+  const isGeneralSession =
+    block.session_type === 'break' ||
+    block.session_type === 'prayer' ||
+    block.session_type === 'meeting';
+
+  const generalTitle =
+    block.session_type === 'break'
+      ? 'Recess / Break'
+      : block.session_type === 'prayer'
+      ? 'Prayer Break'
+      : 'Cohort Meeting';
+
+  const accentColor =
+    block.color_override ||
+    (isGeneralSession
+      ? block.session_type === 'break'
+        ? '#d97706'
+        : block.session_type === 'prayer'
+        ? '#0d9488'
+        : '#475569'
+      : block.course?.color_hex || '#4F46E5');
+
+  const courseTitle = isGeneralSession
+    ? generalTitle
+    : block.course?.name || 'Academic Session';
+  const courseCode = isGeneralSession ? undefined : block.course?.code;
   const sessionConfig = getSessionTypeConfig(block.session_type);
   const SessionIcon = sessionConfig.icon;
 

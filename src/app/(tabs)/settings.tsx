@@ -35,6 +35,7 @@ import {
   UserMinus,
   Layers,
   Trash2,
+  Calendar,
 } from 'lucide-react-native';
 import { useWorkspaces } from '@/hooks/useWorkspaces';
 import { useSupabase } from '@/hooks/useSupabase';
@@ -376,15 +377,27 @@ export default function SettingsScreen() {
               {/* Roster and Section Management Actions */}
               <View className="mt-3 pt-3 border-t border-gray-200 flex-row flex-wrap gap-2">
                 {isCR && (
-                  <Pressable
-                    onPress={() => router.push('/section-members')}
-                    className="bg-white border border-gray-200 px-3 py-2 rounded-xl flex-row items-center active:bg-gray-100 shadow-xs"
-                  >
-                    <Users size={14} color="#4f46e5" />
-                    <Text className="text-xs font-bold text-gray-800 ml-1.5">
-                      Manage Roster
-                    </Text>
-                  </Pressable>
+                  <>
+                    <Pressable
+                      onPress={() => router.push('/schedule/builder')}
+                      className="bg-brand-50 border border-brand-200 px-3 py-2 rounded-xl flex-row items-center active:bg-brand-100 shadow-xs"
+                    >
+                      <Calendar size={14} color="#4f46e5" />
+                      <Text className="text-xs font-bold text-brand-800 ml-1.5">
+                        Manage Timetable
+                      </Text>
+                    </Pressable>
+
+                    <Pressable
+                      onPress={() => router.push('/section-members')}
+                      className="bg-white border border-gray-200 px-3 py-2 rounded-xl flex-row items-center active:bg-gray-100 shadow-xs"
+                    >
+                      <Users size={14} color="#4f46e5" />
+                      <Text className="text-xs font-bold text-gray-800 ml-1.5">
+                        Manage Roster
+                      </Text>
+                    </Pressable>
+                  </>
                 )}
 
                 {isGenesisCR ? (

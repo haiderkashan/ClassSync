@@ -2,6 +2,7 @@ import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import { useOAuth } from '@clerk/clerk-expo';
 import { useCallback, useEffect, useState } from 'react';
+import { Platform } from 'react-native';
 
 export type OAuthStrategy = 'oauth_google' | 'oauth_apple';
 
@@ -10,10 +11,12 @@ export type OAuthStrategy = 'oauth_google' | 'oauth_apple';
  */
 export function useWarmUpBrowser() {
   useEffect(() => {
-    void WebBrowser.warmUpAsync();
-    return () => {
-      void WebBrowser.coolDownAsync();
-    };
+    if (Platform.OS !== 'web') {
+      void WebBrowser.warmUpAsync();
+      return () => {
+        void WebBrowser.coolDownAsync();
+      };
+    }
   }, []);
 }
 

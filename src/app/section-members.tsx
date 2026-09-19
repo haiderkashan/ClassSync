@@ -5,10 +5,10 @@ import {
   Pressable,
   ActivityIndicator,
   ScrollView,
-  SafeAreaView,
   Alert,
   Image,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useUser } from '@clerk/clerk-expo';
@@ -186,7 +186,7 @@ export default function SectionMembersModal() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
+    <SafeAreaView className="flex-1 bg-white" edges={['top', 'bottom', 'left', 'right']}>
       {/* Header Bar */}
       <View className="flex-row items-center justify-between px-6 pt-4 pb-4 border-b border-gray-100">
         <View className="flex-row items-center">

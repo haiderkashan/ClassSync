@@ -5,9 +5,9 @@ import {
   ScrollView,
   Pressable,
   ActivityIndicator,
-  SafeAreaView,
   RefreshControl,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import {
   ArrowLeft,
@@ -75,7 +75,7 @@ export default function ScheduleBuilderScreen() {
   const timezone = activeSection?.timezone || 'UTC';
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
+    <SafeAreaView className="flex-1 bg-gray-50" edges={['top', 'bottom', 'left', 'right']}>
       {/* Top Header */}
       <View className="bg-white border-b border-gray-200 px-4 pt-3 pb-3">
         <View className="flex-row items-center justify-between">

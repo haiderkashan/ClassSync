@@ -9,9 +9,9 @@ import {
   Platform,
   TouchableWithoutFeedback,
   Keyboard,
-  SafeAreaView,
   ScrollView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import {
@@ -96,7 +96,7 @@ export default function AddCourseModal() {
   const isButtonDisabled = !title.trim() || isLoading || !!createdJoinCode;
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
+    <SafeAreaView className="flex-1 bg-white" edges={['top', 'bottom', 'left', 'right']}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         className="flex-1"

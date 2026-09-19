@@ -1,10 +1,11 @@
 import React from 'react';
-import { View, Text, SafeAreaView } from 'react-native';
+import { View, Text } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { ListTodo } from 'lucide-react-native';
 
 export default function TasksScreen() {
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
+    <SafeAreaView className="flex-1 bg-gray-50" edges={['top', 'left', 'right']}>
       <View className="flex-1 justify-center items-center px-6">
         <View className="w-14 h-14 rounded-2xl bg-indigo-100 items-center justify-center mb-4">
           <ListTodo size={28} color="#4f46e5" />

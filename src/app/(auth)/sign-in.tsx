@@ -4,9 +4,9 @@ import {
   Text,
   Pressable,
   ActivityIndicator,
-  SafeAreaView,
   Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import { Calendar, Sparkles, Clock, AlertCircle } from 'lucide-react-native';
 import { useWarmUpBrowser, useOAuthFlow } from '@/hooks/useOAuthFlow';
@@ -56,7 +56,7 @@ export default function SignInScreen() {
   const activeError = googleAuth.error || appleAuth.error;
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
+    <SafeAreaView className="flex-1 bg-white" edges={['top', 'bottom', 'left', 'right']}>
       <View className="flex-1 justify-between px-6 py-8">
         {/* Hero Section */}
         <View className="items-center mt-6">

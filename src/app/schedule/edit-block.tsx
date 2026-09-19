@@ -5,11 +5,11 @@ import {
   ScrollView,
   Pressable,
   TextInput,
-  SafeAreaView,
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import {
   X,
@@ -277,7 +277,7 @@ export default function EditBlockModal() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
+    <SafeAreaView className="flex-1 bg-white" edges={['top', 'bottom', 'left', 'right']}>
       {/* Modal Header */}
       <View className="px-5 py-4 border-b border-gray-100 flex-row items-center justify-between">
         <View>

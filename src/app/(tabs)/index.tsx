@@ -2,12 +2,12 @@ import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
-  SafeAreaView,
   ActivityIndicator,
   ScrollView,
   RefreshControl,
   Pressable,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import {
   Calendar,
@@ -74,7 +74,7 @@ export default function AgendaScreen() {
 
   if (isLoading && sections.length === 0 && courses.length === 0) {
     return (
-      <SafeAreaView className="flex-1 bg-gray-50 items-center justify-center">
+      <SafeAreaView className="flex-1 bg-gray-50 items-center justify-center" edges={['top', 'left', 'right']}>
         <ActivityIndicator size="large" color="#4f46e5" />
         <Text className="text-sm font-medium text-gray-500 mt-3">
           Loading your workspaces...
@@ -85,14 +85,14 @@ export default function AgendaScreen() {
 
   if (sections.length === 0 && courses.length === 0) {
     return (
-      <SafeAreaView className="flex-1 bg-gray-50">
+      <SafeAreaView className="flex-1 bg-gray-50" edges={['top', 'left', 'right']}>
         <EmptyState />
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
+    <SafeAreaView className="flex-1 bg-gray-50" edges={['top', 'left', 'right']}>
       <ScrollView
         className="flex-1"
         contentContainerStyle={{ flexGrow: 1 }}

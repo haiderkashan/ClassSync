@@ -9,8 +9,8 @@ import {
   Platform,
   TouchableWithoutFeedback,
   Keyboard,
-  SafeAreaView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { X, KeyRound, ArrowRight, AlertCircle, CheckCircle2, BookOpen, Users } from 'lucide-react-native';
@@ -131,7 +131,7 @@ export default function JoinSectionModal() {
   const isButtonDisabled = code.length !== 6 || isLoading || !!successMessage;
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
+    <SafeAreaView className="flex-1 bg-white" edges={['top', 'bottom', 'left', 'right']}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         className="flex-1"

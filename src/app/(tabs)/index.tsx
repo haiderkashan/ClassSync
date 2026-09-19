@@ -27,7 +27,7 @@ import {
   getDayName,
   calculateDurationMinutes,
 } from '@/lib/schedule/timeUtils';
-import type { BaseScheduleRow } from '@/store/useAppStore';
+import type { BaseScheduleRow, WeekParity } from '@/store/useAppStore';
 
 const DAYS_OF_WEEK = [
   { id: 1, name: 'Monday', short: 'Mon' },
@@ -39,6 +39,12 @@ const DAYS_OF_WEEK = [
   { id: 7, name: 'Sunday', short: 'Sun' },
 ];
 
+const PARITY_OPTIONS: { id: WeekParity; label: string }[] = [
+  { id: 'biweekly_week_a', label: 'Week A' },
+  { id: 'biweekly_week_b', label: 'Week B' },
+  { id: 'weekly', label: 'All' },
+];
+
 export default function AgendaScreen() {
   const router = useRouter();
   const { sections, activeSection, isLoading, isFetching, refetch } = useWorkspaces();
@@ -48,6 +54,8 @@ export default function AgendaScreen() {
     isFetching: isScheduleFetching,
     refetch: refetchSchedule,
     isSectionAdmin,
+    currentParity,
+    setCurrentParity,
   } = useBaseSchedule();
 
   // Resolve current device day of the week (1=Mon ... 7=Sun)
@@ -158,8 +166,43 @@ export default function AgendaScreen() {
             </View>
           )}
 
+          {/* Week Parity Segmented Control */}
+          <View className="mt-3 pt-2.5 border-t border-gray-100 flex-row items-center justify-between">
+            <View className="flex-row items-center space-x-1.5">
+              <Calendar size={13} color="#6b7280" />
+              <Text className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+                Parity
+              </Text>
+            </View>
+
+            <View className="flex-row p-0.5 bg-gray-100 rounded-xl">
+              {PARITY_OPTIONS.map((opt) => {
+                const isSelected = currentParity === opt.id;
+                return (
+                  <Pressable
+                    key={opt.id}
+                    onPress={() => setCurrentParity(opt.id)}
+                    className={`px-3 py-1 rounded-lg transition-all ${
+                      isSelected
+                        ? 'bg-white shadow-xs'
+                        : 'active:bg-gray-200'
+                    }`}
+                  >
+                    <Text
+                      className={`text-xs font-bold ${
+                        isSelected ? 'text-brand-700' : 'text-gray-600'
+                      }`}
+                    >
+                      {opt.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+
           {/* Horizontal Day Switcher */}
-          <View className="mt-3.5 pt-3 border-t border-gray-100">
+          <View className="mt-3 pt-2.5 border-t border-gray-100">
             <ScrollView horizontal showsHorizontalScrollIndicator={false} className="-mx-1 flex-row">
               {DAYS_OF_WEEK.map((day) => {
                 const isSelected = selectedDay === day.id;
@@ -233,12 +276,21 @@ export default function AgendaScreen() {
               {dayBlocks.length} session{dayBlocks.length === 1 ? '' : 's'} scheduled
             </Text>
           </View>
-          {isToday && (
-            <View className="bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full flex-row items-center space-x-1">
-              <View className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-              <Text className="text-[11px] font-bold text-emerald-700">Today</Text>
-            </View>
-          )}
+          <View className="flex-row items-center space-x-2">
+            {currentParity !== 'weekly' && (
+              <View className="bg-purple-50 border border-purple-200 px-2.5 py-1 rounded-full">
+                <Text className="text-[11px] font-bold text-purple-700">
+                  {currentParity === 'biweekly_week_a' ? 'Week A' : 'Week B'}
+                </Text>
+              </View>
+            )}
+            {isToday && (
+              <View className="bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full flex-row items-center space-x-1">
+                <View className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                <Text className="text-[11px] font-bold text-emerald-700">Today</Text>
+              </View>
+            )}
+          </View>
         </View>
 
         {/* Chronological Schedule Blocks or Empty State */}

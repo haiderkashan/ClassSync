@@ -95,36 +95,42 @@ export type Database = {
       }
       base_schedule: {
         Row: {
+          color_override: string | null
           course_id: string
           created_at: string
           day_of_week: number
           end_time: string
           frequency: string
           id: string
+          instructor: string | null
           room: string | null
           session_type: string
           start_time: string
           updated_at: string
         }
         Insert: {
+          color_override?: string | null
           course_id: string
           created_at?: string
           day_of_week: number
           end_time: string
           frequency?: string
           id?: string
+          instructor?: string | null
           room?: string | null
           session_type?: string
           start_time: string
           updated_at?: string
         }
         Update: {
+          color_override?: string | null
           course_id?: string
           created_at?: string
           day_of_week?: number
           end_time?: string
           frequency?: string
           id?: string
+          instructor?: string | null
           room?: string | null
           session_type?: string
           start_time?: string
@@ -498,11 +504,24 @@ export type Database = {
     }
     Functions: {
       archive_section: { Args: { p_section_id: string }; Returns: boolean }
+      clone_day_schedule: {
+        Args: {
+          p_override_existing?: boolean
+          p_section_id: string
+          p_source_day: number
+          p_target_day: number
+        }
+        Returns: number
+      }
       create_course: {
         Args: { p_join_code: string; p_section_id: string; p_title: string }
         Returns: string
       }
       current_user_id: { Args: never; Returns: string }
+      delete_base_schedule_block: {
+        Args: { p_block_id: string }
+        Returns: boolean
+      }
       is_course_enrolled: { Args: { c_id: string }; Returns: boolean }
       is_section_admin: { Args: { sec_id: string }; Returns: boolean }
       is_section_member: { Args: { sec_id: string }; Returns: boolean }
@@ -525,6 +544,21 @@ export type Database = {
           p_target_user_id: string
         }
         Returns: boolean
+      }
+      upsert_base_schedule_block: {
+        Args: {
+          p_color_override?: string
+          p_course_id?: string
+          p_day_of_week?: number
+          p_end_time?: string
+          p_frequency?: string
+          p_id?: string
+          p_instructor?: string
+          p_room?: string
+          p_session_type?: string
+          p_start_time?: string
+        }
+        Returns: string
       }
     }
     Enums: {

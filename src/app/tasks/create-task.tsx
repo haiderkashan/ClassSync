@@ -3,7 +3,8 @@
 // File: src/app/tasks/create-task.tsx
 // Description: Presentation modal for creating and updating academic tasks,
 //              featuring soft UI inputs, task type chips, course selector,
-//              and glassmorphic styling.
+//              cross-platform web-safe date picker, strict CR cohort broadcast
+//              authorization guards, and atomic mutation submission.
 // ============================================================================
 
 import React, { useState, useMemo } from 'react';
@@ -14,6 +15,7 @@ import {
   Pressable,
   ScrollView,
   KeyboardAvoidingView,
+  ActivityIndicator,
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -31,9 +33,16 @@ import {
   Clock,
   Sparkles,
   Layers,
+  Lock,
+  ShieldCheck,
+  User,
+  Users,
+  AlertCircle,
+  Send,
 } from 'lucide-react-native';
 import { useWorkspaces } from '@/hooks/useWorkspaces';
 import { useAppStore } from '@/store/useAppStore';
+import { useAcademicTasks } from '@/hooks/useAcademicTasks';
 import { DateTimePickerWebSafe } from '@/components/tasks/DateTimePickerWebSafe';
 import {
   TASK_TYPE_METADATA,
@@ -44,6 +53,7 @@ export default function CreateTaskModal() {
   const router = useRouter();
   const { activeSection, courses, activeSectionId } = useWorkspaces();
   const { activeCourses, tasks } = useAppStore();
+  const { upsertTask, isUpserting, isSectionAdmin } = useAcademicTasks();
 
   const params = useLocalSearchParams<{
     id?: string;
@@ -86,7 +96,51 @@ export default function CreateTaskModal() {
     return d;
   });
 
+  // CRITICAL DIRECTIVE: Default is_personal = true.
+  // The toggle to broadcast to the cohort (is_personal = false) MUST be strictly disabled
+  // unless the user is a genesis_cr or co_admin.
+  const [isPersonal, setIsPersonal] = useState<boolean>(
+    existingTask ? existingTask.is_personal : true
+  );
+
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
   const isEditing = !!existingTask;
+
+  const handleSave = async () => {
+    if (!title.trim()) {
+      setErrorMessage('Please enter a task title.');
+      return;
+    }
+
+    if (!activeSectionId) {
+      setErrorMessage('No active section found. Please enroll or create a section first.');
+      return;
+    }
+
+    setErrorMessage(null);
+
+    try {
+      await upsertTask({
+        id: existingTask?.id,
+        section_id: activeSectionId,
+        course_id: selectedCourseId,
+        title: title.trim(),
+        description: description.trim() || null,
+        task_type: taskType,
+        due_datetime: dueDateTime.toISOString(),
+        // Non-admins are strictly forced to is_personal = true
+        is_personal: isSectionAdmin ? isPersonal : true,
+      });
+
+      router.back();
+    } catch (err: any) {
+      console.error('[CreateTaskModal] Failed to upsert task:', err);
+      setErrorMessage(
+        err?.message || 'Failed to save academic task. Please check your connection and retry.'
+      );
+    }
+  };
 
   return (
     <SafeAreaView className="flex-1 bg-[#F8F9FA]" edges={['top', 'left', 'right']}>
@@ -101,7 +155,7 @@ export default function CreateTaskModal() {
               {isEditing ? 'Edit Academic Task' : 'New Academic Task'}
             </Text>
             <Text className="text-xs font-medium text-neutral-500 mt-0.5">
-              {activeSection?.name || 'Section'}
+              {activeSection?.name || 'Academic Workspace'}
             </Text>
           </View>
 
@@ -120,6 +174,16 @@ export default function CreateTaskModal() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
+          {/* Error Banner */}
+          {errorMessage && (
+            <View className="mb-4 bg-rose-50 border border-rose-200 rounded-2xl p-3.5 flex-row items-start">
+              <AlertCircle size={16} color="#E11D48" className="mt-0.5" />
+              <Text className="text-xs font-semibold text-rose-700 ml-2.5 flex-1 leading-relaxed">
+                {errorMessage}
+              </Text>
+            </View>
+          )}
+
           {/* Title Input Card */}
           <View className="bg-white rounded-3xl p-4 mb-4 border border-neutral-100/90 shadow-2xs">
             <Text className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider mb-2">
@@ -127,7 +191,10 @@ export default function CreateTaskModal() {
             </Text>
             <TextInput
               value={title}
-              onChangeText={setTitle}
+              onChangeText={(text) => {
+                setTitle(text);
+                if (errorMessage) setErrorMessage(null);
+              }}
               placeholder="e.g., Midterm Project Submission"
               placeholderTextColor="#94A3B8"
               className="bg-neutral-50 border border-neutral-200/70 rounded-2xl px-4 py-3 text-sm font-semibold text-neutral-900 focus:border-blue-500"
@@ -254,7 +321,7 @@ export default function CreateTaskModal() {
                     selectedCourseId === null ? 'text-white' : 'text-neutral-700'
                   }`}
                 >
-                  General / Cohort-wide
+                  General / Announcement
                 </Text>
               </Pressable>
 
@@ -295,8 +362,106 @@ export default function CreateTaskModal() {
             onChange={setDueDateTime}
           />
 
-          {/* Description Input Card */}
+          {/* Broadcast Scope & CR Guard Card */}
           <View className="bg-white rounded-3xl p-4 mb-4 border border-neutral-100/90 shadow-2xs">
+            <View className="flex-row items-center justify-between mb-3">
+              <Text className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider">
+                Audience & Visibility
+              </Text>
+              {isSectionAdmin ? (
+                <View className="flex-row items-center bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-200">
+                  <ShieldCheck size={12} color="#2563EB" />
+                  <Text className="text-[10px] font-bold text-blue-700 ml-1">
+                    CR Authorized
+                  </Text>
+                </View>
+              ) : (
+                <View className="flex-row items-center bg-neutral-100 px-2.5 py-0.5 rounded-full border border-neutral-200/60">
+                  <Lock size={11} color="#64748B" />
+                  <Text className="text-[10px] font-bold text-neutral-600 ml-1">
+                    Personal Only
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            {/* Broadcast Selection: Strictly disabled for regular members */}
+            {isSectionAdmin ? (
+              <View className="flex-row -mx-1">
+                {/* Personal Option */}
+                <Pressable
+                  onPress={() => setIsPersonal(true)}
+                  className={`flex-1 mx-1 p-3.5 rounded-2xl border transition-all ${
+                    isPersonal
+                      ? 'bg-neutral-900 border-neutral-900 shadow-xs'
+                      : 'bg-neutral-50 border-neutral-200/80 active:bg-neutral-100'
+                  }`}
+                >
+                  <View className="flex-row items-center mb-1">
+                    <User size={14} color={isPersonal ? '#FFFFFF' : '#475569'} />
+                    <Text
+                      className={`text-xs font-bold ml-1.5 ${
+                        isPersonal ? 'text-white' : 'text-neutral-800'
+                      }`}
+                    >
+                      Personal Only
+                    </Text>
+                  </View>
+                  <Text
+                    className={`text-[10px] font-medium leading-tight ${
+                      isPersonal ? 'text-neutral-300' : 'text-neutral-500'
+                    }`}
+                  >
+                    Private to your schedule
+                  </Text>
+                </Pressable>
+
+                {/* Cohort Broadcast Option */}
+                <Pressable
+                  onPress={() => setIsPersonal(false)}
+                  className={`flex-1 mx-1 p-3.5 rounded-2xl border transition-all ${
+                    !isPersonal
+                      ? 'bg-blue-600 border-blue-600 shadow-xs'
+                      : 'bg-neutral-50 border-neutral-200/80 active:bg-neutral-100'
+                  }`}
+                >
+                  <View className="flex-row items-center mb-1">
+                    <Users size={14} color={!isPersonal ? '#FFFFFF' : '#475569'} />
+                    <Text
+                      className={`text-xs font-bold ml-1.5 ${
+                        !isPersonal ? 'text-white' : 'text-neutral-800'
+                      }`}
+                    >
+                      Broadcast Cohort
+                    </Text>
+                  </View>
+                  <Text
+                    className={`text-[10px] font-medium leading-tight ${
+                      !isPersonal ? 'text-blue-100' : 'text-neutral-500'
+                    }`}
+                  >
+                    Syncs to entire section
+                  </Text>
+                </Pressable>
+              </View>
+            ) : (
+              /* Informative card for regular students */
+              <View className="flex-row items-start bg-neutral-50 p-3.5 rounded-2xl border border-neutral-200/60">
+                <User size={16} color="#3B82F6" className="mt-0.5" />
+                <View className="ml-2.5 flex-1">
+                  <Text className="text-xs font-bold text-neutral-800">
+                    Personal Task (Private Checklist)
+                  </Text>
+                  <Text className="text-[11px] font-medium text-neutral-500 mt-0.5 leading-relaxed">
+                    This task is only visible to you. Cohort-wide broadcasting is restricted to Section Admins (Genesis CR and Co-Admins).
+                  </Text>
+                </View>
+              </View>
+            )}
+          </View>
+
+          {/* Description Input Card */}
+          <View className="bg-white rounded-3xl p-4 mb-6 border border-neutral-100/90 shadow-2xs">
             <Text className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider mb-2">
               Description / Instructions (Optional)
             </Text>
@@ -307,11 +472,43 @@ export default function CreateTaskModal() {
               placeholderTextColor="#94A3B8"
               className="bg-neutral-50 border border-neutral-200/70 rounded-2xl p-4 text-xs font-medium text-neutral-800 focus:border-blue-500"
               multiline
-              numberOfLines={4}
+              numberOfLines={3}
               textAlignVertical="top"
               maxLength={1000}
             />
           </View>
+
+          {/* Submit Action Button */}
+          <Pressable
+            onPress={handleSave}
+            disabled={isUpserting}
+            className={`w-full py-4 rounded-2xl flex-row items-center justify-center transition-all ${
+              isUpserting
+                ? 'bg-neutral-400'
+                : !isPersonal
+                ? 'bg-blue-600 active:bg-blue-700 shadow-md shadow-blue-500/20'
+                : 'bg-neutral-900 active:bg-neutral-800 shadow-md shadow-neutral-900/20'
+            }`}
+          >
+            {isUpserting ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <>
+                {!isPersonal ? (
+                  <Send size={16} color="#FFFFFF" strokeWidth={2.4} />
+                ) : (
+                  <Check size={16} color="#FFFFFF" strokeWidth={2.6} />
+                )}
+                <Text className="text-sm font-black text-white ml-2">
+                  {isEditing
+                    ? 'Save Changes'
+                    : !isPersonal
+                    ? 'Broadcast to Section Cohort'
+                    : 'Create Personal Task'}
+                </Text>
+              </>
+            )}
+          </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

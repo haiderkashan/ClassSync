@@ -16,6 +16,10 @@ import {
   Coffee,
   ChevronRight,
   Radio,
+  Moon,
+  ArrowRight,
+  PartyPopper,
+  Sparkles,
 } from 'lucide-react-native';
 import { useWorkspaces } from '@/hooks/useWorkspaces';
 import { useAppStore } from '@/store/useAppStore';
@@ -128,6 +132,28 @@ export default function AgendaScreen() {
     const monthName = new Date().toLocaleDateString('en-US', { month: 'short' });
     return `${dayObj?.name || getDayName(selectedDay)}, ${monthName} ${dayObj?.dateNumber || ''}`;
   }, [selectedDay, weekDates]);
+
+  // Calculate current wall-clock hour in section's timezone to detect evening past 20:00
+  const isEveningPast8PM = useMemo(() => {
+    try {
+      const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: activeSection?.timezone || 'UTC',
+        hour: 'numeric',
+        hour12: false,
+      });
+      const currentHour = parseInt(formatter.format(new Date()), 10);
+      return currentHour >= 20;
+    } catch {
+      return new Date().getHours() >= 20;
+    }
+  }, [activeSection?.timezone]);
+
+  const tomorrowDayOfWeek = todayDayOfWeek === 7 ? 1 : todayDayOfWeek + 1;
+
+  // Determine if all classes on this day have been cancelled
+  const allCancelled = useMemo(() => {
+    return dayBlocks.length > 0 && dayBlocks.every((b) => b.is_cancelled);
+  }, [dayBlocks]);
 
   const handleRefresh = async () => {
     await Promise.all([refetch(), refetchSchedule(), refetchOverrides()]);
@@ -314,6 +340,44 @@ export default function AgendaScreen() {
           </View>
         </View>
 
+        {/* Smart Evening Auto-Recommendation Pill (Past 20:00) */}
+        {isEveningPast8PM && isToday && (
+          <Pressable
+            onPress={() => setSelectedDay(tomorrowDayOfWeek)}
+            className="mx-5 mt-3 px-4 py-2.5 bg-neutral-900 rounded-full flex-row items-center justify-between shadow-2xs active:bg-neutral-800"
+          >
+            <View className="flex-row items-center space-x-2">
+              <Moon size={14} color="#fef08a" />
+              <Text className="text-xs font-bold text-white ml-2">
+                Good evening! Tap to preview tomorrow
+              </Text>
+            </View>
+            <View className="flex-row items-center">
+              <Text className="text-[11px] font-bold text-neutral-400 mr-1.5">
+                {DAYS_OF_WEEK.find((d) => d.id === tomorrowDayOfWeek)?.short}
+              </Text>
+              <ArrowRight size={13} color="#ffffff" />
+            </View>
+          </Pressable>
+        )}
+
+        {/* All Classes Cancelled Banner */}
+        {allCancelled && (
+          <View className="mx-5 mt-3 p-4 bg-rose-50/90 border border-rose-200/80 rounded-3xl flex-row items-center space-x-3 shadow-2xs">
+            <View className="w-10 h-10 rounded-2xl bg-rose-100 items-center justify-center">
+              <PartyPopper size={20} color="#e11d48" />
+            </View>
+            <View className="flex-1 ml-2.5">
+              <Text className="text-xs font-black text-rose-900">
+                All Classes Cancelled Today
+              </Text>
+              <Text className="text-[11px] text-rose-700 mt-0.5 leading-relaxed">
+                Enjoy your free time! Every session scheduled for today has been called off.
+              </Text>
+            </View>
+          </View>
+        )}
+
         {/* CR Timetable Management & Exception Broadcast Banner */}
         {isSectionAdmin && (
           <View className="mx-5 mt-4 p-4 bg-white border border-neutral-100/90 rounded-3xl flex-row items-center justify-between shadow-2xs">
@@ -362,15 +426,25 @@ export default function AgendaScreen() {
         {dayBlocks.length === 0 ? (
           <View className="mx-5 my-6 p-8 bg-white border border-neutral-100/90 rounded-3xl items-center justify-center shadow-2xs">
             <View className="w-14 h-14 rounded-2xl bg-amber-50 border border-amber-100/80 items-center justify-center mb-3">
-              <Coffee size={24} color="#d97706" strokeWidth={2} />
+              {selectedDay === 6 || selectedDay === 7 ? (
+                <Sparkles size={24} color="#d97706" strokeWidth={2} />
+              ) : (
+                <Coffee size={24} color="#d97706" strokeWidth={2} />
+              )}
             </View>
             <Text className="text-base font-black text-neutral-900 mb-1 text-center tracking-tight">
-              No Classes Scheduled
+              {selectedDay === 6 || selectedDay === 7
+                ? 'Weekend Recharge'
+                : isToday
+                ? 'No Classes Today'
+                : `Free Day on ${getDayName(selectedDay)}`}
             </Text>
             <Text className="text-xs font-medium text-neutral-500 text-center max-w-xs leading-relaxed">
-              {isToday
-                ? 'Enjoy your free day! There are no classes scheduled for today.'
-                : `There are no classes scheduled on ${getDayName(selectedDay)}.`}
+              {selectedDay === 6 || selectedDay === 7
+                ? 'No classes scheduled for the weekend. Rest up and prepare for the week ahead!'
+                : isToday
+                ? 'Enjoy your free day! There are no classes or makeup sessions scheduled on your calendar today.'
+                : `There are no recurring classes or makeup sessions scheduled on ${getDayName(selectedDay)}.`}
             </Text>
           </View>
         ) : (

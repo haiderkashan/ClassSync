@@ -34,6 +34,7 @@ import {
 } from 'lucide-react-native';
 import { useWorkspaces } from '@/hooks/useWorkspaces';
 import { useAppStore } from '@/store/useAppStore';
+import { DateTimePickerWebSafe } from '@/components/tasks/DateTimePickerWebSafe';
 import {
   TASK_TYPE_METADATA,
   type TaskType,
@@ -74,6 +75,16 @@ export default function CreateTaskModal() {
       params.course_id ??
       (enrolledCourses.length > 0 ? enrolledCourses[0].id : null)
   );
+
+  const [dueDateTime, setDueDateTime] = useState<Date>(() => {
+    if (existingTask?.due_datetime) {
+      return new Date(existingTask.due_datetime);
+    }
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    d.setHours(23, 59, 0, 0);
+    return d;
+  });
 
   const isEditing = !!existingTask;
 
@@ -277,6 +288,12 @@ export default function CreateTaskModal() {
               })}
             </ScrollView>
           </View>
+
+          {/* Due Date & Time Picker (Cross-platform with strict web fallback) */}
+          <DateTimePickerWebSafe
+            value={dueDateTime}
+            onChange={setDueDateTime}
+          />
 
           {/* Description Input Card */}
           <View className="bg-white rounded-3xl p-4 mb-4 border border-neutral-100/90 shadow-2xs">

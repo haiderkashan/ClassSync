@@ -338,6 +338,89 @@ export type Database = {
           },
         ]
       }
+      schedule_overrides: {
+        Row: {
+          base_schedule_id: string | null
+          course_id: string
+          created_at: string
+          created_by: string | null
+          custom_note: string | null
+          delay_minutes: number
+          id: string
+          is_makeup: boolean
+          makeup_end_time: string | null
+          makeup_start_time: string | null
+          new_room: string | null
+          override_date: string
+          section_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          base_schedule_id?: string | null
+          course_id: string
+          created_at?: string
+          created_by?: string | null
+          custom_note?: string | null
+          delay_minutes?: number
+          id?: string
+          is_makeup?: boolean
+          makeup_end_time?: string | null
+          makeup_start_time?: string | null
+          new_room?: string | null
+          override_date: string
+          section_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          base_schedule_id?: string | null
+          course_id?: string
+          created_at?: string
+          created_by?: string | null
+          custom_note?: string | null
+          delay_minutes?: number
+          id?: string
+          is_makeup?: boolean
+          makeup_end_time?: string | null
+          makeup_start_time?: string | null
+          new_room?: string | null
+          override_date?: string
+          section_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "schedule_overrides_base_schedule_id_fkey"
+            columns: ["base_schedule_id"]
+            isOneToOne: false
+            referencedRelation: "base_schedule"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "schedule_overrides_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "schedule_overrides_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "schedule_overrides_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "sections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       section_members: {
         Row: {
           id: string
@@ -522,6 +605,7 @@ export type Database = {
         Args: { p_block_id: string }
         Returns: boolean
       }
+      delete_schedule_override: { Args: { p_id: string }; Returns: boolean }
       is_course_enrolled: { Args: { c_id: string }; Returns: boolean }
       is_section_admin: { Args: { sec_id: string }; Returns: boolean }
       is_section_member: { Args: { sec_id: string }; Returns: boolean }
@@ -557,6 +641,23 @@ export type Database = {
           p_room?: string
           p_session_type?: string
           p_start_time?: string
+        }
+        Returns: string
+      }
+      upsert_schedule_override: {
+        Args: {
+          p_base_schedule_id?: string
+          p_course_id?: string
+          p_custom_note?: string
+          p_delay_minutes?: number
+          p_id?: string
+          p_is_makeup?: boolean
+          p_makeup_end_time?: string
+          p_makeup_start_time?: string
+          p_new_room?: string
+          p_override_date?: string
+          p_section_id?: string
+          p_status?: string
         }
         Returns: string
       }

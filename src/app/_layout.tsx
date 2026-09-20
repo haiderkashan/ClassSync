@@ -101,6 +101,13 @@ function NavigationGuard() {
             headerShown: false,
           }}
         />
+        <Stack.Screen
+          name="tasks/create-task"
+          options={{
+            presentation: 'modal',
+            headerShown: false,
+          }}
+        />
       </Stack>
     </>
   );

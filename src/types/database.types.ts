@@ -41,37 +41,40 @@ export type Database = {
     Tables: {
       academic_tasks: {
         Row: {
-          course_id: string
+          course_id: string | null
           created_at: string
-          created_by: string | null
+          created_by: string
           description: string | null
           due_datetime: string
           id: string
-          is_archived: boolean
+          is_personal: boolean
+          section_id: string
           task_type: string
           title: string
           updated_at: string
         }
         Insert: {
-          course_id: string
+          course_id?: string | null
           created_at?: string
-          created_by?: string | null
+          created_by: string
           description?: string | null
           due_datetime: string
           id?: string
-          is_archived?: boolean
+          is_personal?: boolean
+          section_id: string
           task_type?: string
           title: string
           updated_at?: string
         }
         Update: {
-          course_id?: string
+          course_id?: string | null
           created_at?: string
-          created_by?: string | null
+          created_by?: string
           description?: string | null
           due_datetime?: string
           id?: string
-          is_archived?: boolean
+          is_personal?: boolean
+          section_id?: string
           task_type?: string
           title?: string
           updated_at?: string
@@ -87,6 +90,81 @@ export type Database = {
           {
             foreignKeyName: "academic_tasks_created_by_fkey"
             columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "academic_tasks_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "sections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      attendance_logs: {
+        Row: {
+          attendance_date: string
+          course_id: string
+          created_at: string
+          id: string
+          notes: string | null
+          override_id: string | null
+          schedule_block_id: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          attendance_date: string
+          course_id: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          override_id?: string | null
+          schedule_block_id?: string | null
+          status: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          attendance_date?: string
+          course_id?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          override_id?: string | null
+          schedule_block_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_logs_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_logs_override_id_fkey"
+            columns: ["override_id"]
+            isOneToOne: false
+            referencedRelation: "schedule_overrides"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_logs_schedule_block_id_fkey"
+            columns: ["schedule_block_id"]
+            isOneToOne: false
+            referencedRelation: "base_schedule"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_logs_user_id_fkey"
+            columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -601,6 +679,8 @@ export type Database = {
         Returns: string
       }
       current_user_id: { Args: never; Returns: string }
+      delete_academic_task: { Args: { p_id: string }; Returns: boolean }
+      delete_attendance_log: { Args: { p_id: string }; Returns: boolean }
       delete_base_schedule_block: {
         Args: { p_block_id: string }
         Returns: boolean
@@ -613,10 +693,39 @@ export type Database = {
       join_section_via_code: { Args: { p_join_code: string }; Returns: string }
       leave_course_guest: { Args: { p_course_id: string }; Returns: boolean }
       leave_section: { Args: { p_section_id: string }; Returns: boolean }
+      log_attendance_session: {
+        Args: {
+          p_course_id: string
+          p_date: string
+          p_notes?: string
+          p_override_id?: string
+          p_schedule_block_id?: string
+          p_status: string
+        }
+        Returns: {
+          attendance_date: string
+          course_id: string
+          created_at: string
+          id: string
+          notes: string | null
+          override_id: string | null
+          schedule_block_id: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "attendance_logs"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       remove_section_member: {
         Args: { p_section_id: string; p_target_user_id: string }
         Returns: boolean
       }
+      toggle_task_completion: { Args: { p_task_id: string }; Returns: boolean }
       transfer_section_ownership: {
         Args: { p_new_cr_user_id: string; p_section_id: string }
         Returns: boolean
@@ -636,6 +745,37 @@ export type Database = {
           p_week_a_anchor_date?: string
         }
         Returns: boolean
+      }
+      upsert_academic_task: {
+        Args: {
+          p_course_id?: string
+          p_description?: string
+          p_due_datetime?: string
+          p_id?: string
+          p_is_personal?: boolean
+          p_section_id?: string
+          p_task_type?: string
+          p_title?: string
+        }
+        Returns: {
+          course_id: string | null
+          created_at: string
+          created_by: string
+          description: string | null
+          due_datetime: string
+          id: string
+          is_personal: boolean
+          section_id: string
+          task_type: string
+          title: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "academic_tasks"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       upsert_base_schedule_block: {
         Args: {

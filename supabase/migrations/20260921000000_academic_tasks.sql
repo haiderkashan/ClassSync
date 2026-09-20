@@ -6,8 +6,12 @@
 --              cohort vs. personal task isolation, and indexes.
 -- ============================================================================
 
+-- Drop legacy tables from initial prototype if they exist
+drop table if exists public.user_task_completions cascade;
+drop table if exists public.academic_tasks cascade;
+
 -- 1. ACADEMIC TASKS (Assignments, Quizzes, Projects, Presentations, Administrative)
-create table if not exists public.academic_tasks (
+create table public.academic_tasks (
     id uuid primary key default gen_random_uuid(),
     section_id uuid not null references public.sections(id) on delete cascade,
     course_id uuid references public.courses(id) on delete cascade, -- Nullable for cohort-wide administrative announcements
@@ -139,5 +143,16 @@ using (
     user_id = public.current_user_id()
 );
 
--- Enable Realtime for academic tasks
-alter publication supabase_realtime add table public.academic_tasks;
+-- Enable Realtime for academic tasks safely
+do $$
+begin
+    if not exists (
+        select 1 from pg_publication_tables 
+        where pubname = 'supabase_realtime' 
+          and schemaname = 'public' 
+          and tablename = 'academic_tasks'
+    ) then
+        alter publication supabase_realtime add table public.academic_tasks;
+    end if;
+end;
+$$;

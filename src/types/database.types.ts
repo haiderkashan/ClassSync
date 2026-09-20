@@ -1,4 +1,4 @@
-﻿export type Json =
+export type Json =
   | string
   | number
   | boolean
@@ -316,6 +316,50 @@ export type Database = {
           },
         ]
       }
+      notification_queue: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          id: string
+          payload: Json
+          retry_count: number
+          scheduled_for: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          payload: Json
+          retry_count?: number
+          scheduled_for: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          payload?: Json
+          retry_count?: number
+          scheduled_for?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_queue_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -588,26 +632,82 @@ export type Database = {
           },
         ]
       }
+      user_notification_settings: {
+        Row: {
+          bypass_for_urgent: boolean
+          created_at: string
+          id: string
+          quiet_hours_enabled: boolean
+          quiet_hours_end: string
+          quiet_hours_start: string
+          timezone: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          bypass_for_urgent?: boolean
+          created_at?: string
+          id?: string
+          quiet_hours_enabled?: boolean
+          quiet_hours_end?: string
+          quiet_hours_start?: string
+          timezone?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          bypass_for_urgent?: boolean
+          created_at?: string
+          id?: string
+          quiet_hours_enabled?: boolean
+          quiet_hours_end?: string
+          quiet_hours_start?: string
+          timezone?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_notification_settings_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_push_tokens: {
         Row: {
+          created_at: string
+          device_name: string | null
           expo_push_token: string
           id: string
+          is_active: boolean
+          last_seen_at: string
           platform: string | null
           timezone: string
           updated_at: string
           user_id: string
         }
         Insert: {
+          created_at?: string
+          device_name?: string | null
           expo_push_token: string
           id?: string
+          is_active?: boolean
+          last_seen_at?: string
           platform?: string | null
           timezone?: string
           updated_at?: string
           user_id: string
         }
         Update: {
+          created_at?: string
+          device_name?: string | null
           expo_push_token?: string
           id?: string
+          is_active?: boolean
+          last_seen_at?: string
           platform?: string | null
           timezone?: string
           updated_at?: string
@@ -721,6 +821,32 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      register_push_token: {
+        Args: {
+          p_device_name?: string
+          p_expo_push_token: string
+          p_platform?: string
+          p_timezone?: string
+        }
+        Returns: {
+          created_at: string
+          device_name: string | null
+          expo_push_token: string
+          id: string
+          is_active: boolean
+          last_seen_at: string
+          platform: string | null
+          timezone: string
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "user_push_tokens"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       remove_section_member: {
         Args: { p_section_id: string; p_target_user_id: string }
         Returns: boolean
@@ -730,6 +856,10 @@ export type Database = {
         Args: { p_new_cr_user_id: string; p_section_id: string }
         Returns: boolean
       }
+      unregister_push_token: {
+        Args: { p_expo_push_token: string }
+        Returns: boolean
+      }
       update_member_role: {
         Args: {
           p_new_role: string
@@ -737,6 +867,32 @@ export type Database = {
           p_target_user_id: string
         }
         Returns: boolean
+      }
+      update_notification_settings: {
+        Args: {
+          p_bypass_for_urgent?: boolean
+          p_quiet_hours_enabled?: boolean
+          p_quiet_hours_end?: string
+          p_quiet_hours_start?: string
+          p_timezone?: string
+        }
+        Returns: {
+          bypass_for_urgent: boolean
+          created_at: string
+          id: string
+          quiet_hours_enabled: boolean
+          quiet_hours_end: string
+          quiet_hours_start: string
+          timezone: string
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "user_notification_settings"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       update_section_cycle_settings: {
         Args: {

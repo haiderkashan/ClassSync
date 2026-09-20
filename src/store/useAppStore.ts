@@ -22,6 +22,19 @@ export type ScheduleOverrideRow = Tables<'schedule_overrides'> & {
   course?: Tables<'courses'> | null;
 };
 
+export type AcademicTaskRow = Tables<'academic_tasks'> & {
+  course?: Tables<'courses'> | null;
+  is_completed?: boolean;
+};
+
+export type TaskCompletionRow = Tables<'user_task_completions'>;
+
+export type AttendanceLogRow = Tables<'attendance_logs'> & {
+  course?: Tables<'courses'> | null;
+  schedule_block?: Tables<'base_schedule'> | null;
+  override?: Tables<'schedule_overrides'> | null;
+};
+
 export type WeekParity = 'weekly' | 'biweekly_week_a' | 'biweekly_week_b';
 
 export interface AppState {
@@ -32,6 +45,12 @@ export interface AppState {
   baseSchedules: BaseScheduleRow[];
   overrides: ScheduleOverrideRow[];
   currentParity: WeekParity;
+
+  // Phase 5 Task & Attendance State Slices
+  tasks: AcademicTaskRow[];
+  taskCompletions: string[]; // Set of task IDs completed by the user
+  attendanceLogs: AttendanceLogRow[];
+
   setHydrated: (isHydrated: boolean) => void;
   setActiveSectionId: (id: string | null) => void;
   setActiveSections: (sections: SectionRow[]) => void;
@@ -43,12 +62,23 @@ export interface AppState {
   removeLocalScheduleBlock: (blockId: string) => void;
   upsertLocalOverride: (override: ScheduleOverrideRow) => void;
   removeLocalOverride: (overrideId: string) => void;
+
+  // Phase 5 Actions
+  setTasks: (tasks: AcademicTaskRow[]) => void;
+  upsertLocalTask: (task: AcademicTaskRow) => void;
+  removeLocalTask: (taskId: string) => void;
+  setTaskCompletions: (completionTaskIds: string[]) => void;
+  toggleLocalTaskCompletion: (taskId: string) => void;
+  setAttendanceLogs: (logs: AttendanceLogRow[]) => void;
+  upsertLocalAttendanceLog: (log: AttendanceLogRow) => void;
+  removeLocalAttendanceLog: (logId: string) => void;
+
   reset: () => void;
 }
 
 /**
  * Global application store for fast client state management and offline-first
- * workspace, course, and timetable caching backed by AsyncStorage persistence.
+ * workspace, course, timetable, tasks, and attendance caching backed by AsyncStorage persistence.
  */
 export const useAppStore = create<AppState>()(
   persist(
@@ -60,6 +90,12 @@ export const useAppStore = create<AppState>()(
       baseSchedules: [],
       overrides: [],
       currentParity: 'weekly',
+
+      // Phase 5 Initial State
+      tasks: [],
+      taskCompletions: [],
+      attendanceLogs: [],
+
       setHydrated: (isHydrated) => set({ isHydrated }),
       setActiveSectionId: (activeSectionId) => set({ activeSectionId }),
       setActiveSections: (activeSections) => set({ activeSections }),
@@ -95,6 +131,57 @@ export const useAppStore = create<AppState>()(
         set((state) => ({
           overrides: state.overrides.filter((o) => o.id !== overrideId),
         })),
+
+      // Phase 5 Task & Attendance Store Handlers
+      setTasks: (tasks) => set({ tasks }),
+      upsertLocalTask: (task) =>
+        set((state) => {
+          const index = state.tasks.findIndex((t) => t.id === task.id);
+          if (index >= 0) {
+            const updated = [...state.tasks];
+            updated[index] = { ...updated[index], ...task };
+            return { tasks: updated };
+          }
+          return { tasks: [task, ...state.tasks] };
+        }),
+      removeLocalTask: (taskId) =>
+        set((state) => ({
+          tasks: state.tasks.filter((t) => t.id !== taskId),
+          taskCompletions: state.taskCompletions.filter((id) => id !== taskId),
+        })),
+      setTaskCompletions: (taskCompletions) => set({ taskCompletions }),
+      toggleLocalTaskCompletion: (taskId) =>
+        set((state) => {
+          const exists = state.taskCompletions.includes(taskId);
+          const nextCompletions = exists
+            ? state.taskCompletions.filter((id) => id !== taskId)
+            : [...state.taskCompletions, taskId];
+
+          const nextTasks = state.tasks.map((task) =>
+            task.id === taskId ? { ...task, is_completed: !exists } : task
+          );
+
+          return {
+            taskCompletions: nextCompletions,
+            tasks: nextTasks,
+          };
+        }),
+      setAttendanceLogs: (attendanceLogs) => set({ attendanceLogs }),
+      upsertLocalAttendanceLog: (log) =>
+        set((state) => {
+          const index = state.attendanceLogs.findIndex((l) => l.id === log.id);
+          if (index >= 0) {
+            const updated = [...state.attendanceLogs];
+            updated[index] = { ...updated[index], ...log };
+            return { attendanceLogs: updated };
+          }
+          return { attendanceLogs: [log, ...state.attendanceLogs] };
+        }),
+      removeLocalAttendanceLog: (logId) =>
+        set((state) => ({
+          attendanceLogs: state.attendanceLogs.filter((l) => l.id !== logId),
+        })),
+
       reset: () =>
         set({
           activeSectionId: null,
@@ -103,6 +190,9 @@ export const useAppStore = create<AppState>()(
           baseSchedules: [],
           overrides: [],
           currentParity: 'weekly',
+          tasks: [],
+          taskCompletions: [],
+          attendanceLogs: [],
         }),
     }),
     {
@@ -115,6 +205,9 @@ export const useAppStore = create<AppState>()(
         baseSchedules: state.baseSchedules,
         overrides: state.overrides,
         currentParity: state.currentParity,
+        tasks: state.tasks,
+        taskCompletions: state.taskCompletions,
+        attendanceLogs: state.attendanceLogs,
       }),
       onRehydrateStorage: () => {
         console.log('💾 [Zustand] Hydrating offline workspace, course, and timetable cache from AsyncStorage...');
@@ -123,7 +216,7 @@ export const useAppStore = create<AppState>()(
             console.error('❌ [Zustand] Failed to rehydrate offline storage:', error);
           } else {
             console.log(
-              `💾 [Zustand] Offline workspace hydration completed: ${state?.activeSections.length ?? 0} section(s), ${state?.activeCourses.length ?? 0} course(s), ${state?.baseSchedules.length ?? 0} schedule block(s), ${state?.overrides.length ?? 0} override(s), activeSectionId=${state?.activeSectionId ?? 'none'}`
+              `💾 [Zustand] Offline workspace hydration completed: ${state?.activeSections.length ?? 0} section(s), ${state?.activeCourses.length ?? 0} course(s), ${state?.tasks.length ?? 0} task(s), ${state?.attendanceLogs.length ?? 0} attendance log(s), activeSectionId=${state?.activeSectionId ?? 'none'}`
             );
             state?.setHydrated(true);
           }

@@ -8,19 +8,6 @@ import { Database } from '@/types/database.types';
  */
 const supabaseUrl = env.EXPO_PUBLIC_SUPABASE_URL.replace(/\/rest\/v1\/?$/, '').replace(/\/+$/, '');
 
-export const supabase = createClient<Database>(
-  supabaseUrl,
-  env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
-  {
-    auth: {
-      storage: AsyncStorage,
-      autoRefreshToken: true,
-      persistSession: true,
-      detectSessionInUrl: false,
-    },
-  }
-);
-
 let currentTokenGetter: (() => Promise<string | null>) | null = null;
 
 export const setClerkTokenGetter = (getter: () => Promise<string | null>) => {
@@ -52,6 +39,8 @@ export const clerkSupabaseClient = createClient<Database>(
     },
   }
 );
+
+export const supabase = clerkSupabaseClient;
 
 export const createClerkSupabaseClient = (getToken: () => Promise<string | null>) => {
   setClerkTokenGetter(getToken);

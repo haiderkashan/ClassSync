@@ -30,7 +30,12 @@ export interface UpsertScheduleOverrideInput {
  * Supports both cohort members (via section_id) and guest students (via activeCourses).
  * Implements strict cleanup of Supabase Realtime WebSocket channels to prevent memory leaks.
  */
-export function useScheduleOverrides() {
+export interface UseScheduleOverridesOptions {
+  enableRealtime?: boolean;
+}
+
+export function useScheduleOverrides(options?: UseScheduleOverridesOptions) {
+  const enableRealtime = options?.enableRealtime ?? true;
   const queryClient = useQueryClient();
   const supabase = useSupabase();
   const { activeSection, courses, activeSectionId } = useWorkspaces();
@@ -125,11 +130,17 @@ export function useScheduleOverrides() {
 
   // 2. Realtime WebSocket Subscription with Strict Memory Leak Cleanup
   useEffect(() => {
+    if (!enableRealtime) {
+      return;
+    }
+
     if (!activeSectionId && enrolledCourseIds.length === 0) {
       return;
     }
 
-    const channelName = `realtime:schedule_overrides:${activeSectionId ?? 'guest'}`;
+    // Unique suffix per subscription instance prevents "cannot add callbacks after subscribe()" errors
+    const instanceSuffix = Math.random().toString(36).substring(2, 8);
+    const channelName = `realtime_schedule_overrides_${activeSectionId ?? 'guest'}_${instanceSuffix}`;
 
     const channel = supabase
       .channel(channelName)
@@ -177,6 +188,7 @@ export function useScheduleOverrides() {
       supabase.removeChannel(channel);
     };
   }, [
+    enableRealtime,
     supabase,
     activeSectionId,
     enrolledCourseIds,

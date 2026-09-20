@@ -85,7 +85,7 @@ export default function BroadcastExceptionModal() {
   // Read data from Zustand client store
   const { baseSchedules, overrides, activeCourses } = useAppStore();
   const { upsertOverride, deleteOverride, isUpserting, isDeleting } =
-    useScheduleOverrides();
+    useScheduleOverrides({ enableRealtime: false });
 
   // Lookup the recurring base block from store (if editing an existing recurring block)
   const baseBlock = useMemo(() => {
@@ -104,7 +104,7 @@ export default function BroadcastExceptionModal() {
   );
   const [showDatePicker, setShowDatePicker] = useState<boolean>(false);
   const [datePickerValue, setDatePickerValue] = useState<Date>(() => {
-    if (paramOverrideDate) {
+    if (paramOverrideDate && /^\d{4}-\d{2}-\d{2}$/.test(paramOverrideDate)) {
       const [y, m, d] = paramOverrideDate.split('-').map(Number);
       return new Date(y, m - 1, d);
     }
@@ -129,7 +129,7 @@ export default function BroadcastExceptionModal() {
     if (existingOverride) {
       return (existingOverride.status as ScheduleOverrideStatus) || 'scheduled';
     }
-    return 'delayed';
+    return isMakeup ? 'scheduled' : 'delayed';
   });
 
   const [delayMinutes, setDelayMinutes] = useState<number>(() => {
@@ -152,6 +152,13 @@ export default function BroadcastExceptionModal() {
       (courses.length > 0 ? courses[0].id : '')
     );
   });
+
+  // If courses load asynchronously and makeupCourseId is empty, set default
+  useEffect(() => {
+    if (!makeupCourseId && courses.length > 0) {
+      setMakeupCourseId(courses[0].id);
+    }
+  }, [makeupCourseId, courses]);
 
   // Makeup timing state
   const [makeupStartTime, setMakeupStartTime] = useState<string>(() => {
@@ -384,20 +391,46 @@ export default function BroadcastExceptionModal() {
             </View>
 
             {showDatePicker && (
-              <View className="mt-3 items-center">
-                <DateTimePicker
-                  value={datePickerValue}
-                  mode="date"
-                  display={Platform.OS === 'ios' ? 'inline' : 'default'}
-                  onChange={handleDateChange}
-                />
-                {Platform.OS === 'ios' && (
-                  <Pressable
-                    onPress={() => setShowDatePicker(false)}
-                    className="mt-2 py-1.5 px-4 bg-neutral-900 rounded-full"
-                  >
-                    <Text className="text-xs font-bold text-white">Done</Text>
-                  </Pressable>
+              <View className="mt-3 items-center w-full">
+                {Platform.OS === 'web' ? (
+                  <View className="flex-row items-center gap-2">
+                    <TextInput
+                      value={selectedDate}
+                      onChangeText={(val) => {
+                        setSelectedDate(val);
+                        if (/^\d{4}-\d{2}-\d{2}$/.test(val)) {
+                          const [y, m, d] = val.split('-').map(Number);
+                          setDatePickerValue(new Date(y, m - 1, d));
+                        }
+                      }}
+                      placeholder="YYYY-MM-DD"
+                      placeholderTextColor="#a1a1aa"
+                      className="bg-neutral-50 border border-neutral-300 rounded-2xl px-4 py-2 font-mono text-xs font-bold text-neutral-900"
+                    />
+                    <Pressable
+                      onPress={() => setShowDatePicker(false)}
+                      className="py-2 px-4 bg-neutral-900 rounded-full"
+                    >
+                      <Text className="text-xs font-bold text-white">Done</Text>
+                    </Pressable>
+                  </View>
+                ) : (
+                  <>
+                    <DateTimePicker
+                      value={datePickerValue}
+                      mode="date"
+                      display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                      onChange={handleDateChange}
+                    />
+                    {Platform.OS === 'ios' && (
+                      <Pressable
+                        onPress={() => setShowDatePicker(false)}
+                        className="mt-2 py-1.5 px-4 bg-neutral-900 rounded-full"
+                      >
+                        <Text className="text-xs font-bold text-white">Done</Text>
+                      </Pressable>
+                    )}
+                  </>
                 )}
               </View>
             )}

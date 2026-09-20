@@ -502,14 +502,26 @@ export default function AgendaScreen() {
                     <View className="flex-1 pb-1">
                       <ScheduleBlockCard
                         block={block}
-                        readOnly={true}
+                        readOnly={!isSectionAdmin}
                         isAdmin={isSectionAdmin}
+                        onPress={() => {
+                          if (isSectionAdmin) {
+                            router.push({
+                              pathname: '/schedule/broadcast-exception',
+                              params: {
+                                base_schedule_id: block.is_makeup ? undefined : (block.base_schedule_id || block.id),
+                                course_id: block.course_id,
+                                override_date: selectedDateString,
+                              },
+                            });
+                          }
+                        }}
                         onLongPress={() => {
                           if (isSectionAdmin) {
                             router.push({
                               pathname: '/schedule/broadcast-exception',
                               params: {
-                                base_schedule_id: block.base_schedule_id || block.id,
+                                base_schedule_id: block.is_makeup ? undefined : (block.base_schedule_id || block.id),
                                 course_id: block.course_id,
                                 override_date: selectedDateString,
                               },

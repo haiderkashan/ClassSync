@@ -22,9 +22,9 @@ function FloatingTabBar({ state, descriptors, navigation }: CustomTabBarProps) {
         styles.floatingContainer,
         {
           bottom: bottomInset,
+          pointerEvents: 'box-none',
         },
       ]}
-      pointerEvents="box-none"
     >
       <View style={styles.dock}>
         {state.routes.map((route, index) => {

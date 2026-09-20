@@ -37,10 +37,13 @@ import {
   Layers,
   Trash2,
   Calendar,
+  Calculator,
+  ChevronRight,
 } from 'lucide-react-native';
 import { useWorkspaces } from '@/hooks/useWorkspaces';
 import { useSupabase } from '@/hooks/useSupabase';
 import { useAppStore } from '@/store/useAppStore';
+import { useAttendance } from '@/hooks/useAttendance';
 import { getLocalDateString } from '@/lib/schedule/calendarUtils';
 
 export default function SettingsScreen() {
@@ -52,6 +55,7 @@ export default function SettingsScreen() {
 
   const { sections, courses, activeSection, isLoading: isWorkspaceLoading } = useWorkspaces();
   const { setActiveCourses, setActiveSectionId } = useAppStore();
+  const { overallMetrics, getCourseMetrics } = useAttendance();
 
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [togglingCourseId, setTogglingCourseId] = useState<string | null>(null);
@@ -330,6 +334,110 @@ export default function SettingsScreen() {
               </Text>
             </View>
           </View>
+        </View>
+
+        {/* Attendance & Bunk Calculator Analytics Card (Deficiency 2 Fix) */}
+        <View className="bg-white rounded-3xl p-5 border border-neutral-100/90 shadow-xs mb-4">
+          <View className="flex-row items-center justify-between mb-2.5">
+            <View className="flex-row items-center">
+              <View className="w-8 h-8 rounded-full bg-blue-50 items-center justify-center mr-2.5">
+                <Calculator size={16} color="#2563EB" />
+              </View>
+              <Text className="text-sm font-bold text-neutral-900">
+                Attendance & Bunk Analytics
+              </Text>
+            </View>
+
+            <View
+              className={`px-2.5 py-0.5 rounded-full border ${
+                overallMetrics.isSafe
+                  ? 'bg-emerald-50 border-emerald-200'
+                  : 'bg-rose-50 border-rose-200'
+              }`}
+            >
+              <Text
+                className={`text-[10px] font-black ${
+                  overallMetrics.isSafe ? 'text-emerald-700' : 'text-rose-700'
+                }`}
+              >
+                {overallMetrics.percentage}% Overall
+              </Text>
+            </View>
+          </View>
+
+          <Text className="text-xs text-neutral-500 mb-3.5 leading-relaxed">
+            Track individual course attendance, 75% thresholds, and allowable bunks.
+          </Text>
+
+          {/* Enrolled Courses Quick Gauges */}
+          {courses.length > 0 ? (
+            <View className="space-y-2 mb-3">
+              {courses.map((course) => {
+                const courseMetrics = getCourseMetrics(course.id);
+                return (
+                  <Pressable
+                    key={course.id}
+                    onPress={() =>
+                      router.push({
+                        pathname: '/attendance/course-metrics',
+                        params: { course_id: course.id },
+                      })
+                    }
+                    className="p-3 bg-neutral-50 rounded-2xl border border-neutral-200/60 flex-row items-center justify-between active:bg-neutral-100 transition-all mb-2"
+                  >
+                    <View className="flex-row items-center flex-1 mr-2">
+                      <View
+                        className="w-2.5 h-2.5 rounded-full mr-2.5"
+                        style={{ backgroundColor: course.color_hex || '#3B82F6' }}
+                      />
+                      <View className="flex-1">
+                        <Text className="text-xs font-bold text-neutral-800" numberOfLines={1}>
+                          {course.name}
+                        </Text>
+                        <Text className="text-[10px] text-neutral-400 font-medium">
+                          {courseMetrics.isSafe
+                            ? `${courseMetrics.skipsAllowed} skips allowed`
+                            : `Need ${courseMetrics.recoveryNeeded} recovery classes`}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <View className="flex-row items-center">
+                      <View
+                        className={`px-2 py-0.5 rounded-full mr-1.5 ${
+                          courseMetrics.isSafe ? 'bg-emerald-100' : 'bg-rose-100'
+                        }`}
+                      >
+                        <Text
+                          className={`text-[10px] font-black ${
+                            courseMetrics.isSafe ? 'text-emerald-800' : 'text-rose-800'
+                          }`}
+                        >
+                          {courseMetrics.percentage}%
+                        </Text>
+                      </View>
+                      <ChevronRight size={14} color="#94A3B8" />
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </View>
+          ) : (
+            <Text className="text-xs text-neutral-400 mb-3 italic">
+              Enroll in courses to start tracking attendance and bunk capacity.
+            </Text>
+          )}
+
+          {/* Direct CTA Button */}
+          <Pressable
+            onPress={() => router.push('/attendance/course-metrics')}
+            className="w-full py-2.5 bg-neutral-900 rounded-2xl flex-row items-center justify-center active:bg-neutral-800"
+          >
+            <Text className="text-xs font-bold text-white mr-1.5">
+              Open Full Bunk Calculator
+            </Text>
+            <ChevronRight size={14} color="#FFFFFF" />
+          </Pressable>
         </View>
 
         {/* Section / Cohort Workspace Card */}

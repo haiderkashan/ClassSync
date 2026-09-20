@@ -15,10 +15,12 @@ import {
   Layers,
   Coffee,
   ChevronRight,
+  Radio,
 } from 'lucide-react-native';
 import { useWorkspaces } from '@/hooks/useWorkspaces';
 import { useAppStore } from '@/store/useAppStore';
 import { useBaseSchedule } from '@/hooks/useBaseSchedule';
+import { useScheduleOverrides } from '@/hooks/useScheduleOverrides';
 import { EmptyState } from '@/components/EmptyState';
 import { ScheduleBlockCard } from '@/components/ScheduleBlockCard';
 import { FreePeriodSpacer } from '@/components/FreePeriodSpacer';
@@ -27,6 +29,11 @@ import {
   calculateDurationMinutes,
   formatTime12Hour,
 } from '@/lib/schedule/timeUtils';
+import {
+  compileDailySchedule,
+  type CompiledScheduleItem,
+} from '@/lib/schedule/scheduleCompiler';
+import { getLocalDateString } from '@/lib/schedule/calendarUtils';
 import type { BaseScheduleRow, WeekParity } from '@/store/useAppStore';
 
 const DAYS_OF_WEEK = [
@@ -48,15 +55,15 @@ const PARITY_OPTIONS: { id: WeekParity; label: string }[] = [
 export default function AgendaScreen() {
   const router = useRouter();
   const { sections, activeSection, courses, isLoading, isFetching, refetch } = useWorkspaces();
-  const { setActiveSectionId } = useAppStore();
+  const { setActiveSectionId, baseSchedules, overrides, activeCourses } = useAppStore();
   const {
-    getBlocksForDay,
     isFetching: isScheduleFetching,
     refetch: refetchSchedule,
     isSectionAdmin,
     currentParity,
     setCurrentParity,
   } = useBaseSchedule();
+  const { refetch: refetchOverrides } = useScheduleOverrides();
 
   // Resolve current device day of the week (1=Mon ... 7=Sun)
   const todayDayOfWeek = useMemo(() => {
@@ -65,7 +72,6 @@ export default function AgendaScreen() {
   }, []);
 
   const [selectedDay, setSelectedDay] = useState<number>(todayDayOfWeek);
-  const dayBlocks = getBlocksForDay(selectedDay);
   const isToday = selectedDay === todayDayOfWeek;
 
   // Compute exact dates for the current week (Monday through Sunday)
@@ -81,10 +87,40 @@ export default function AgendaScreen() {
       return {
         ...day,
         dateNumber: d.getDate(),
+        fullDate: d,
         isDeviceToday: todayDayOfWeek === day.id,
       };
     });
   }, [todayDayOfWeek]);
+
+  // Derived calendar date string (YYYY-MM-DD) for currently selected day
+  const selectedDateString = useMemo(() => {
+    const dayObj = weekDates.find((d) => d.id === selectedDay);
+    if (!dayObj) return getLocalDateString(new Date(), activeSection?.timezone || 'UTC');
+    return getLocalDateString(dayObj.fullDate, activeSection?.timezone || 'UTC');
+  }, [selectedDay, weekDates, activeSection?.timezone]);
+
+  // Dynamically compile daily schedule incorporating live status overrides & makeups
+  const dayBlocks = useMemo(() => {
+    return compileDailySchedule({
+      targetDate: selectedDateString,
+      baseSchedules,
+      overrides,
+      activeCourses,
+      targetParity: currentParity,
+      anchorDate: activeSection?.week_a_anchor_date,
+      cycleMode: activeSection?.cycle_mode || 'standard_weekly',
+      includeCancelled: true,
+    });
+  }, [
+    selectedDateString,
+    baseSchedules,
+    overrides,
+    activeCourses,
+    currentParity,
+    activeSection?.week_a_anchor_date,
+    activeSection?.cycle_mode,
+  ]);
 
   // Formatted selected day label, e.g. "Monday, September 19"
   const selectedDayFullHeader = useMemo(() => {
@@ -94,7 +130,7 @@ export default function AgendaScreen() {
   }, [selectedDay, weekDates]);
 
   const handleRefresh = async () => {
-    await Promise.all([refetch(), refetchSchedule()]);
+    await Promise.all([refetch(), refetchSchedule(), refetchOverrides()]);
   };
 
   if (isLoading && sections.length === 0 && courses.length === 0) {
@@ -278,30 +314,47 @@ export default function AgendaScreen() {
           </View>
         </View>
 
-        {/* CR Timetable Management Quick Action Banner */}
+        {/* CR Timetable Management & Exception Broadcast Banner */}
         {isSectionAdmin && (
           <View className="mx-5 mt-4 p-4 bg-white border border-neutral-100/90 rounded-3xl flex-row items-center justify-between shadow-2xs">
-            <View className="flex-row items-center space-x-3 flex-1 mr-3">
+            <View className="flex-row items-center space-x-3 flex-1 mr-2">
               <View className="w-10 h-10 rounded-2xl bg-neutral-900 items-center justify-center shadow-xs">
                 <Calendar size={18} color="#ffffff" strokeWidth={2.2} />
               </View>
               <View className="flex-1 ml-2">
                 <Text className="text-xs font-black text-neutral-900 tracking-tight">
-                  Timetable Builder
+                  Timetable & Live Alerts
                 </Text>
                 <Text className="text-[11px] font-medium text-neutral-500 mt-0.5">
-                  Configure class slots, rooms, and weekly schedule
+                  Long-press any class to broadcast delays or cancellations
                 </Text>
               </View>
             </View>
 
-            <Pressable
-              onPress={() => router.push('/schedule/builder')}
-              className="bg-neutral-900 px-4 py-2.5 rounded-full flex-row items-center active:bg-neutral-800 shadow-2xs"
-            >
-              <Text className="text-xs font-bold text-white">Manage</Text>
-              <ChevronRight size={14} color="#ffffff" className="ml-1" />
-            </Pressable>
+            <View className="flex-row items-center gap-1.5">
+              <Pressable
+                onPress={() =>
+                  router.push({
+                    pathname: '/schedule/broadcast-exception',
+                    params: {
+                      override_date: selectedDateString,
+                    },
+                  })
+                }
+                className="bg-amber-500/15 border border-amber-400/30 px-3 py-2 rounded-full flex-row items-center active:bg-amber-500/25"
+              >
+                <Radio size={12} color="#d97706" />
+                <Text className="text-xs font-bold text-amber-900 ml-1">+ Alert</Text>
+              </Pressable>
+
+              <Pressable
+                onPress={() => router.push('/schedule/builder')}
+                className="bg-neutral-900 px-3.5 py-2 rounded-full flex-row items-center active:bg-neutral-800 shadow-2xs"
+              >
+                <Text className="text-xs font-bold text-white">Builder</Text>
+                <ChevronRight size={14} color="#ffffff" className="ml-0.5" />
+              </Pressable>
+            </View>
           </View>
         )}
 
@@ -316,13 +369,13 @@ export default function AgendaScreen() {
             </Text>
             <Text className="text-xs font-medium text-neutral-500 text-center max-w-xs leading-relaxed">
               {isToday
-                ? 'Enjoy your free day! There are no recurring classes scheduled for today.'
-                : `There are no recurring classes scheduled on ${getDayName(selectedDay)}.`}
+                ? 'Enjoy your free day! There are no classes scheduled for today.'
+                : `There are no classes scheduled on ${getDayName(selectedDay)}.`}
             </Text>
           </View>
         ) : (
           <View className="px-5 pt-4">
-            {dayBlocks.map((block: BaseScheduleRow, index: number) => {
+            {dayBlocks.map((block: CompiledScheduleItem, index: number) => {
               const prevBlock = index > 0 ? dayBlocks[index - 1] : null;
               let freePeriodDuration = 0;
 
@@ -376,6 +429,19 @@ export default function AgendaScreen() {
                       <ScheduleBlockCard
                         block={block}
                         readOnly={true}
+                        isAdmin={isSectionAdmin}
+                        onLongPress={() => {
+                          if (isSectionAdmin) {
+                            router.push({
+                              pathname: '/schedule/broadcast-exception',
+                              params: {
+                                base_schedule_id: block.base_schedule_id || block.id,
+                                course_id: block.course_id,
+                                override_date: selectedDateString,
+                              },
+                            });
+                          }
+                        }}
                       />
                     </View>
                   </View>

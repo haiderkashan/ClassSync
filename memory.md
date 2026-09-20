@@ -1,0 +1,137 @@
+# ClassSync — Agent Memory & Context Persistence (`memory.md`)
+
+> **Note for AI Assistant:** This file is your operational long-term memory. Read this file at the start of any new chat or workflow to restore complete project context without asking the user to repeat past instructions. Keep this file updated as phases progress.
+
+---
+
+## 1. Project Overview & Core Mission
+
+- **App Name:** ClassSync
+- **Target Platforms:** iOS (Apple App Store) & Android (Google Play Store) — **STRICTLY MOBILE-ONLY**. No web dashboard.
+- **Product Vision:** A frictionless, peer-driven (Class Admin / Delegate-orchestrated) academic hub that centralizes university timetables, tracks deadlines, and provides sub-second real-time class status updates (*Scheduled*, *Started*, *Delayed*, *Cancelled*, *Room Moved*, *Instructor Away*) via targeted push notifications.
+- **Scope:** Global. Usable by any student from any degree program/university worldwide (North America, UK, Europe, Australia, South Asia, MENA, etc.).
+- **Repository Location:** `d:\build\ClaasSync`
+- **GitHub Remote:** `https://github.com/haiderkashan/ClassSync.git`
+
+---
+
+## 2. Tech Stack & Infrastructure
+
+- **Mobile Framework:** React Native with Expo (SDK 51/52+), Expo Router (file-based routing v3/v4), TypeScript.
+- **Styling & UI:** NativeWind (Tailwind CSS v3/v4), Lucide React Native icons, React Native Reanimated 3.
+- **State Management & Querying:** Zustand (client state) + TanStack Query v5 (server cache & async state).
+- **Authentication:** Clerk Expo SDK (Native Google Sign-In & Apple Sign-In).
+- **Backend & Database:** Supabase PostgreSQL 15+ with strict Row Level Security (RLS) and Realtime WebSocket Channels.
+- **Auth Bridging:** Custom Clerk JWT template for Supabase; Supabase authenticates Clerk JWT via `auth.jwt() ->> 'sub'`.
+- **Push Notifications:** Expo Push Notifications (`expo-notifications`) dispatched via Supabase Edge Function (`push-dispatcher`) on database triggers.
+- **Local / Offline Storage:** Expo SQLite (relational cache for schedules & tasks) + MMKV (high-speed key-value cache).
+
+---
+
+## 3. Key Architectural Pillars
+
+1. **Deterministic Timetable Engine (Base Loop + Exception Overrides):**
+   - Base weekly schedule is stored once (`base_schedules`) with `day_of_week` (1=Mon ... 7=Sun) and `start_time`/`end_time` in workspace local time.
+   - Any live change creates/updates a date-specific exception row in `schedule_overrides`.
+   - Client merges Base Loop + Overrides + Makeup classes dynamically.
+2. **Atomic "Bundle & Toggle" Subscription Model:**
+   - Cohort Members are enrolled in all cohort courses by default.
+   - Students can toggle off courses they don't take (`course_enrollments.is_muted = true`), which hides them from the agenda and stops push notifications.
+   - Guest Members (retake/irregular students) join *only* a specific course via a `guest_invite_token` link without access to the rest of the cohort.
+3. **Timezone & Calendar Agnosticism:**
+   - Workspaces have an IANA Timezone (e.g., `America/New_York`, `Europe/London`, `Asia/Karachi`).
+   - Supports alternating A/B (odd/even) week cycles common in UK/Europe/Australia.
+4. **Offline-First Resilience:**
+   - Client boots in <100ms reading directly from local SQLite.
+   - Background delta sync via `updated_at > last_synced_at` cursor upon reconnecting.
+5. **Smart Quiet Hours:**
+   - Non-urgent notifications between 10:00 PM and 7:00 AM (in recipient's local time) are deferred until 7:30 AM.
+   - Urgent overrides (same-day cancellation, delay, room move) bypass quiet hours immediately.
+6. **Soft-Clash Conflict Detection Engine (Non-Blocking Overlaps):**
+   - Interval intersection math: $\max(S_1, S_2) < \min(E_1, E_2)$.
+   - Parity-aware: Weekly conflicts with Week A/B; Week A only conflicts with Week A or Weekly; Week A & Week B at the same time never conflict.
+   - Back-to-back classes ($E_1 = S_2$) evaluate strictly to non-colliding ($<$ vs. $\le$).
+   - Soft warning banner in modal allows CRs to intentionally save overlapping blocks (essential for 50-student split lab cohorts).
+7. **Dual-Source Schedule Compilation & Bi-Weekly Parity Filtering:**
+   - Student agenda supports segmented filtering (`Week A`, `Week B`, `All`) driven by Zustand client state.
+   - Dual-source schedule query fetches by `section_id` (cohort students) OR `course_id IN activeCourses` (irregular guest students without a section).
+
+---
+
+## 4. Documentation Registry
+
+| File | Purpose | Git Status |
+| :--- | :--- | :--- |
+| `docs/PRD.md` | Product Requirements Document v2.0 (Global scale, personas, functional & non-functional requirements) | Tracked in Git |
+| `docs/ARCHITECTURE.md` | Complete Supabase DDL, RLS policies, Clerk JWT bridging, offline sync, and real-time push architecture | Tracked in Git |
+| `docs/ROADMAP.md` | 10-phase granular, testable AI-assisted implementation guide | Tracked in Git |
+| `memory.md` | Internal AI long-term context memory (this file) | Tracked in Git |
+| `decision_log.md` | Architectural Decision Records (ADR) explaining why choices were made | Tracked in Git |
+| `study_guide.md` | Comprehensive technical & product study guide for project mastery | Tracked in Git |
+
+---
+
+## 5. Current Progress & Roadmap Tracking
+
+- [x] **Phase -1: Research & Gap Analysis** — Global scale, timezone handling, multi-institution taxonomy, 5 global competitive features.
+- [x] **Phase -0.5: PRD Overhaul** — Rewritten to v2.0 for global Play Store and App Store constraints.
+- [x] **Phase -0.25: Architecture & DDL Specification** — Full PostgreSQL DDL (11 tables), RLS, Clerk JWT integration, offline SQLite architecture.
+- [x] **Phase 0.0: AI Persistence & Memory Setup** — Created `memory.md`, `decision_log.md`, `study_guide.md`, `.gitignore`, and initialized Git remote.
+- [x] **Phase 0.1: Expo Scaffold & Strict TypeScript Setup** — Expo SDK 57 initialized in root, strict TypeScript configured with `@/*` path aliases, Expo Router entry configured, core modules & SDKs (`@clerk/clerk-expo`, `expo-secure-store`, `@supabase/supabase-js`, `@react-native-async-storage/async-storage`) installed and verified.
+- [x] **Phase 0.2: UI Engine & Bundler Pipeline** — NativeWind v4 (`nativewind@^4.2.7`), pinned Tailwind CSS v3.4 (`tailwindcss@^3.4.19`), React Native Reanimated, Gesture Handler, Lucide Icons, `react-native-svg`. Configured `tailwind.config.js` with custom `brand` and `status` palettes, `metro.config.js` (`withNativeWind`), `babel.config.js` (`reanimated` as strictly the last plugin), `global.css`, `nativewind-env.d.ts`, and root `_layout.tsx`.
+- [x] **Phase 0.3: Environment Variables & Security** — Implemented `.env.example`, `.env.development`, secured local files in `.gitignore`, installed `zod`, created `src/lib/env.ts` for strict runtime environment validation, and integrated boot-time validation check in `_layout.tsx` and `index.tsx`. Each task committed and pushed sequentially.
+- [x] **Phase 0.4: Supabase Environment & DDL Migration** — Executed `npx supabase init`, created migration `20260918000000_initial_schema.sql` (10 core tables, RLS policies, Realtime publication), successfully applied migration to linked remote cloud database via `npx supabase db push`, generated end-to-end TypeScript types in `src/types/database.types.ts`, and initialized typed Supabase client with AsyncStorage in `src/lib/supabase.ts`. All 4 tasks committed and pushed sequentially.
+- [x] **Phase 0.5: Root Layout, Providers & Build Verification** — Implemented Clerk SecureStore token cache in `src/lib/tokenCache.ts`, installed `@tanstack/react-query` & `zustand`, created `src/providers/index.tsx` (wrapping `ClerkProvider` and `QueryClientProvider`), created `src/store/useAppStore.ts`, assembled provider tree inside `src/app/_layout.tsx`, and verified full end-to-end hydration in `src/app/index.tsx`. All 5 tasks committed and pushed sequentially.
+  * **PHASE 0 (FOUNDATION & SCAFFOLD) OFFICIALLY CONCLUDED.**
+- [x] **Phase 1.1: WebBrowser & OAuth Redirect Plumbing** — Installed `expo-web-browser` and `expo-linking`, configured `WebBrowser.maybeCompleteAuthSession()` in `_layout.tsx`, and built reusable OAuth hook `useOAuthFlow` with browser warm-up and error recovery in `src/hooks/useOAuthFlow.ts`. Both tasks committed and pushed sequentially.
+- [x] **Phase 1.2: Sign-In UI Screen** — Created `src/app/(auth)/_layout.tsx` (Stack with fade transitions and hidden header) and `src/app/(auth)/sign-in.tsx` featuring brand hero, vector Google and Apple Sign-In buttons, loading states, error handling, and App Store compliant Terms/Privacy disclaimers. Both tasks committed and pushed sequentially.
+- [x] **Phase 1.3: Protected Route Navigation & Redirection Guard** — Scaffolded `src/app/(tabs)/_layout.tsx` (Agenda, Deadlines, Profile tabs with Lucide icons), created placeholder tab routes (`index.tsx`, `tasks.tsx`, `settings.tsx`), and implemented `NavigationGuard` in `src/app/_layout.tsx` for seamless auth/unauth route redirection and splash loading. All 3 tasks committed and pushed sequentially.
+- [x] **Phase 1.4: Authenticated Supabase Hook & Profile Upsert Sync Engine** — Created `useSupabase.ts` (injecting Clerk `supabase` template JWT), built `useSyncProfile.ts` for atomic client-side upsert into `public.profiles`, integrated silent background sync in `(tabs)/_layout.tsx`, and built profile card & sign-out in `(tabs)/settings.tsx`. All 4 tasks committed and pushed sequentially.
+- [x] **Phase 1 QA & End-to-End System Verification** — Resolved Expo SDK 57 peer dependencies (`react-native-worklets`, `expo-auth-session`, `react-dom`, `babel-preset-expo`), cleared Expo config schema, verified 21/21 checks in `npx expo-doctor`, proved bundler integrity via `npx expo export` (3,899 modules bundled with 0 errors), passed `npx tsc --noEmit` with 0 errors, and injected diagnostic terminal logging in `useSyncProfile.ts` and `_layout.tsx`.
+  * **PHASE 1 (AUTHENTICATION & SUPABASE JWT BRIDGE) FULLY VERIFIED & COMPLETE.**
+- [x] **Phase 2.1: Supabase RPCs & Join Logic** — Built cryptographically-secure 6-digit alphanumeric join code generator with ambiguous char exclusion (`codeGenerator.ts`), authored and pushed Supabase migration `20260918000001_enrollment_rpcs.sql` adding `is_active` to `course_enrollments` and atomic `join_section_via_code` PL/pgSQL function, regenerated typed TypeScript definitions (`database.types.ts`), and expanded Zustand `useAppStore` with `activeSections` and `activeCourses` client caching state.
+- [x] **Phase 2.2: Workspace & Enrollment UI** — Built `useWorkspaces` data hook with TanStack Query and Zustand cache sync, created reusable `EmptyState.tsx` on Agenda tab with tactile CTAs, developed `join-section.tsx` modal integrating the atomic RPC, implemented `create-section.tsx` modal enabling Genesis CRs to launch sections with auto-generated codes, and implemented the "Bundle & Toggle" course opt-out UI with optimistic switches in `settings.tsx`. All 4 tasks committed and pushed sequentially.
+- [x] **Phase 2.3: Course Management & Guest Invites** — Authored and pushed migration `20260918000002_course_management.sql` with `join_code` on `courses` and atomic `create_course` and `join_course_guest` RPCs, built `add-course.tsx` modal for CRs with automatic member auto-enrollment, updated `settings.tsx` with CR course management and 1-tap clipboard Guest code copying (`expo-clipboard`), and unified `join-section.tsx` with automatic fallback to join either sections or individual guest courses seamlessly. All 4 tasks committed and pushed sequentially.
+- [x] **Phase 2.4: Workspace Administration & Edge Cases** — Integrated Zustand `persist` middleware backed by `AsyncStorage` for instant offline cold-boot hydration (<50ms), authored and pushed migration `20260918000003_workspace_admin.sql` implementing atomic `leave_section` (with Genesis CR departure safeguards), `leave_course_guest`, `archive_section`, `transfer_section_ownership`, `update_member_role`, and `remove_section_member` RPCs, built `section-members.tsx` modal for CR roster management with Co-Admin delegation (capped at 2) and ownership transfer, and updated Agenda and Settings with multi-section switching pills and confirmation-guarded Leave/Archive/Drop actions. All 4 tasks committed and pushed sequentially.
+  * **PHASE 2 (WORKSPACES & MULTI-TENANT ENROLLMENT) FULLY HARDENED & CONCLUDED.**
+- [x] **Phase 3.1: Database Schema Enhancements & Schedule RPCs** — Authored migration `20260918000004_timetable_builder.sql` adding `instructor`, `color_override`, and custom session types (`break`, `prayer`, `meeting`, `seminar`, `tutorial`, `quiz`). Created atomic PL/pgSQL RPCs `upsert_base_schedule_block`, `clone_day_schedule`, and `delete_base_schedule_block`. Regenerated `database.types.ts`.
+- [x] **Phase 3.2: Conflict Detection Engine & Offline Store** — Built `timeUtils.ts` (conversions, formatting, presets) and `conflictDetector.ts` (interval intersection math $\max(S_1, S_2) < \min(E_1, E_2)$ with parity compatibility matrix). Configured Jest test runner and wrote 14/14 unit tests in `conflictDetector.test.ts`. Expanded Zustand `useAppStore` with persisted `baseSchedules` slice, and created TanStack Query hook `useBaseSchedule.ts`.
+- [x] **Phase 3.3: Visual Day Timeline & Grid UI** — Built `ScheduleBlockCard.tsx` (session badges, color overrides, time formatting, break/prayer styling), `FreePeriodSpacer.tsx` (gap detection and free period pills), and visual Timetable Builder screen (`src/app/schedule/builder.tsx`) with weekday selector, chronological sort, empty state, floating action button (+ Add Class), and Settings entry point.
+- [x] **Phase 3.4: Class Block Form Modal & Quick Time Presets** — Created `src/app/schedule/edit-block.tsx` modal with conditional course picker (hidden/optional for non-course sessions), quick duration presets (`+50m`, `+60m`, `+75m`, `+90m`, `+120m`, `+180m`), room and instructor autocomplete with recent history, frequency toggle (`weekly`, `week_a`, `week_b`), and real-time amber soft-clash warning banner.
+- [x] **Phase 3.5: Power Tools, Student Agenda & Verification** — Implemented `CloneDayModal.tsx` (Source -> Target schedule cloner with empty source validation and overwrite toggle), wired up "Clone Day" header action, updated Student Agenda on `src/app/(tabs)/index.tsx` with read-only schedule timeline and weekday filter pills.
+- [x] **Phase 3.6: Agenda Parity & Guest Views Fix** — Added `currentParity` (`'all' | 'week_a' | 'week_b'`) to Zustand `useAppStore`, added segmented parity selector to Student Agenda, updated `useBaseSchedule.ts` with dual-source querying (`section_id` OR `course_id IN activeCourses`) so irregular guest students view scheduled classes without section enrollment. Created 21 integration tests in `parityAndGuest.test.ts` (Total: **35/35 Jest tests passing**, 0 TypeScript errors).
+  * **PHASE 3 (BASE TIMETABLE BUILDER & CONFLICT DETECTION) FULLY HARDENED & CONCLUDED.**
+- [x] **Interstitial Phase: Global Aesthetic & UI Revamp** — Extracted premium mobile design system inspired by modern soft UI guidelines:
+  1. *Global Safe Area Fix:* Replaced legacy `SafeAreaView` with `react-native-safe-area-context` across all 10 root screens/modals (`edges={['top', 'left', 'right']}` for tab screens and explicit edge management for modals) eliminating mobile status bar / notch overlaps.
+  2. *Design Language Overhaul:* Applied `#F8F9FA` canvas globally, rounded-3xl floating white cards (`border-neutral-100/90`), and rounded-full pill inputs and action buttons across Auth, Settings, and Modals.
+  3. *Floating Pill Bottom Dock:* Built custom `FloatingTabBar` in `(tabs)/_layout.tsx` floating above safe insets (`bg-white/95 backdrop-blur-md rounded-full shadow-lg`), featuring an active dark pill (`bg-neutral-900 text-white`) and subtle minimalist inactive icons.
+  4. *Agenda Timeline & Date Strip UI:* Upgraded `(tabs)/index.tsx` and `ScheduleBlockCard.tsx` with dynamic week date calculation (Day short name vertically stacked over date number, dark active pill indicator), vertical time axis on left with timeline dots/connectors, and floating soft pastel cards (mint green, sky blue, lavender, peach, soft rose) with duration pills and room/instructor badges.
+  5. *Web Bundler Verification:* Verified web bundler compiles cleanly with 0 errors (`npx expo export --platform web`, 3,048 modules packaged).
+- [x] **Phase 4: Client Schedule Compilation, Daily Agenda & Exceptions**
+  - [x] **Phase 4.1: Schedule Overrides Database Schema & Atomic RPCs** — Authored and deployed migrations `20260920000000_schedule_overrides.sql` and `20260920000001_schedule_override_rpcs.sql`. Created `schedule_overrides` with nullable `base_schedule_id` for ad-hoc makeup classes, strict RLS (member/guest read, admin write), enabled `supabase_realtime` publication, implemented atomic PL/pgSQL RPCs `upsert_schedule_override` and `delete_schedule_override`, and regenerated TypeScript database definitions (`database.types.ts`).
+  - [x] **Phase 4.2: Dynamic Calendar Math & Automated A/B Parity Engine** — Built pure DST-immune `calendarUtils.ts` (`getLocalDateString`, `calculateWeekParity`, `getTomorrowDateString`, `getMillisecondsUntilMidnight`, `getDayOfWeekFromDateString`), created 20 unit tests in `calendarUtils.test.ts` (100% pass rate covering leap years, DST transitions, and negative ranges; total **55/55 Jest tests passing**). Deployed migration `20260920000002_section_parity_settings.sql` with `update_section_cycle_settings` RPC, updated Settings UI with Genesis CR Cycle Mode & Week A Anchor Date controls, and built `useLiveDayWatcher` React hook with AppState and midnight rollover timer.
+  - [x] **Phase 4.3: Client Compilation Engine & Realtime Subscription Store** — Implemented pure `scheduleCompiler.ts` merging recurring `base_schedules` with date-specific `schedule_overrides`, parsing status enums ('scheduled', 'started', 'delayed', 'cancelled', 'room_moved', 'instructor_away'), calculating delayed timings, injecting ad-hoc makeups, filtering unselected courses (`is_active === false` / `is_muted === true`), and sorting chronologically. Created 18 comprehensive unit tests in `scheduleCompiler.test.ts` (100% pass rate; total **73/73 Jest tests passing**). Expanded Zustand store with `overrides` slice and built `useScheduleOverrides.ts` with dual-source cohort/guest querying, Realtime WebSocket synchronization, and strict memory leak cleanup (`supabase.removeChannel`).
+  - [x] **Phase 4.4: Exception Broadcast Modal (CR 2-Tap Override Bar)** — Built `broadcast-exception.tsx` presentation modal with lightweight route params (`base_schedule_id`, `course_id`, `override_date`), store hydration, native `@react-native-community/datetimepicker` date context for ad-hoc makeups, 2-tap status buttons (Delayed, Room Moved, Cancelled, Normal), preset delay pills (+10m...+60m), room suggestions, note presets, and revert-to-scheduled logic. Updated `ScheduleBlockCard.tsx` with translucent soft pastel exception badges and wired admin long-press trigger and "+ Alert" quick CTA on Student Agenda (`(tabs)/index.tsx`).
+  - [x] **Phase 4.5: Daily Agenda Revamp (Today/Tomorrow, Status Pills & E2E QA)** — Implemented smart evening recommendation pill ("🌙 Good evening! Tap to preview tomorrow") conditionally rendering past 20:00 local time, differentiated contextual empty states (Weekend Recharge, Free Day, All Classes Cancelled), created 6 end-to-end integration tests in `phase4E2E.test.ts` (total **79/79 Jest tests passing**, 0 TypeScript errors, 3,057 modules bundled cleanly in Metro).
+  - [x] **Phase 4 Hotfix & Realtime Hardening (`8edf975`)** — Fixed fatal Supabase Realtime channel subscription collision (`cannot add postgres_changes callbacks after subscribe()`) by isolating channel topics per subscriber instance and setting `enableRealtime: false` for mutation-only consumers (`broadcast-exception.tsx`). Added web-safe date picker fallback, enabled both single-tap and long-press card interactions for CRs, and eliminated GoTrueClient and `pointerEvents` console warnings.
+  * **PHASE 4 (CLIENT SCHEDULE COMPILATION, DAILY AGENDA & EXCEPTIONS) FULLY VERIFIED & CONCLUDED.**
+- [x] **Phase 5: Academic Tasks, Deadlines & Attendance Tracking**
+  - [x] **Phase 5.1: Database Schemas & Atomic RPCs** — Authored migrations `20260920000003_academic_tasks.sql`, `20260920000004_attendance_logs.sql`, and `20260920000005_tasks_and_attendance_rpcs.sql`. Structured `academic_tasks` with cohort vs personal scope, `task_completions` for individual student checkoffs, and `attendance_logs` with private personal RLS. Solved the PostgreSQL NULL uniqueness trap for ad-hoc makeup sessions via 3 partial unique indexes and atomic `log_attendance_session` PL/pgSQL RPC with explicit null-safe matching. Added atomic `upsert_academic_task`, `delete_academic_task`, and `toggle_task_completion` RPCs. Regenerated typed TypeScript definitions (`database.types.ts`).
+  - [x] **Phase 5.2: Math Engines & Data Layer Store** — Built pure `bunkCalculator.ts` implementing the algebraic Skips Allowed ($S = \lfloor (P - R \cdot T)/R \rfloor$) and Recovery Sessions ($M = \lceil (R \cdot T - P)/(1 - R) \rceil$) formulas with $\epsilon = 10^{-9}$ floating-point precision protection. Built `deadlineCategorizer.ts` with a rolling 7-day window ($now \le due \le now + 7\text{ days}$) preventing arbitrary day-of-week context shifts, and pure sorting for Overdue, Due Soon, Upcoming, and Completed buckets. Implemented 29 unit tests across `bunkCalculator.test.ts` and `deadlineCategorizer.test.ts` (100% pass rate; total **108/108 Jest tests passing**). Expanded Zustand store with `tasks` and `attendance` slices, and created `useAcademicTasks` and `useAttendance` TanStack Query hooks with optimistic cache mutations.
+  - [x] **Phase 5.3: Create Task Modal & Cross-Platform Date Picker** — Built `src/app/tasks/create-task.tsx` modal with title, description, course selector, type pills (Assignment, Quiz, Project, Exam, Other), and scope toggle (Personal vs. Cohort broadcast with CR/Co-Admin role verification). Implemented cross-platform due date picker with native `@react-native-community/datetimepicker` for iOS/Android and a robust HTML5 date/time input fallback for `Platform.OS === 'web'` with quick duration presets (+1 Day, +3 Days, +1 Week, Midnight, End of Day) to eliminate web bundler crashes.
+  - [x] **Phase 5.4: TaskCard Component & Main Tasks Screen Layout** — Extracted reusable `TaskCard.tsx` adhering to the soft, pill-shaped design system with urgency status badges (red overdue, amber due soon, neutral upcoming, emerald completed), course pills, and tactile completion checkboxes. Enforced strict ownership action guards (students can check off cohort tasks, but only creators of personal tasks or CRs/Co-Admins of cohort tasks can edit/delete). Built `src/app/(tabs)/tasks.tsx` with a pinned Master Segmented Toggle ("Pending" vs. "Completed") preventing the infinite scroll archive trap, filter chips, and high-performance `SectionList` virtualization with sticky section headers.
+  - [x] **Phase 5.5: Time-Guarded 1-Tap Attendance & Course Analytics Modal** — Implemented timezone-aware `isAttendanceEligible` to eliminate the "Future Logging Bug" (classes in the future cannot be logged; today's classes unlock only after start time). Integrated 1-tap attendance logger pills (P, A, L) directly onto `ScheduleBlockCard.tsx` on the Student Agenda with instant optimistic store updates and database upsert. Built `course-analytics.tsx` modal displaying overall percentage, total sessions, breakdown counters, session-by-session history toggle, and the Bunk Calculator Card showing exact skips allowed or recovery classes needed. Added "Attendance & Analytics" entry point in Settings tab. Added 4 unit tests in `attendanceTimeGuard.test.ts` (total **112/112 Jest tests passing**, 0 TypeScript errors).
+  * **PHASE 5 (ACADEMIC TASKS, DEADLINES & ATTENDANCE TRACKING) FULLY HARDENED & CONCLUDED.**
+- [ ] **Phase 6: Push Notifications & Smart Quiet Hours** — Expo push token registry, Supabase Edge Function dispatcher.
+- [ ] **Phase 7: Offline-First SQLite Storage & Background Sync** — Local SQLite hydration, delta sync protocol.
+- [ ] **Phase 8: High-Value Global Features** — Presenter QR, Apple/Google Calendar sync, peer verification, syllabus parser.
+- [ ] **Phase 9: App Store & Play Store Hardening** — Store compliance, privacy manifests, EAS build profiles.
+
+---
+
+## 6. Critical Operational Rules for AI Assistants
+
+1. **Mobile-Only Strictness:** Never propose, scaffold, or generate a web dashboard. All admin functions (timetable builder, status overrides, archiving) must live inside the mobile React Native UI.
+2. **Mandatory Documentation Synchronization:** `memory.md`, `decision_log.md`, and `study_guide.md` are primary architectural artifacts tracked in Git. At the conclusion of *every single phase*, they MUST be updated, committed, and pushed autonomously without requiring user prompts or reminders.
+3. **Clerk + Supabase Integration Pattern:** Always use the custom JWT token provider pattern with `auth.jwt() ->> 'sub'` matching Clerk `user_id`. Never bypass Supabase RLS.
+4. **Timezone Integrity:** Never store base timetable times as UTC timestamps. Store `time without time zone` + `day_of_week` paired with the workspace IANA timezone.

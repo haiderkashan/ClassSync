@@ -629,6 +629,14 @@ export type Database = {
         }
         Returns: boolean
       }
+      update_section_cycle_settings: {
+        Args: {
+          p_cycle_mode: string
+          p_section_id: string
+          p_week_a_anchor_date?: string
+        }
+        Returns: boolean
+      }
       upsert_base_schedule_block: {
         Args: {
           p_color_override?: string

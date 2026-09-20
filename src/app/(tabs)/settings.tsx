@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
+  TextInput,
   Image,
   Pressable,
   ActivityIndicator,
@@ -40,6 +41,7 @@ import {
 import { useWorkspaces } from '@/hooks/useWorkspaces';
 import { useSupabase } from '@/hooks/useSupabase';
 import { useAppStore } from '@/store/useAppStore';
+import { getLocalDateString } from '@/lib/schedule/calendarUtils';
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -56,8 +58,54 @@ export default function SettingsScreen() {
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [isPerformingAction, setIsPerformingAction] = useState(false);
 
+  // Cycle Mode & Week A Anchor Date State for Genesis CR
+  const [cycleMode, setCycleMode] = useState<'standard_weekly' | 'alternating_ab'>('standard_weekly');
+  const [weekAAnchorDate, setWeekAAnchorDate] = useState<string>('');
+  const [isSavingCycleSettings, setIsSavingCycleSettings] = useState(false);
+
   const isGenesisCR = activeSection?.role === 'genesis_cr';
   const isCR = isGenesisCR || activeSection?.role === 'co_admin';
+
+  useEffect(() => {
+    if (activeSection) {
+      setCycleMode(
+        (activeSection.cycle_mode as any) === 'alternating_ab'
+          ? 'alternating_ab'
+          : 'standard_weekly'
+      );
+      setWeekAAnchorDate(activeSection.week_a_anchor_date || '');
+    }
+  }, [activeSection?.id, activeSection?.cycle_mode, activeSection?.week_a_anchor_date]);
+
+  const handleSaveCycleSettings = async () => {
+    if (!activeSection?.id) return;
+    if (cycleMode === 'alternating_ab' && !weekAAnchorDate.trim()) {
+      Alert.alert('Required Field', 'Please provide a Week A anchor date (e.g. 2026-08-24).');
+      return;
+    }
+
+    setIsSavingCycleSettings(true);
+    try {
+      const { error } = await supabase.rpc('update_section_cycle_settings', {
+        p_section_id: activeSection.id,
+        p_cycle_mode: cycleMode,
+        p_week_a_anchor_date: cycleMode === 'alternating_ab' ? weekAAnchorDate.trim() : undefined,
+      });
+
+      if (error) {
+        Alert.alert('Error', error.message);
+        return;
+      }
+
+      await queryClient.invalidateQueries({ queryKey: ['workspaces'] });
+      Alert.alert('Success', 'Semester cycle settings updated successfully.');
+    } catch (err: any) {
+      console.error('[Settings] Error updating cycle settings:', err);
+      Alert.alert('Error', err.message || 'Failed to update cycle settings');
+    } finally {
+      setIsSavingCycleSettings(false);
+    }
+  };
 
   const handleSignOut = async () => {
     setIsSigningOut(true);
@@ -428,6 +476,109 @@ export default function SettingsScreen() {
                   </Pressable>
                 )}
               </View>
+
+              {/* Genesis CR Cycle Mode & Semester Anchor Date Settings */}
+              {isGenesisCR && (
+                <View className="mt-4 pt-3.5 border-t border-neutral-200/60">
+                  <View className="flex-row items-center justify-between mb-1.5">
+                    <View className="flex-row items-center">
+                      <Calendar size={13} color="#18181b" />
+                      <Text className="text-xs font-black text-neutral-900 ml-1.5">
+                        Semester Cycle Mode
+                      </Text>
+                    </View>
+                    <View className="bg-neutral-100 px-2.5 py-0.5 rounded-full">
+                      <Text className="text-[10px] font-bold text-neutral-600">
+                        {cycleMode === 'alternating_ab' ? 'Alternating A / B' : 'Standard Weekly'}
+                      </Text>
+                    </View>
+                  </View>
+                  <Text className="text-[11px] font-medium text-neutral-500 mb-3 leading-relaxed">
+                    Choose whether cohort classes repeat weekly or alternate between Week A and Week B.
+                  </Text>
+
+                  {/* Segmented Mode Selector */}
+                  <View className="flex-row p-1 bg-neutral-100/90 rounded-full mb-3">
+                    <Pressable
+                      onPress={() => setCycleMode('standard_weekly')}
+                      className={`flex-1 py-1.5 rounded-full items-center justify-center transition-all ${
+                        cycleMode === 'standard_weekly' ? 'bg-white shadow-2xs' : ''
+                      }`}
+                    >
+                      <Text
+                        className={`text-[11px] font-bold ${
+                          cycleMode === 'standard_weekly' ? 'text-neutral-900' : 'text-neutral-500'
+                        }`}
+                      >
+                        Standard Weekly
+                      </Text>
+                    </Pressable>
+
+                    <Pressable
+                      onPress={() => setCycleMode('alternating_ab')}
+                      className={`flex-1 py-1.5 rounded-full items-center justify-center transition-all ${
+                        cycleMode === 'alternating_ab' ? 'bg-white shadow-2xs' : ''
+                      }`}
+                    >
+                      <Text
+                        className={`text-[11px] font-bold ${
+                          cycleMode === 'alternating_ab' ? 'text-neutral-900' : 'text-neutral-500'
+                        }`}
+                      >
+                        Alternating A / B
+                      </Text>
+                    </Pressable>
+                  </View>
+
+                  {/* Anchor Date Field when Alternating A/B is selected */}
+                  {cycleMode === 'alternating_ab' && (
+                    <View className="bg-white p-3 rounded-2xl border border-neutral-200/70 mb-3 shadow-2xs">
+                      <Text className="text-xs font-black text-neutral-900 mb-0.5">
+                        Week A Anchor Date (YYYY-MM-DD)
+                      </Text>
+                      <Text className="text-[10px] text-neutral-400 mb-2">
+                        Sets Week 1 of the semester to Week A. Parity alternates automatically every week.
+                      </Text>
+
+                      <View className="flex-row items-center gap-2">
+                        <TextInput
+                          value={weekAAnchorDate}
+                          onChangeText={setWeekAAnchorDate}
+                          placeholder="e.g. 2026-08-24"
+                          placeholderTextColor="#a1a1aa"
+                          className="flex-1 bg-neutral-50 border border-neutral-200/80 rounded-xl px-3 py-2 text-xs font-bold text-neutral-900"
+                        />
+                        <Pressable
+                          onPress={() => {
+                            const todayStr = getLocalDateString(new Date(), activeSection?.timezone || 'UTC');
+                            setWeekAAnchorDate(todayStr);
+                          }}
+                          className="bg-neutral-100 border border-neutral-200/80 px-3 py-2 rounded-xl active:bg-neutral-200"
+                        >
+                          <Text className="text-[11px] font-bold text-neutral-700">Set Today</Text>
+                        </Pressable>
+                      </View>
+                    </View>
+                  )}
+
+                  {/* Save Changes CTA Button */}
+                  {(cycleMode !== activeSection.cycle_mode ||
+                    (cycleMode === 'alternating_ab' &&
+                      weekAAnchorDate !== (activeSection.week_a_anchor_date || ''))) && (
+                    <Pressable
+                      onPress={handleSaveCycleSettings}
+                      disabled={isSavingCycleSettings}
+                      className="w-full py-2.5 bg-neutral-900 rounded-full items-center justify-center active:bg-neutral-800 shadow-2xs mb-1"
+                    >
+                      {isSavingCycleSettings ? (
+                        <ActivityIndicator size="small" color="#ffffff" />
+                      ) : (
+                        <Text className="text-xs font-bold text-white">Save Cycle Settings</Text>
+                      )}
+                    </Pressable>
+                  )}
+                </View>
+              )}
             </View>
           ) : (
             <Text className="text-xs text-neutral-500 leading-relaxed mb-3">

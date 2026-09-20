@@ -94,6 +94,13 @@ function NavigationGuard() {
             headerShown: false,
           }}
         />
+        <Stack.Screen
+          name="schedule/broadcast-exception"
+          options={{
+            presentation: 'modal',
+            headerShown: false,
+          }}
+        />
       </Stack>
     </>
   );

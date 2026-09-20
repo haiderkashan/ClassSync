@@ -8,6 +8,8 @@
 // ============================================================================
 
 import { Database } from '../../types/database.types';
+import { getLocalDateString } from '../schedule/calendarUtils';
+import { timeToMinutes } from '../schedule/timeUtils';
 
 export type AttendanceStatus = 'present' | 'absent' | 'late' | 'excused';
 export type AttendanceLog = Database['public']['Tables']['attendance_logs']['Row'];
@@ -242,4 +244,40 @@ export function simulateFutureAttendance(
     projectedAttended,
     projectedPercentage: Math.round(exact * 10) / 10,
   };
+}
+
+export interface AttendanceTimeGuardResult {
+  isEligible: boolean;
+  reason: 'past' | 'ongoing' | 'future_today' | 'future_date';
+}
+
+/**
+ * Validates whether an attendance session is eligible to be logged based on time guards.
+ * Prevents the Future Logging Bug: Students cannot log attendance for upcoming classes.
+ */
+export function isAttendanceEligible(
+  targetDateStr: string,
+  startTimeStr: string,
+  timezone = 'UTC',
+  referenceNow = new Date()
+): AttendanceTimeGuardResult {
+  const todayStr = getLocalDateString(referenceNow, timezone);
+
+  if (targetDateStr < todayStr) {
+    return { isEligible: true, reason: 'past' };
+  }
+
+  if (targetDateStr > todayStr) {
+    return { isEligible: false, reason: 'future_date' };
+  }
+
+  // Same calendar day: check if class start time has arrived or passed
+  const currentMinutes = referenceNow.getHours() * 60 + referenceNow.getMinutes();
+  const startMinutes = timeToMinutes(startTimeStr);
+
+  if (currentMinutes >= startMinutes) {
+    return { isEligible: true, reason: 'ongoing' };
+  }
+
+  return { isEligible: false, reason: 'future_today' };
 }

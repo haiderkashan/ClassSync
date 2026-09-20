@@ -502,6 +502,7 @@ export default function AgendaScreen() {
                     <View className="flex-1 pb-1">
                       <ScheduleBlockCard
                         block={block}
+                        date={selectedDateString}
                         readOnly={!isSectionAdmin}
                         isAdmin={isSectionAdmin}
                         onPress={() => {

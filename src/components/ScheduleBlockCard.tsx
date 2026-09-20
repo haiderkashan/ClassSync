@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, Pressable, StyleSheet, Platform } from 'react-native';
 import {
   Clock,
@@ -13,6 +13,9 @@ import {
   AlertTriangle,
   Sparkles,
   Radio,
+  Check,
+  X,
+  ShieldAlert,
 } from 'lucide-react-native';
 import type { BaseScheduleRow } from '@/store/useAppStore';
 import type { CompiledScheduleItem } from '@/lib/schedule/scheduleCompiler';
@@ -21,6 +24,12 @@ import {
   calculateDurationMinutes,
   formatDuration,
 } from '@/lib/schedule/timeUtils';
+import { useAttendance } from '@/hooks/useAttendance';
+import { useWorkspaces } from '@/hooks/useWorkspaces';
+import {
+  isAttendanceEligible,
+  type AttendanceStatus,
+} from '@/lib/attendance/bunkCalculator';
 
 export interface ScheduleBlockCardProps {
   block: BaseScheduleRow | CompiledScheduleItem | any;
@@ -28,6 +37,7 @@ export interface ScheduleBlockCardProps {
   onLongPress?: (block: any) => void;
   readOnly?: boolean;
   isAdmin?: boolean;
+  date?: string; // Target calendar date 'YYYY-MM-DD'
 }
 
 /**
@@ -119,7 +129,12 @@ export function ScheduleBlockCard({
   onLongPress,
   readOnly = false,
   isAdmin = false,
+  date,
 }: ScheduleBlockCardProps) {
+  const { allLogs, logAttendance, isLogging } = useAttendance();
+  const { activeSection } = useWorkspaces();
+  const timezone = activeSection?.timezone || 'UTC';
+
   const isInteractive = (!readOnly && !!onPress) || !!onLongPress;
   const durationMins = calculateDurationMinutes(block.start_time, block.end_time);
   const durationLabel = formatDuration(durationMins);
@@ -129,6 +144,50 @@ export function ScheduleBlockCard({
     block.session_type === 'break' ||
     block.session_type === 'prayer' ||
     block.session_type === 'meeting';
+
+  const targetDate = block.override_date || date;
+
+  // CRITICAL DEFICIENCY 1 FIX: Time-Guarded Attendance Logging
+  // Only enable attendance logging if class is in the past, or today after class start time has arrived
+  const timeGuard = useMemo(() => {
+    if (!targetDate || isGeneralSession) return null;
+    return isAttendanceEligible(targetDate, block.start_time, timezone);
+  }, [targetDate, isGeneralSession, block.start_time, timezone]);
+
+  // Lookup existing attendance log for this session
+  const sessionLog = useMemo(() => {
+    if (!targetDate || !block.course_id) return null;
+    return allLogs.find((l) => {
+      if (l.course_id !== block.course_id || l.attendance_date !== targetDate) {
+        return false;
+      }
+      if (block.is_makeup && block.override_id) {
+        return l.override_id === block.override_id;
+      }
+      if (block.base_schedule_id) {
+        return l.schedule_block_id === block.base_schedule_id;
+      }
+      return l.schedule_block_id === block.id;
+    });
+  }, [allLogs, block.course_id, block.id, block.base_schedule_id, block.override_id, block.is_makeup, targetDate]);
+
+  const currentStatus: AttendanceStatus | null =
+    (sessionLog?.status as AttendanceStatus) ?? null;
+
+  const handleLogAttendance = async (status: AttendanceStatus) => {
+    if (!targetDate || !block.course_id) return;
+    try {
+      await logAttendance({
+        course_id: block.course_id,
+        attendance_date: targetDate,
+        status,
+        schedule_block_id: block.is_makeup ? null : (block.base_schedule_id || block.id),
+        override_id: block.is_makeup ? (block.override_id || block.id) : null,
+      });
+    } catch (e) {
+      console.error('[ScheduleBlockCard] Failed to log attendance:', e);
+    }
+  };
 
   const generalTitle =
     block.session_type === 'break'
@@ -327,6 +386,123 @@ export function ScheduleBlockCard({
           >
             {customNote}
           </Text>
+        </View>
+      )}
+
+      {/* 1-Tap Attendance Logger (Time-Guarded) */}
+      {targetDate && !isGeneralSession && !isCancelled && (
+        <View className="mt-2.5 pt-2 border-t border-black/5">
+          {timeGuard?.isEligible ? (
+            <View className="flex-row items-center justify-between">
+              <Text className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider">
+                Log Attendance:
+              </Text>
+              <View className="flex-row items-center gap-1.5">
+                {/* Present Pill */}
+                <Pressable
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    handleLogAttendance('present');
+                  }}
+                  disabled={isLogging}
+                  className={`px-2.5 py-1 rounded-full border flex-row items-center transition-all ${
+                    currentStatus === 'present'
+                      ? 'bg-emerald-600 border-emerald-600 shadow-xs'
+                      : 'bg-white/80 border-emerald-300/80 active:bg-emerald-50'
+                  }`}
+                >
+                  <Check
+                    size={11}
+                    color={currentStatus === 'present' ? '#FFFFFF' : '#059669'}
+                    strokeWidth={2.6}
+                  />
+                  <Text
+                    className={`text-[10px] ml-1 ${
+                      currentStatus === 'present'
+                        ? 'font-black text-white'
+                        : 'font-bold text-emerald-800'
+                    }`}
+                  >
+                    Present
+                  </Text>
+                </Pressable>
+
+                {/* Absent Pill */}
+                <Pressable
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    handleLogAttendance('absent');
+                  }}
+                  disabled={isLogging}
+                  className={`px-2.5 py-1 rounded-full border flex-row items-center transition-all ${
+                    currentStatus === 'absent'
+                      ? 'bg-rose-600 border-rose-600 shadow-xs'
+                      : 'bg-white/80 border-rose-300/80 active:bg-rose-50'
+                  }`}
+                >
+                  <X
+                    size={11}
+                    color={currentStatus === 'absent' ? '#FFFFFF' : '#E11D48'}
+                    strokeWidth={2.6}
+                  />
+                  <Text
+                    className={`text-[10px] ml-1 ${
+                      currentStatus === 'absent'
+                        ? 'font-black text-white'
+                        : 'font-bold text-rose-800'
+                    }`}
+                  >
+                    Absent
+                  </Text>
+                </Pressable>
+
+                {/* Excused Pill */}
+                <Pressable
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    handleLogAttendance('excused');
+                  }}
+                  disabled={isLogging}
+                  className={`px-2 py-1 rounded-full border flex-row items-center transition-all ${
+                    currentStatus === 'excused'
+                      ? 'bg-blue-600 border-blue-600 shadow-xs'
+                      : 'bg-white/80 border-blue-300/80 active:bg-blue-50'
+                  }`}
+                >
+                  <ShieldAlert
+                    size={10}
+                    color={currentStatus === 'excused' ? '#FFFFFF' : '#2563EB'}
+                  />
+                  <Text
+                    className={`text-[10px] ml-1 ${
+                      currentStatus === 'excused'
+                        ? 'font-black text-white'
+                        : 'font-bold text-blue-800'
+                    }`}
+                  >
+                    Excused
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+          ) : (
+            /* Time Guard Inactive Indicator */
+            <View className="flex-row items-center justify-between">
+              <View className="flex-row items-center">
+                <Clock size={11} color="#94A3B8" />
+                <Text className="text-[10px] font-medium text-neutral-400 ml-1.5">
+                  {timeGuard?.reason === 'future_today'
+                    ? `Attendance unlocks at ${formatTime12Hour(block.start_time)}`
+                    : 'Upcoming session (future date)'}
+                </Text>
+              </View>
+              <View className="px-2 py-0.5 rounded-full bg-neutral-200/50">
+                <Text className="text-[9px] font-bold text-neutral-500 uppercase tracking-wider">
+                  Locked
+                </Text>
+              </View>
+            </View>
+          )}
         </View>
       )}
     </Pressable>

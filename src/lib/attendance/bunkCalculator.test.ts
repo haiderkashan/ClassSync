@@ -7,6 +7,7 @@ import {
   calculateAttendanceMetrics,
   calculateCourseAttendance,
   simulateFutureAttendance,
+  isAttendanceEligible,
   AttendanceLog,
 } from './bunkCalculator';
 
@@ -244,6 +245,39 @@ describe('bunkCalculator Pure Math Engine', () => {
       expect(simulation.projectedTotal).toBe(12);
       expect(simulation.projectedAttended).toBe(9);
       expect(simulation.projectedPercentage).toBe(75.0);
+    });
+  });
+
+  describe('isAttendanceEligible (Deficiency 1 Time Guard)', () => {
+    const mockNow = new Date('2026-09-20T12:00:00.000Z'); // Noon UTC
+
+    test('allows logging for past calendar dates', () => {
+      const pastResult = isAttendanceEligible('2026-09-19', '14:00:00', 'UTC', mockNow);
+      expect(pastResult.isEligible).toBe(true);
+      expect(pastResult.reason).toBe('past');
+    });
+
+    test('blocks logging for future calendar dates', () => {
+      const futureResult = isAttendanceEligible('2026-09-21', '09:00:00', 'UTC', mockNow);
+      expect(futureResult.isEligible).toBe(false);
+      expect(futureResult.reason).toBe('future_date');
+    });
+
+    test('allows logging for today if class start time has arrived or passed', () => {
+      // Reference mockNow is 12:00 local hours in UTC
+      const classStart = `${mockNow.getHours().toString().padStart(2, '0')}:00:00`;
+      const ongoingResult = isAttendanceEligible('2026-09-20', classStart, 'UTC', mockNow);
+      expect(ongoingResult.isEligible).toBe(true);
+      expect(ongoingResult.reason).toBe('ongoing');
+    });
+
+    test('blocks logging for today if class start time has NOT arrived yet', () => {
+      // Class starts 3 hours after mockNow
+      const futureHour = (mockNow.getHours() + 3) % 24;
+      const futureClassStart = `${futureHour.toString().padStart(2, '0')}:00:00`;
+      const futureTodayResult = isAttendanceEligible('2026-09-20', futureClassStart, 'UTC', mockNow);
+      expect(futureTodayResult.isEligible).toBe(false);
+      expect(futureTodayResult.reason).toBe('future_today');
     });
   });
 });

@@ -12,31 +12,6 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       academic_tasks: {
@@ -632,6 +607,58 @@ export type Database = {
           },
         ]
       }
+      sync_tombstones: {
+        Row: {
+          course_id: string | null
+          deleted_at: string
+          entity_type: string
+          id: string
+          record_id: string
+          section_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          course_id?: string | null
+          deleted_at?: string
+          entity_type: string
+          id?: string
+          record_id: string
+          section_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          course_id?: string | null
+          deleted_at?: string
+          entity_type?: string
+          id?: string
+          record_id?: string
+          section_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sync_tombstones_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sync_tombstones_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "sections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sync_tombstones_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_notification_settings: {
         Row: {
           bypass_for_urgent: boolean
@@ -1094,9 +1121,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {},
   },

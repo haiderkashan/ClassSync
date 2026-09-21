@@ -2,7 +2,7 @@
 // Handles incoming database webhooks, evaluates Quiet Hours,
 // queues non-urgent alerts in PostgreSQL, and dispatches batched push notifications to Expo.
 
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from 'npm:@supabase/supabase-js';
 
 declare const Deno: any;
 

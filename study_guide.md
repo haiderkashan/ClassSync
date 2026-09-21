@@ -654,3 +654,183 @@ Because $\epsilon = 10^{-9}$ is several orders of magnitude smaller than any dis
 | **Zero Attended** | $P = 0, T > 0$ | $C = 0\%$, $S = 0$, $M = \lceil (R \cdot T)/(1 - R) \rceil$ |
 | **Exact Threshold** | $P/T = R$ | $C = R \times 100\%$, status: `warning`, $S = 0, M = 0$ |
 | **Impossible Target** | $R \ge 1.0 \land A > 0$ | $M = \infty$ (Cannot recover to 100% if missed any class) |
+
+---
+
+## Chapter 8: Push Notification Architecture & Smart Quiet Hours
+
+### 8.1 The Mobile Push Notification Pipeline
+Push notifications in cross-platform mobile development traverse a multi-tier pipeline from backend database events to the physical device screen:
+
+```mermaid
+sequenceDiagram
+    participant DB as PostgreSQL (schedule_overrides / tasks)
+    participant EF as Supabase Edge Function (push-dispatcher)
+    participant Expo as Expo Push Service (exp.host)
+    participant APNS as Apple APNs / Google FCM
+    participant Phone as Student Device (iOS / Android)
+
+    DB->>EF: Webhook POST (Row Insert/Update Payload)
+    EF->>DB: Query recipient push tokens & quiet hours settings
+    EF->>EF: Evaluate Urgency Matrix & Midnight-Spanning Quiet Hours
+    alt Quiet Hours Active & Not Urgent
+        EF->>DB: Insert into notification_queue (scheduled_for 07:00 AM)
+    else Immediate Delivery (Urgent or Awake)
+        EF->>Expo: POST /--/api/v2/push/send (Chunked <= 100)
+        Expo->>APNS: Forward to Native Push Gateway
+        APNS->>Phone: Deliver Encrypted Banner / Sound
+        Phone->>Phone: Deep Link via useNotificationRouting
+    end
+```
+
+1. **Expo Push Service Abstraction:** Rather than managing dual APNs certificates (Apple) and FCM service account keys (Google) on the backend, ClassSync dispatches standard JSON payloads to Expo's Push Gateway (`https://exp.host/--/api/v2/push/send`). Expo securely abstracts device routing and protocol differences.
+2. **Push Tickets vs. Push Receipts:** When the dispatcher POSTs to Expo, Expo returns an array of *tickets* acknowledging receipt of the job. If a device token is expired or invalid (`DeviceNotRegistered`), Expo returns an error status in the ticket, allowing the backend to clean up dead tokens automatically.
+
+---
+
+### 8.2 Device Token Registry & Atomic Reassignment
+A university student may own an iPhone and an iPad, or sign in on a peer's device to check a deadline. Managing device tokens requires strict data hygiene:
+
+- **Schema Design:**
+  ```sql
+  CREATE TABLE public.user_push_tokens (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      user_id TEXT NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+      expo_push_token TEXT NOT NULL UNIQUE,
+      device_name TEXT,
+      platform TEXT NOT NULL CHECK (platform IN ('ios', 'android', 'web')),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc', now()),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc', now())
+  );
+  ```
+- **The Device Handover Race:**
+  If Student A logs out and Student B logs in on the same phone, the device's hardware-generated `expo_push_token` remains identical. If the backend fails to reassign ownership, Student B receives Student A's class cancellations.
+  ClassSync solves this via an atomic PL/pgSQL RPC:
+  ```sql
+  CREATE OR REPLACE FUNCTION public.register_push_token(
+      p_user_id TEXT,
+      p_expo_push_token TEXT,
+      p_device_name TEXT DEFAULT NULL,
+      p_platform TEXT DEFAULT 'ios'
+  ) RETURNS VOID AS $$
+  BEGIN
+      -- Step 1: Invalidate any previous user associated with this physical hardware token
+      DELETE FROM public.user_push_tokens
+      WHERE expo_push_token = p_expo_push_token AND user_id != p_user_id;
+
+      -- Step 2: Upsert current user device association
+      INSERT INTO public.user_push_tokens (user_id, expo_push_token, device_name, platform, updated_at)
+      VALUES (p_user_id, p_expo_push_token, p_device_name, p_platform, timezone('utc', now()))
+      ON CONFLICT (expo_push_token)
+      DO UPDATE SET
+          user_id = EXCLUDED.user_id,
+          device_name = EXCLUDED.device_name,
+          platform = EXCLUDED.platform,
+          updated_at = EXCLUDED.updated_at;
+  END;
+  $$ LANGUAGE plpgsql SECURITY DEFINER;
+  ```
+
+---
+
+### 8.3 The Stateless Serverless Trap & Persistent Queue Architecture
+A major pitfall in serverless architectures is attempting to delay or hold state across hours inside an Edge Function (e.g., using `setTimeout` or sleep loops until 07:00 AM).
+
+- **Why Serverless Sleep Fails:**
+  - Supabase Edge Functions (Deno containers) have a maximum execution timeout (typically 150 seconds).
+  - Prolonged sleep calls consume CPU/memory quotas and are abruptly terminated by the orchestrator, permanently losing deferred notifications.
+- **The Solution: PostgreSQL `notification_queue` & `pg_cron`:**
+  - Deferred alerts are inserted into `notification_queue` with status `'pending'` and an explicit `scheduled_for` timestamp.
+  - A scheduled `pg_cron` worker executes every 15 minutes:
+    ```sql
+    SELECT cron.schedule('process-notification-queue-every-15m', '*/15 * * * *', 'SELECT public.process_notification_queue();');
+    ```
+- **High-Concurrency Queue Claiming (`FOR UPDATE SKIP LOCKED`):**
+  To prevent double-delivery when multiple cron workers or background threads run concurrently:
+  ```sql
+  WITH claimable AS (
+      SELECT id FROM public.notification_queue
+      WHERE status = 'pending'
+        AND scheduled_for <= timezone('utc', now())
+        AND attempts < max_attempts
+      ORDER BY priority = 'urgent' DESC, scheduled_for ASC
+      LIMIT p_batch_size
+      FOR UPDATE SKIP LOCKED
+  )
+  UPDATE public.notification_queue
+  SET status = 'processing',
+      attempts = attempts + 1,
+      updated_at = timezone('utc', now())
+  WHERE id IN (SELECT id FROM claimable)
+  RETURNING *;
+  ```
+  `FOR UPDATE SKIP LOCKED` instructs PostgreSQL to lock selected rows and instruct any concurrent transaction to skip them entirely rather than waiting, eliminating lock contention.
+
+---
+
+### 8.4 Mathematical Derivation: Midnight-Spanning Quiet Hours Interval
+Quiet hours are configured by users as a Start Time ($S$) and End Time ($E$) in $HH:MM$ format (e.g., 22:00 to 07:00). A current wall-clock time is $T$.
+
+#### Minute-from-Midnight Projection:
+To avoid floating-point errors and date-parsing overhead, all times are converted to integer minutes elapsed since midnight:
+$$M(H, M_{\text{min}}) = H \cdot 60 + M_{\text{min}}, \quad M \in [0, 1439]$$
+
+#### The Interval Topology Dilemma:
+On a 24-hour circular topology ($S^1$), an interval can either lie within a single calendar day ($S \le E$) or span across the midnight discontinuity ($S > E$).
+
+1. **Standard Same-Day Interval ($S \le E$):**
+   - Example: 13:00 to 17:00 (Afternoon study quiet hours).
+   - $T$ falls inside the interval if and only if:
+     $$S \le T < E$$
+
+2. **Midnight-Spanning Interval ($S > E$):**
+   - Example: 22:00 ($S = 1320$) to 07:00 ($E = 420$).
+   - The interval is the union of two disjoint linear rays on $[0, 1440)$:
+     - Evening ray: $[S, 1440) \implies T \ge S$
+     - Morning ray: $[0, E) \implies T < E$
+   - Disjunction condition:
+     $$T \ge S \lor T < E$$
+
+#### Complete Characteristic Function:
+$$\chi_{\text{quiet}}(T, S, E) = \begin{cases}
+S \le T < E & \text{if } S \le E \\
+T \ge S \lor T < E & \text{if } S > E
+\end{cases}$$
+
+This formulation guarantees:
+- Sub-microsecond evaluation ($O(1)$ integer comparisons).
+- Exact boundary handling: at $T = S$ (22:00:00), function evaluates to `true`; at $T = E$ (07:00:00), function evaluates to `false`.
+
+---
+
+### 8.5 The Urgency Evaluation Matrix
+Not all academic notifications carry equal weight. When a student's quiet hours are active, ClassSync evaluates whether the alert qualifies as an *Urgent Override*:
+
+| Event Type | Priority | Bypasses Quiet Hours? | Rationale |
+| :--- | :--- | :--- | :--- |
+| **Class Cancelled** | Urgent | **YES** (if user allows) | Prevents student from waking up early and commuting to campus for a cancelled lecture. |
+| **Class Delayed** | Urgent | **YES** (if user allows) | Informs student immediately so they can adjust transit or morning routine. |
+| **Room Moved** | Urgent | **YES** (if user allows) | Critical for students already on campus or walking between buildings. |
+| **Instructor Away** | Normal | **NO** (Deferred to 07:00) | Informational note; does not alter immediate physical class attendance. |
+| **Class Started** | Low | **NO** (Deferred to 07:00) | Routine status marker. |
+| **Academic Tasks** | Normal | **NO** (Deferred to 07:00) | Deadlines are days ahead; late-night homework announcements disturb sleep. |
+
+---
+
+### 8.6 Client Deep Linking & Response Lifecycle
+When a user taps a push notification on their physical device lockscreen or notification tray:
+
+1. **Cold-Boot Notification Launch:** The operating system launches the application from a killed state. `Notifications.getLastNotificationResponseAsync()` detects the cold-boot push response and extracts the payload.
+2. **Foreground/Background Response Listener:** `Notifications.addNotificationResponseReceivedListener` receives events when the app is already loaded in memory.
+3. **Deterministic Route Dispatcher (`useNotificationRouting`):**
+   ```typescript
+   const url = response.notification.request.content.data?.url;
+   if (url && typeof url === 'string') {
+       router.push(url as any);
+   } else {
+       // Context-aware fallback
+       router.push('/(tabs)');
+   }
+   ```
+4. **Web Guard Isolation:** Because browsers lack APNs/FCM listener APIs, all hooks and service calls check `Platform.OS === 'web'` to return early, preserving 100% development and testing compatibility.
+

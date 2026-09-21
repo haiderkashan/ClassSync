@@ -545,3 +545,82 @@ This document records the architectural and product decisions made during the de
 - **Why This Decision is Best:**
   - **Prevents Corrupt Attendance Data:** Students cannot accidentally or prematurely log sessions before class starts.
   - **Clear User Intent:** Replacing logger buttons with an "Unlocks at HH:MM" badge provides immediate cognitive clarity without jarring error alerts.
+
+---
+
+## ADR-033: Symmetrical Midnight-Spanning Formula for Quiet Hours Evaluation
+
+- **Date:** 2026-09-20
+- **Status:** Accepted
+- **Context:** Students configure do-not-disturb Quiet Hours that typically cross midnight (e.g., 22:00 to 07:00). A naive linear comparison $S \le T < E$ fails when $S > E$ because 23:00 is greater than 22:00 but NOT less than 07:00, causing night-time notifications to bypass quiet hours erroneously.
+- **Alternatives Considered:**
+  1. *Full Date Object Conversion with Date Manipulation:* Instantiate full JavaScript `Date` objects and add 1 day to the end time if $S > E$. (Rejected: slow, timezone-sensitive, and prone to edge-case bugs when the current time crosses midnight while evaluating).
+  2. *Server-Side SQL Time Comparisons Only:* Offload time comparison to PostgreSQL `time without time zone`. (Rejected: cannot evaluate client-side before queuing or in edge functions without database round-trips).
+  3. *Pure Symmetrical Interval Disjunction Formula:*
+     - Convert all times to minutes from midnight: $M = H \times 60 + M_{\text{minute}}$.
+     - If $S \le E$ (same-day interval, e.g. 13:00 to 17:00): $S \le T < E$.
+     - If $S > E$ (midnight-spanning interval, e.g. 22:00 to 07:00): $T \ge S \lor T < E$.
+- **Decision:** Implement the pure symmetrical interval disjunction formula in `src/lib/notifications/quietHoursEvaluator.ts`.
+- **Why This Decision is Best:**
+  - **Deterministic $O(1)$ Execution:** Evaluates in sub-microseconds with zero memory allocation or timezone object construction.
+  - **Flawless Boundary Handling:** Correctly handles 22:00 (exact start: quiet), 06:59 (just before end: quiet), and 07:00 (exact end: awake).
+  - **Zero External Dependencies:** Can run identically in React Native client, Supabase Deno Edge Function, or Node/Jest test runner.
+
+---
+
+## ADR-034: PostgreSQL `notification_queue` & `pg_cron` Worker vs. Stateless Edge Function Sleep
+
+- **Date:** 2026-09-20
+- **Status:** Accepted
+- **Context:** When a non-urgent push notification is blocked because the recipient is currently in their Quiet Hours (e.g. at 02:00 AM), the alert must be held and delivered once their quiet hours expire (e.g. at 07:00 AM).
+- **Alternatives Considered:**
+  1. *Stateless Edge Function Sleep/Delay:* Keep the Deno Edge Function alive with `setTimeout` or `sleep` until 07:00 AM. (STRICTLY REJECTED: Supabase Edge Functions are serverless micro-containers with a maximum wall-clock execution limit of 150 seconds. Sleeping for hours causes immediate worker termination, crash, and permanent message loss).
+  2. *Redis / RabbitMQ External Queue:* Provision and pay for an external managed queue broker. (Rejected: unnecessary operational complexity and infrastructure overhead for early-stage university app).
+  3. *PostgreSQL `notification_queue` with `pg_cron` & `FOR UPDATE SKIP LOCKED`:*
+     - If a recipient is in quiet hours, the dispatcher inserts the payload into a persistent `notification_queue` table with status `'pending'` and calculated `scheduled_for` timestamp.
+     - A lightweight `pg_cron` worker runs every 15 minutes, calling an atomic `process_notification_queue()` function that claims pending batches with `FOR UPDATE SKIP LOCKED` and sends them via `net.http_post` or Edge Function webhook.
+- **Decision:** Adopt the PostgreSQL `notification_queue` table with `pg_cron` and `FOR UPDATE SKIP LOCKED`.
+- **Why This Decision is Best:**
+  - **Zero Message Loss:** All deferred notifications are persisted durably in ACID-compliant PostgreSQL; serverless restarts or cold boots cannot drop alerts.
+  - **Race Condition Immunity:** `FOR UPDATE SKIP LOCKED` guarantees that concurrent cron jobs or worker instances never process or dispatch duplicate push notifications to the same student.
+  - **Zero External Infrastructure Cost:** Runs entirely inside existing Supabase PostgreSQL instance.
+
+---
+
+## ADR-035: Strict Web-Safe Guard Architecture for Native Push Notifications
+
+- **Date:** 2026-09-20
+- **Status:** Accepted
+- **Context:** ClassSync utilizes Expo Web (`localhost:8081`) for rapid UI prototyping, automated browser testing, and cross-platform verification, while targeting native iOS (APNs) and Android (FCM). Calling `expo-notifications` or `expo-device` methods unconditionally on web causes missing native module errors, DOM reference exceptions, or unhandled promise rejections.
+- **Alternatives Considered:**
+  1. *Platform File Extensions (`.web.ts` vs `.native.ts`):* Duplicate entire service files for web and native. (Rejected: high maintenance burden and risk of code drift across platforms).
+  2. *Web Push (Service Workers):* Implement full Web Push Notification API. (Rejected: ClassSync is strictly a mobile-first app; web is solely a development and diagnostic tool).
+  3. *Strict `Platform.OS === 'web'` Early Returns in Shared Services:*
+     - In `tokenService.ts`: Check `Platform.OS === 'web'` and return `null` immediately.
+     - In `useNotificationRouting.ts`: Return early without registering `addNotificationResponseReceivedListener` or calling `getLastNotificationResponseAsync`.
+     - In `QuietHoursModal.tsx`: Render standard HTML5 `<input type="time">` inputs on web while using native datetime pickers on iOS/Android.
+- **Decision:** Enforce strict `Platform.OS === 'web'` guards at the entry point of all notification services and UI pickers.
+- **Why This Decision is Best:**
+  - **Zero Web Bundler Crashes:** The web bundler compiles and runs cleanly with 0 console errors.
+  - **Single Source of Truth:** Core logic and UI components remain in single shared files without platform bifurcation.
+  - **Seamless Native Execution:** Native devices continue to invoke authentic APNs/FCM token registration and lockscreen banners.
+
+---
+
+## ADR-036: Atomic Device Token Ownership Transfer on Device Handover
+
+- **Date:** 2026-09-20
+- **Status:** Accepted
+- **Context:** In student environments, devices are frequently shared, handed over, or a student signs into their account on a friend's phone. An Expo push token uniquely identifies a physical device installation. If User A logs out and User B logs in on the same device without token reassignment, User B's device will continue receiving private timetable cancellations and academic notifications intended for User A.
+- **Alternatives Considered:**
+  1. *Client-side Delete followed by Insert:* Perform two sequential Supabase queries. (Rejected: network disconnect between delete and insert can leave the device in a broken unassigned state).
+  2. *Ignore Device Collisions:* Allow multiple users to share the same push token. (STRICTLY REJECTED: violates student privacy and FERPA compliance).
+  3. *Atomic PL/pgSQL RPC with Reassignment (`register_push_token`):*
+     - Execute `DELETE FROM user_push_tokens WHERE expo_push_token = p_expo_push_token AND user_id != p_user_id;`
+     - Perform `INSERT INTO user_push_tokens (user_id, expo_push_token, device_name, platform) VALUES (...) ON CONFLICT (expo_push_token) DO UPDATE SET ...;`
+- **Decision:** Implement atomic token reassignment via `register_push_token` PL/pgSQL function.
+- **Why This Decision is Best:**
+  - **100% Student Privacy Protection:** A physical device is guaranteed to receive notifications *only* for the currently active authenticated user.
+  - **Automatic Multi-Device Support:** A single student can register multiple devices (iPhone and iPad), as the unique constraint is on `expo_push_token`, not `user_id`.
+  - **Instant Clean Handover:** Switching users on the same phone cleans up the previous association in a single atomic transaction.
+

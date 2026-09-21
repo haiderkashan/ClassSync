@@ -667,5 +667,32 @@ This document records the architectural and product decisions made during the de
   - **Zero Navigation Race Conditions:** No screen attempts to navigate until Clerk has resolved session tokens from SecureStore.
   - **Smooth Branded Boot:** Native splash screen (`expo-splash-screen`) seamlessly bridges into the application without layout flicker or unmounted tree errors.
 
+---
+
+## ADR-039: Root Layout ErrorBoundary, Native Splash Screen Auto-Dismiss Guard & Worklet Render Safety
+
+- **Date:** 2026-09-21
+- **Status:** Accepted
+- **Context:** Students reported intermittent lockouts where tapping buttons (specifically "Tuesday" on the Agenda screen) caused the app to reset and lock indefinitely on the Expo Go native splash screen (`assets/icon.png` with "ClassSync" branding), rendering all touch interactions unresponsive. Root-cause investigation revealed:
+  1. `SplashScreen.preventAutoHideAsync()` in `_layout.tsx` was never dismissed if an uncaught rendering error occurred, because Expo Router had no root `ErrorBoundary`.
+  2. In React 19 / Reanimated 4.5, NativeWind `transition-all` on interactive Pressables (the 7-day strip, Parity switcher, Section switcher) combined with invalid color classes (`border-neutral-150/90`) triggered concurrent shared value mutations during component render (`[Reanimated] Writing to 'value' during component render`), crashing the UI worklet thread.
+  3. `FloatingTabBar` placed `pointerEvents: 'box-none'` inside `style` rather than passing it as a direct native prop to `<View>`.
+  4. Day calculations in `weekDates` lacked noon-anchoring, exposing date resolution to day-boundary drift when converting between local device time and UTC.
+- **Alternatives Considered:**
+  1. *Rely on Expo Router default error screen:* Rejected. Default error screen does not call `SplashScreen.hideAsync()`, leaving the native splash screen locked over the UI hierarchy.
+  2. *Keep Reanimated CSS transitions:* Rejected. React 19's concurrent scheduler strictly forbids shared value mutation during render, causing fatal worklet crashes.
+  3. *Comprehensive Multi-Layered Stability Fix:*
+     - Export custom `ErrorBoundary` in `src/app/_layout.tsx` that calls `SplashScreen.hideAsync()` on mount and renders an interactive "Try Again" recovery card.
+     - Add an unconditional fallback timer (2,500ms) in `RootLayout` guaranteeing `SplashScreen.hideAsync()` is invoked even if auth rehydration stalls.
+     - Strip `transition-all` and replace non-existent `border-neutral-150/90` with standard Tailwind `border-neutral-200` across `index.tsx` and `builder.tsx`.
+     - Anchor `weekDates` computations to 12:00:00 (Noon).
+     - Pass `pointerEvents="box-none"` as a native JSX prop in `FloatingTabBar`.
+- **Decision:** Adopt the Multi-Layered Stability architecture across `_layout.tsx`, `index.tsx`, `builder.tsx`, and `scheduleCompiler.ts`.
+- **Why This Decision is Best:**
+  - **Zero Splash Screen Traps:** Native splash screen is guaranteed to hide even in worst-case error or network latency conditions.
+  - **100% Worklet Thread Stability:** Eliminates all Reanimated render-phase mutation warnings in React 19.
+  - **Timezone-Immune Calendar Selection:** Selecting any day across all 7 days of the week consistently compiles and displays the correct date and schedule.
+
+
 
 

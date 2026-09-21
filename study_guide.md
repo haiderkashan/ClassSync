@@ -892,4 +892,45 @@ export default function RootLayout() {
 3. **Headless Guard (`NavigationGuard`):** Returns `null` and operates purely through lifecycle `useEffect` hooks, managing route protection and notification routing without interfering with JSX rendering.
 4. **Guarded Root Index:** `src/app/index.tsx` reads `isLoaded` and `isSignedIn` directly, returning `null` while loading and executing a single, definitive `<Redirect>` only after Clerk has restored credentials from SecureStore.
 
+---
+
+## 20. Expo Go Native Splash Lockout Prevention & Worklet Thread Safety in React 19
+
+### 20.1 Anatomy of the Native Splash Screen Trap
+
+In Expo applications, calling `SplashScreen.preventAutoHideAsync()` instructs the native iOS/Android runtime not to dismiss the native splash screen until `SplashScreen.hideAsync()` is explicitly invoked from JavaScript.
+
+#### The Failure Mechanism:
+1. **Uncaught Error during Render:** If a child component throws an uncaught JavaScript error and there is no `ErrorBoundary` exported from `src/app/_layout.tsx`, React unmounts the component tree.
+2. **Crash-Reload Loop:** In development mode (Expo Go), an unhandled exception causes the native runtime to restart the JS bundle.
+3. **The Lockout:** Upon re-evaluation of `_layout.tsx`, `SplashScreen.preventAutoHideAsync()` executes again. If the re-rendered component crashes again or if Clerk session resolution stalls, `SplashScreen.hideAsync()` is never reached. The native splash screen stays permanently active over the window, intercepting all touch events.
+
+### 20.2 The Multi-Layered Defense Architecture
+
+ClassSync implements three complementary layers of defense:
+
+1. **Root `ErrorBoundary` with Splash Dismissal:**
+   ```tsx
+   export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
+     useEffect(() => {
+       SplashScreen.hideAsync().catch(() => {});
+     }, []);
+
+     return (
+       <View className="flex-1 bg-white items-center justify-center p-6">
+         <AlertTriangle size={32} color="#e11d48" />
+         <Text className="text-xl font-black text-neutral-900 mb-2">Something went wrong</Text>
+         <Text className="text-xs text-neutral-500 mb-6">{error.message}</Text>
+         <Pressable onPress={retry} className="bg-neutral-900 px-6 py-3 rounded-full">
+           <Text className="text-xs font-bold text-white">Try Again</Text>
+         </Pressable>
+       </View>
+     );
+   }
+   ```
+2. **Auto-Dismiss Safety Timeout:** A 2,500ms fallback timer inside `RootLayout` forces `SplashScreen.hideAsync()` to fire regardless of network status or auth delays.
+3. **Worklet Safety in React 19:** In React 19 and Reanimated 4.5, using NativeWind `transition-all` on dynamically toggled buttons (such as the 7-day strip) mutates Reanimated shared values during the render phase (`Writing to 'value' during component render`). Eliminating `transition-all` from interactive button strips and using standard Tailwind color tokens prevents UI worklet crashes on native devices.
+4. **Noon-Anchored Calendar Calculations:** Setting reference dates to 12:00:00 (Noon) ensures that calendar-day conversions across IANA timezones never drift across midnight.
+
+
 

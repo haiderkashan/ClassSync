@@ -829,7 +829,7 @@ When a user taps a push notification on their physical device lockscreen or noti
        router.push(url as any);
    } else {
        // Context-aware fallback
-       router.push('/(tabs)');
+       router.push('/');
    }
    ```
 4. **Web Guard Isolation:** Because browsers lack APNs/FCM listener APIs, all hooks and service calls check `Platform.OS === 'web'` to return early, preserving 100% development and testing compatibility.

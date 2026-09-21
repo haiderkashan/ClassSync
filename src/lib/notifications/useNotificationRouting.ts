@@ -57,9 +57,10 @@ export function useNotificationRouting() {
 
         if (!data) return;
 
-        // Direct URL routing
-        const targetUrl = data.url;
+        // Direct URL routing (stripping route groups like (tabs))
+        let targetUrl = data.url;
         if (typeof targetUrl === 'string' && targetUrl.trim().length > 0) {
+          targetUrl = targetUrl.replace(/^\/\(tabs\)/, '') || '/';
           console.log(`🔗 [NotificationRouting] Deep-linking to url: ${targetUrl}`);
           router.push(targetUrl as any);
           return;
@@ -67,11 +68,11 @@ export function useNotificationRouting() {
 
         // Fallback contextual routing based on payload metadata
         if (data.overrideId || data.eventCategory === 'schedule_override') {
-          console.log('🔗 [NotificationRouting] Routing to Agenda: /(tabs)');
-          router.push('/(tabs)');
+          console.log('🔗 [NotificationRouting] Routing to Agenda: /');
+          router.push('/');
         } else if (data.taskId || data.eventCategory === 'academic_task') {
-          console.log('🔗 [NotificationRouting] Routing to Tasks: /(tabs)/tasks');
-          router.push('/(tabs)/tasks');
+          console.log('🔗 [NotificationRouting] Routing to Tasks: /tasks');
+          router.push('/tasks');
         }
       } catch (err) {
         console.error('❌ [NotificationRouting] Error handling notification interaction:', err);

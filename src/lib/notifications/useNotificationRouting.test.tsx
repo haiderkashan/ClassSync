@@ -80,6 +80,33 @@ describe('useNotificationRouting hook', () => {
           notification: {
             request: {
               content: {
+                data: { url: '/tasks' },
+              },
+            },
+          },
+        });
+      }
+    });
+
+    expect(mockPush).toHaveBeenCalledWith('/tasks');
+  });
+
+  it('strips legacy (tabs) route group from targetUrl', async () => {
+    Object.defineProperty(Platform, 'OS', {
+      value: 'ios',
+      configurable: true,
+    });
+
+    await act(async () => {
+      TestRenderer.create(<TestComponent />);
+    });
+
+    act(() => {
+      if (listenerCallback) {
+        listenerCallback({
+          notification: {
+            request: {
+              content: {
                 data: { url: '/(tabs)/tasks' },
               },
             },
@@ -88,10 +115,10 @@ describe('useNotificationRouting hook', () => {
       }
     });
 
-    expect(mockPush).toHaveBeenCalledWith('/(tabs)/tasks');
+    expect(mockPush).toHaveBeenCalledWith('/tasks');
   });
 
-  it('routes to Agenda when overrideId is in payload', async () => {
+  it('routes to Agenda (/) when overrideId is in payload', async () => {
     Object.defineProperty(Platform, 'OS', {
       value: 'android',
       configurable: true,
@@ -115,7 +142,7 @@ describe('useNotificationRouting hook', () => {
       }
     });
 
-    expect(mockPush).toHaveBeenCalledWith('/(tabs)');
+    expect(mockPush).toHaveBeenCalledWith('/');
   });
 
   it('removes listener on unmount', async () => {

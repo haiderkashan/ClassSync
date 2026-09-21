@@ -477,7 +477,7 @@ Deno.serve(async (req: Request) => {
             sound: 'default',
             channelId: content.channelId || 'default',
             priority: 'normal',
-            data: content.data || { url: '/(tabs)' },
+            data: content.data || { url: '/' },
           });
         }
       }
@@ -529,7 +529,7 @@ Deno.serve(async (req: Request) => {
     let eventStatus: string | null = null;
     let notificationTitle = 'ClassSync Notification';
     let notificationBody = 'Your class schedule has been updated.';
-    let deepLinkUrl = '/(tabs)';
+    let deepLinkUrl = '/';
 
     if (payload.table === 'schedule_overrides') {
       eventCategory = 'schedule_override';
@@ -550,14 +550,14 @@ Deno.serve(async (req: Request) => {
         notificationBody = record.reason || 'An update was posted to your class schedule.';
       }
 
-      deepLinkUrl = '/(tabs)';
+      deepLinkUrl = '/';
     } else if (payload.table === 'academic_tasks') {
       eventCategory = 'academic_task';
       eventStatus = record.task_type || 'assignment';
 
       notificationTitle = `📋 New Task: ${record.title}`;
       notificationBody = `Due: ${record.due_datetime ? new Date(record.due_datetime).toLocaleString() : 'Soon'}`;
-      deepLinkUrl = '/(tabs)/tasks';
+      deepLinkUrl = '/tasks';
     }
 
     // Fetch enrolled students in this section

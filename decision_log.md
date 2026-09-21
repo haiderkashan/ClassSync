@@ -645,4 +645,27 @@ This document records the architectural and product decisions made during the de
   - **Production Push Preservation:** Standalone APK/AAB and iOS IPA builds continue to have full access to native `expo-notifications`.
   - **Modern Deprecation-Free Auth:** Eliminates Clerk deprecation warnings and upgrades to the official long-term `@clerk/expo` SDK.
 
+---
+
+## ADR-038: Unconditional Root Navigator Mounting & Guarded Root Redirection
+
+- **Date:** 2026-09-21
+- **Status:** Accepted
+- **Context:** In Expo Router, when `src/app/_layout.tsx` conditionally returns a non-navigator component (e.g. `<View>` during auth loading) instead of a Navigator (`<Stack>`, `<Tabs>`, `<Slot>`), Expo Router's root React Navigation tree is broken. When auth state resolves and `<Stack>` suddenly mounts, child screens attempting to use navigation features throw `Error: Couldn't find a navigation context. Have you wrapped your app with 'NavigationContainer'?`. Furthermore, if `src/app/index.tsx` unconditionally fires `<Redirect href="/(tabs)" />` before Clerk resolves the session, it races against `NavigationGuard`'s `router.replace('/(auth)/sign-in')`, triggering dual conflicting navigations during layout mount.
+- **Alternatives Considered:**
+  1. *Conditionally render `<View>` or `<Stack>` in Root Layout:* Rejected. Breaks Expo Router's fundamental design requirement that layout routes must unconditionally render a Navigator or `<Slot>`.
+  2. *Wrap layout manually in a redundant `<NavigationContainer>`:* STRICTLY REJECTED. Expo Router's `ExpoRoot` already provides `NavigationContainer`. Nesting duplicate containers causes severe navigation context collisions.
+  3. *Unconditional `<Stack>` with Absolute Splash Overlay & Guarded Root Redirection:*
+     - Keep `<Stack>` permanently mounted in `src/app/_layout.tsx`.
+     - Explicitly declare `<Stack.Screen name="index" options={{ headerShown: false }} />`.
+     - Render `SplashOverlay` as an absolute fill on top of `<Stack>` while `!isLoaded` rather than unmounting `<Stack>`.
+     - Convert `NavigationGuard` to a pure headless controller returning `null`.
+     - Guard `src/app/index.tsx` with `if (!isLoaded) return null;` before redirecting to either `/(auth)/sign-in` or `/(tabs)`.
+- **Decision:** Adopt unconditional `<Stack>` mounting with absolute `SplashOverlay` and guarded `RootIndex` redirection.
+- **Why This Decision is Best:**
+  - **Zero Missing Context Crashes:** React Navigation context is established immediately on boot and never unmounted.
+  - **Zero Navigation Race Conditions:** No screen attempts to navigate until Clerk has resolved session tokens from SecureStore.
+  - **Smooth Branded Boot:** Native splash screen (`expo-splash-screen`) seamlessly bridges into the application without layout flicker or unmounted tree errors.
+
+
 

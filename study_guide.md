@@ -24,6 +24,7 @@
 16. [Academic Tasks & Deadline Categorization Engine](#16-academic-tasks--deadline-categorization-engine)
 17. [Attendance Tracking Architecture & The PostgreSQL NULL Uniqueness Trap](#17-attendance-tracking-architecture--the-postgresql-null-uniqueness-trap)
 18. [The Bunk Calculator: Mathematical Derivations & Precision Protection](#18-the-bunk-calculator-mathematical-derivations--precision-protection)
+19. [Expo Router Lifecycle & The Unconditional Navigator Invariant](#19-expo-router-lifecycle--the-unconditional-navigator-invariant)
 
 ---
 
@@ -833,4 +834,62 @@ When a user taps a push notification on their physical device lockscreen or noti
    }
    ```
 4. **Web Guard Isolation:** Because browsers lack APNs/FCM listener APIs, all hooks and service calls check `Platform.OS === 'web'` to return early, preserving 100% development and testing compatibility.
+
+---
+
+## 19. Expo Router Lifecycle & The Unconditional Navigator Invariant
+
+### 19.1 The "Missing Navigation Context" Trap
+A frequent pitfall in Expo Router (and underlying React Navigation 7) occurs when developers attempt to handle asynchronous initialization (such as auth token rehydration or font loading) by conditionally swapping out the root navigator for a placeholder loading component:
+
+```tsx
+// ❌ ANTI-PATTERN: Conditionally replacing <Stack> with <View>
+export default function RootLayout() {
+  const { isLoaded } = useAuth();
+  
+  if (!isLoaded) {
+    return <SplashLoadingView />; // <--- DESTROYS NAVIGATION CONTEXT
+  }
+  
+  return <Stack>...</Stack>;
+}
+```
+
+#### Why This Crashes:
+1. **Context Boundary Invalidation:** Expo Router's entry point (`ExpoRoot`) wraps the tree in `NavigationContainer`. When a layout route returns `<View>` instead of a Navigator (`<Stack>`, `<Tabs>`, `<Slot>`), the route hierarchy is unmounted from React Navigation's state machine.
+2. **Mount-Time Race Conditions:** When `isLoaded` flips to `true`, `<Stack>` mounts. If child components or hooks (`useRouter`, `router.replace`, `<Redirect>`) fire before the navigation state tree completes its initial reconciliation pass, React Navigation throws:
+   `Error: Couldn't find a navigation context. Have you wrapped your app with 'NavigationContainer'?`
+3. **Competing Navigation Collisions:** If `src/app/index.tsx` unconditionally renders `<Redirect href="/(tabs)" />` while a root `NavigationGuard` simultaneously fires `router.replace('/(auth)/sign-in')`, two conflicting route mutations target the uninitialized stack concurrently.
+
+### 19.2 The Architectural Solution: Unconditional Mounting & Absolute Overlays
+
+ClassSync implements the canonical Expo Router lifecycle pattern:
+
+```tsx
+// ✅ CANONICAL PATTERN: Unconditional <Stack> with Absolute Overlay
+export default function RootLayout() {
+  return (
+    <SafeAreaProvider>
+      <AppProviders>
+        <StatusBar style="auto" />
+        <NavigationGuard />
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="index" options={{ headerShown: false }} />
+          <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          {/* Modal screens */}
+        </Stack>
+        <SplashOverlay />
+      </AppProviders>
+    </SafeAreaProvider>
+  );
+}
+```
+
+#### Key Tenets of this Design:
+1. **Unconditional Navigator:** The `<Stack>` component is *always* rendered in the tree from the very first frame. The navigation context is permanently available.
+2. **Overlay Pattern (`SplashOverlay`):** While `!isLoaded`, an absolute-positioned overlay (`className="absolute inset-0 z-50 bg-white"`) covers the screen. The user sees a branded loading experience, while Expo Router initializes underneath.
+3. **Headless Guard (`NavigationGuard`):** Returns `null` and operates purely through lifecycle `useEffect` hooks, managing route protection and notification routing without interfering with JSX rendering.
+4. **Guarded Root Index:** `src/app/index.tsx` reads `isLoaded` and `isSignedIn` directly, returning `null` while loading and executing a single, definitive `<Redirect>` only after Clerk has restored credentials from SecureStore.
+
 

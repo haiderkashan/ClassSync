@@ -30,7 +30,7 @@ import {
   ChevronDown,
 } from 'lucide-react-native';
 import { useSupabase } from '@/hooks/useSupabase';
-import { useUser } from '@clerk/clerk-expo';
+import { useUser } from '@clerk/expo';
 
 // Dynamic import of native DateTimePicker with strict web guard
 let NativeDateTimePicker: any = null;

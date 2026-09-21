@@ -7,23 +7,48 @@
 
 import { useEffect, useRef } from 'react';
 import { Platform } from 'react-native';
-import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
+import Constants from 'expo-constants';
+
+/**
+ * Detects whether the app is executing inside Expo Go.
+ * In Expo SDK 53+, push notifications were removed from Expo Go on Android.
+ */
+export const isExpoGo =
+  Constants?.appOwnership === 'expo' ||
+  (Constants as any)?.executionEnvironment === 'storeClient';
+
+/**
+ * Platform & environment safe loader for expo-notifications.
+ * Returns null immediately on Web or inside Expo Go to prevent native module crashes.
+ */
+function getNotificationsModule() {
+  if (Platform.OS === 'web' || isExpoGo) {
+    return null;
+  }
+  try {
+    return require('expo-notifications');
+  } catch (err) {
+    console.warn('⚠️ [NotificationRouting] expo-notifications unavailable in this runtime:', err);
+    return null;
+  }
+}
 
 /**
  * Hook that listens for user interaction with push notifications
  * and navigates to the target deep link (e.g. Agenda or specific Task).
  *
- * CRITICAL WEB GUARD: Skips native listener registration on web to prevent
- * bundler/runtime crashes on Expo Web.
+ * CRITICAL GUARDS:
+ * 1. Bypassed on web.
+ * 2. Bypassed in Expo Go (where native push notifications are not supported).
  */
 export function useNotificationRouting() {
   const router = useRouter();
   const isHandledInitialRef = useRef(false);
 
   useEffect(() => {
-    // CRITICAL WEB GUARD: return early on web
-    if (Platform.OS === 'web') {
+    const Notifications = getNotificationsModule();
+    if (!Notifications) {
       return;
     }
 
@@ -31,26 +56,26 @@ export function useNotificationRouting() {
     if (!isHandledInitialRef.current) {
       isHandledInitialRef.current = true;
       Notifications.getLastNotificationResponseAsync()
-        .then((response) => {
+        .then((response: any) => {
           if (response?.notification) {
             handleNotificationResponse(response);
           }
         })
-        .catch((err) => {
+        .catch((err: any) => {
           console.warn('⚠️ [NotificationRouting] Could not retrieve initial notification response:', err);
         });
     }
 
     // 2. Listen for notification tap events while app is running in background or foreground
-    const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
+    const subscription = Notifications.addNotificationResponseReceivedListener((response: any) => {
       handleNotificationResponse(response);
     });
 
     return () => {
-      subscription.remove();
+      subscription?.remove?.();
     };
 
-    function handleNotificationResponse(response: Notifications.NotificationResponse) {
+    function handleNotificationResponse(response: any) {
       try {
         const data = response?.notification?.request?.content?.data;
         console.log('🔔 [NotificationRouting] Notification tapped. Payload:', data);

@@ -624,3 +624,25 @@ This document records the architectural and product decisions made during the de
   - **Automatic Multi-Device Support:** A single student can register multiple devices (iPhone and iPad), as the unique constraint is on `expo_push_token`, not `user_id`.
   - **Instant Clean Handover:** Switching users on the same phone cleans up the previous association in a single atomic transaction.
 
+---
+
+## ADR-037: Expo Go Push Module Isolation & Clerk Core 3 Migration
+
+- **Date:** 2026-09-21
+- **Status:** Accepted
+- **Context:** In Expo SDK 53+, push notifications were permanently removed from the Expo Go client app on Android. Static top-level imports of `expo-notifications` crash immediately during module evaluation when launched inside Expo Go, causing `_layout.tsx` to fail evaluation and leaving the app frozen on the native splash screen. Additionally, `@clerk/clerk-expo` reached end-of-life deprecation in favor of `@clerk/expo`.
+- **Alternatives Considered:**
+  1. *Permanently remove push notification features:* Breaks production APNs/FCM capabilities for standalone App Store / Play Store builds.
+  2. *Force user to use EAS development builds exclusively:* Hinders rapid development and quick QA testing via Expo Go.
+  3. *Dynamic Environment Detection & Safe Loader (`isExpoGo`):*
+     - Detect Expo Go at runtime: `Constants?.appOwnership === 'expo' || Constants?.executionEnvironment === 'storeClient'`.
+     - Dynamically load `expo-notifications` via a protected loader (`getNotificationsModule()`) that returns `null` when in Expo Go or on Web.
+     - Integrate `expo-splash-screen` with explicit `SplashScreen.preventAutoHideAsync()` and `SplashScreen.hideAsync()` tied to Clerk session resolution.
+     - Migrate all imports across the codebase to `@clerk/expo`.
+- **Decision:** Implement runtime `isExpoGo` module isolation and migrate to `@clerk/expo` with explicit splash screen dismissal.
+- **Why This Decision is Best:**
+  - **Zero Splash Screen Freezes:** Expo Go boots smoothly and renders the UI immediately without native module crashes.
+  - **Production Push Preservation:** Standalone APK/AAB and iOS IPA builds continue to have full access to native `expo-notifications`.
+  - **Modern Deprecation-Free Auth:** Eliminates Clerk deprecation warnings and upgrades to the official long-term `@clerk/expo` SDK.
+
+

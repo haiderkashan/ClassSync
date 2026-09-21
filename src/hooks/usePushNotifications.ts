@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { useAuth } from '@clerk/clerk-expo';
+import { useAuth } from '@clerk/expo';
 import { useSupabase } from '@/hooks/useSupabase';
 import { registerForPushNotificationsAsync, PushRegistrationResult } from '@/lib/notifications/tokenService';
 

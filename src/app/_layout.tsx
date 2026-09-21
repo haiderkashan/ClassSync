@@ -3,13 +3,17 @@ import { env } from '@/lib/env';
 import React, { useEffect } from 'react';
 import { View, ActivityIndicator, Text } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
+import * as SplashScreen from 'expo-splash-screen';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { useAuth } from '@clerk/clerk-expo';
+import { useAuth } from '@clerk/expo';
 import { Calendar } from 'lucide-react-native';
 import { AppProviders } from '@/providers';
 import { useNotificationRouting } from '@/lib/notifications/useNotificationRouting';
+
+// Prevent native splash screen from auto-hiding before auth session is resolved
+SplashScreen.preventAutoHideAsync().catch(() => {});
 
 // Complete any pending auth session from browser redirect
 WebBrowser.maybeCompleteAuthSession();
@@ -22,11 +26,14 @@ function NavigationGuard() {
   const segments = useSegments();
   const router = useRouter();
 
-  // Listen for push notification responses and route to target deep links
+  // Listen for push notification responses and route to target deep links (safely no-ops in Expo Go)
   useNotificationRouting();
 
   useEffect(() => {
     if (!isLoaded) return;
+
+    // Dismiss splash screen once Clerk has loaded the session
+    SplashScreen.hideAsync().catch(() => {});
 
     const inAuthGroup = segments[0] === '(auth)';
     console.log(

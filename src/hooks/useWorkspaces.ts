@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useUser } from '@clerk/clerk-expo';
+import { useUser } from '@clerk/expo';
 import { useSupabase } from '@/hooks/useSupabase';
 import { useAppStore, type SectionRow, type CourseRow } from '@/store/useAppStore';
 import type { Tables } from '@/types/database.types';

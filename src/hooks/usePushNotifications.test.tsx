@@ -1,11 +1,11 @@
 import React from 'react';
 import TestRenderer, { act } from 'react-test-renderer';
 import { usePushNotifications } from './usePushNotifications';
-import { useAuth } from '@clerk/clerk-expo';
+import { useAuth } from '@clerk/expo';
 import { useSupabase } from '@/hooks/useSupabase';
 import { registerForPushNotificationsAsync } from '@/lib/notifications/tokenService';
 
-jest.mock('@clerk/clerk-expo', () => ({
+jest.mock('@clerk/expo', () => ({
   useAuth: jest.fn(),
 }));
 

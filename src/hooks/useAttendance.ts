@@ -7,7 +7,7 @@
 
 import { useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useUser } from '@clerk/clerk-expo';
+import { useUser } from '@clerk/expo';
 import { useSupabase } from '@/hooks/useSupabase';
 import { useWorkspaces } from '@/hooks/useWorkspaces';
 import {

@@ -1,6 +1,6 @@
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
-import { useOAuth } from '@clerk/clerk-expo';
+import { useOAuth } from '@clerk/expo';
 import { useCallback, useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 

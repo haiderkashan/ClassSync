@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ClerkProvider } from '@clerk/clerk-expo';
+import { ClerkProvider } from '@clerk/expo';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { tokenCache } from '@/lib/tokenCache';
 import { env } from '@/lib/env';

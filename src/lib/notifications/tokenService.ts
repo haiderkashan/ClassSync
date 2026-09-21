@@ -1,5 +1,4 @@
 import { Platform } from 'react-native';
-import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 
@@ -12,12 +11,36 @@ export interface PushRegistrationResult {
 }
 
 /**
- * Configure foreground notification behavior on native platforms.
- * Strict web guard: bypassed on web to prevent bundler and runtime issues.
+ * Detects whether the app is executing inside Expo Go.
+ * In Expo SDK 53+, push notifications were removed from Expo Go on Android.
  */
-if (Platform.OS !== 'web') {
+export const isExpoGo =
+  Constants?.appOwnership === 'expo' ||
+  (Constants as any)?.executionEnvironment === 'storeClient';
+
+/**
+ * Platform & environment safe loader for expo-notifications.
+ * Returns null immediately on Web or inside Expo Go to prevent native module crashes.
+ */
+function getNotificationsModule() {
+  if (Platform.OS === 'web' || isExpoGo) {
+    return null;
+  }
   try {
-    Notifications.setNotificationHandler({
+    return require('expo-notifications');
+  } catch (err) {
+    console.warn('⚠️ [TokenService] expo-notifications unavailable in this runtime:', err);
+    return null;
+  }
+}
+
+/**
+ * Configure foreground notification behavior on native platforms outside Expo Go.
+ */
+const initialNotifications = getNotificationsModule();
+if (initialNotifications) {
+  try {
+    initialNotifications.setNotificationHandler({
       handleNotification: async () => ({
         shouldPlaySound: true,
         shouldSetBadge: false,
@@ -33,19 +56,15 @@ if (Platform.OS !== 'web') {
 /**
  * Platform-safe push notification registration service.
  *
- * CRITICAL WEB GUARD: Immediately returns null if Platform.OS === 'web'
- * before executing any native notification or device API calls to ensure
- * the Expo Web Bundler will never crash.
- *
- * On iOS/Android:
- * 1. Configures Android Notification Channels (default & urgent).
- * 2. Checks and requests notification permissions.
- * 3. Resolves the Expo Push Token via EAS Project ID or fallback.
- * 4. Extracts device metadata (deviceName, modelName, timezone).
+ * CRITICAL GUARDS: Immediately returns null if Platform.OS === 'web' or inside Expo Go
+ * before executing any native notification or device API calls.
  */
 export async function registerForPushNotificationsAsync(): Promise<PushRegistrationResult | null> {
-  // CRITICAL WEB GUARD: Return null immediately on web
-  if (Platform.OS === 'web') {
+  const Notifications = getNotificationsModule();
+  if (!Notifications) {
+    if (isExpoGo) {
+      console.log('ℹ️ [TokenService] Push notifications are not supported in Expo Go (SDK 53+). Please use an EAS development build.');
+    }
     return null;
   }
 

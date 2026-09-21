@@ -127,10 +127,10 @@ export default function ScheduleBuilderScreen() {
               <Pressable
                 key={day.id}
                 onPress={() => setSelectedDay(day.id)}
-                className={`mr-2.5 px-3.5 py-2 rounded-2xl flex-row items-center space-x-1.5 border transition-all ${
+                className={`mr-2.5 px-3.5 py-2 rounded-2xl flex-row items-center space-x-1.5 border ${
                   isSelected
                     ? 'bg-neutral-900 border-neutral-900 shadow-sm shadow-neutral-900/20'
-                    : 'bg-white border-neutral-150/90 shadow-2xs active:bg-neutral-50'
+                    : 'bg-white border-neutral-200 shadow-sm active:bg-neutral-50'
                 }`}
               >
                 <Text

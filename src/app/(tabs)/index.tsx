@@ -81,6 +81,8 @@ export default function AgendaScreen() {
   // Compute exact dates for the current week (Monday through Sunday)
   const weekDates = useMemo(() => {
     const now = new Date();
+    // Anchor to 12:00:00 (Noon) so timezone shifts never cross calendar day boundaries
+    now.setHours(12, 0, 0, 0);
     const currentJsDay = now.getDay() === 0 ? 7 : now.getDay();
     const monday = new Date(now);
     monday.setDate(now.getDate() - (currentJsDay - 1));
@@ -129,7 +131,9 @@ export default function AgendaScreen() {
   // Formatted selected day label, e.g. "Monday, September 19"
   const selectedDayFullHeader = useMemo(() => {
     const dayObj = weekDates.find((d) => d.id === selectedDay);
-    const monthName = new Date().toLocaleDateString('en-US', { month: 'short' });
+    const monthName = dayObj?.fullDate
+      ? dayObj.fullDate.toLocaleDateString('en-US', { month: 'short' })
+      : new Date().toLocaleDateString('en-US', { month: 'short' });
     return `${dayObj?.name || getDayName(selectedDay)}, ${monthName} ${dayObj?.dateNumber || ''}`;
   }, [selectedDay, weekDates]);
 
@@ -228,7 +232,7 @@ export default function AgendaScreen() {
                     <Pressable
                       key={sec.id}
                       onPress={() => setActiveSectionId(sec.id)}
-                      className={`mr-2 px-3.5 py-1.5 rounded-full border flex-row items-center transition-all ${
+                      className={`mr-2 px-3.5 py-1.5 rounded-full border flex-row items-center ${
                         isSelected
                           ? 'bg-neutral-900 border-neutral-900 shadow-xs'
                           : 'bg-white border-neutral-200/80 active:bg-neutral-50'
@@ -274,9 +278,9 @@ export default function AgendaScreen() {
                   <Pressable
                     key={opt.id}
                     onPress={() => setCurrentParity(opt.id)}
-                    className={`px-3 py-1 rounded-full transition-all ${
+                    className={`px-3 py-1 rounded-full ${
                       isSelected
-                        ? 'bg-white shadow-2xs'
+                        ? 'bg-white shadow-sm'
                         : 'active:bg-neutral-200/60'
                     }`}
                   >
@@ -303,10 +307,10 @@ export default function AgendaScreen() {
                   <Pressable
                     key={day.id}
                     onPress={() => setSelectedDay(day.id)}
-                    className={`mr-2.5 rounded-2xl py-2.5 px-3 min-w-[50px] items-center justify-center transition-all ${
+                    className={`mr-2.5 rounded-2xl py-2.5 px-3 min-w-[50px] items-center justify-center ${
                       isSelected
                         ? 'bg-neutral-900 shadow-sm shadow-neutral-900/20'
-                        : 'bg-white border border-neutral-150/90 shadow-2xs active:bg-neutral-50'
+                        : 'bg-white border border-neutral-200 shadow-sm active:bg-neutral-50'
                     }`}
                   >
                     <Text
@@ -460,10 +464,10 @@ export default function AgendaScreen() {
                 );
               }
 
-              const startTimeParts = formatTime12Hour(block.start_time).split(' ');
-              const startTimeNumber = startTimeParts[0];
-              const startTimePeriod = startTimeParts[1] || '';
-              const endTimeNumber = formatTime12Hour(block.end_time).split(' ')[0];
+              const startTimeParts = formatTime12Hour(block.start_time || '09:00').split(' ');
+              const startTimeNumber = startTimeParts[0] || '9:00';
+              const startTimePeriod = startTimeParts[1] || 'AM';
+              const endTimeNumber = formatTime12Hour(block.end_time || '10:00').split(' ')[0] || '10:00';
 
               return (
                 <React.Fragment key={block.id}>

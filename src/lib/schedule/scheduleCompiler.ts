@@ -245,8 +245,8 @@ export function compileDailySchedule(
       delayMinutes
     );
 
-    const hasNewRoom = !!override?.new_room && override.new_room.trim().length > 0;
-    const effectiveRoom = hasNewRoom ? override!.new_room!.trim() : base.room;
+    const hasNewRoom = typeof override?.new_room === 'string' && override.new_room.trim().length > 0;
+    const effectiveRoom = hasNewRoom ? (override!.new_room as string).trim() : base.room;
     const durationMins = calculateDurationMinutes(effectiveStart, effectiveEnd);
 
     compiledItems.push({
@@ -337,7 +337,7 @@ export function compileDailySchedule(
       duration_minutes: durationMins,
 
       original_room: null,
-      room: makeup.new_room ?? null,
+      room: typeof makeup.new_room === 'string' ? makeup.new_room.trim() : (makeup.new_room ?? null),
 
       status,
       delay_minutes: delayMinutes,

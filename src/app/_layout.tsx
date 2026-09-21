@@ -1,14 +1,14 @@
 import '../../global.css';
 import { env } from '@/lib/env';
 import React, { useEffect } from 'react';
-import { View, ActivityIndicator, Text } from 'react-native';
+import { View, ActivityIndicator, Text, Pressable } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import * as SplashScreen from 'expo-splash-screen';
-import { Stack, useRouter, useSegments } from 'expo-router';
+import { Stack, useRouter, useSegments, type ErrorBoundaryProps } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useAuth } from '@clerk/expo';
-import { Calendar } from 'lucide-react-native';
+import { Calendar, AlertTriangle } from 'lucide-react-native';
 import { AppProviders } from '@/providers';
 import { useNotificationRouting } from '@/lib/notifications/useNotificationRouting';
 
@@ -20,6 +20,40 @@ WebBrowser.maybeCompleteAuthSession();
 
 // Boot-time environment validation check
 console.log(`[ClassSync] Booting in ${env.EXPO_PUBLIC_APP_ENV} mode`);
+
+/**
+ * Root ErrorBoundary catching uncaught rendering errors across the component tree.
+ * Immediately dismisses native splash screen so the user is never trapped on a frozen screen,
+ * and renders a recovery UI with retry capability.
+ */
+export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
+  useEffect(() => {
+    // Ensure splash screen is hidden on error so the error UI is visible
+    SplashScreen.hideAsync().catch(() => {});
+  }, []);
+
+  return (
+    <View className="flex-1 bg-white items-center justify-center p-6">
+      <View className="w-16 h-16 rounded-3xl bg-rose-50 border border-rose-100 items-center justify-center mb-4">
+        <AlertTriangle size={32} color="#e11d48" />
+      </View>
+      <Text className="text-xl font-black text-neutral-900 mb-2 text-center">
+        Something went wrong
+      </Text>
+      <Text className="text-xs font-medium text-neutral-500 text-center mb-6 max-w-xs">
+        {error?.message || 'An unexpected rendering error occurred.'}
+      </Text>
+      <Pressable
+        onPress={retry}
+        className="bg-neutral-900 px-6 py-3 rounded-full active:bg-neutral-800 shadow-sm"
+      >
+        <Text className="text-xs font-bold text-white tracking-wide">
+          Try Again
+        </Text>
+      </Pressable>
+    </View>
+  );
+}
 
 function NavigationGuard() {
   const { isLoaded, isSignedIn } = useAuth();
@@ -63,7 +97,7 @@ function SplashOverlay() {
   if (isLoaded) return null;
 
   return (
-    <View className="absolute inset-0 items-center justify-center bg-white z-50">
+    <View pointerEvents="none" className="absolute inset-0 items-center justify-center bg-white z-50">
       <View className="w-20 h-20 rounded-3xl bg-brand-600 items-center justify-center mb-6 shadow-xl shadow-brand-600/30">
         <Calendar size={40} color="#ffffff" strokeWidth={2.2} />
       </View>
@@ -77,6 +111,14 @@ function SplashOverlay() {
  * Root Layout assembling SafeAreaProvider, AppProviders, NavigationGuard, and Stack.
  */
 export default function RootLayout() {
+  useEffect(() => {
+    // Safety guard: guarantee native splash screen is dismissed within 2.5s even if auth hangs
+    const timer = setTimeout(() => {
+      SplashScreen.hideAsync().catch(() => {});
+    }, 2500);
+    return () => clearTimeout(timer);
+  }, []);
+
   return (
     <SafeAreaProvider>
       <AppProviders>
@@ -109,6 +151,13 @@ export default function RootLayout() {
           />
           <Stack.Screen
             name="section-members"
+            options={{
+              presentation: 'modal',
+              headerShown: false,
+            }}
+          />
+          <Stack.Screen
+            name="schedule/builder"
             options={{
               presentation: 'modal',
               headerShown: false,

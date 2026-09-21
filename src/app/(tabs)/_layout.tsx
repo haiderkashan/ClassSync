@@ -18,11 +18,11 @@ function FloatingTabBar({ state, descriptors, navigation }: CustomTabBarProps) {
 
   return (
     <View
+      pointerEvents="box-none"
       style={[
         styles.floatingContainer,
         {
           bottom: bottomInset,
-          pointerEvents: 'box-none',
         },
       ]}
     >

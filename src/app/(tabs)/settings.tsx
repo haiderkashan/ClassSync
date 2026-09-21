@@ -39,12 +39,15 @@ import {
   Calendar,
   Calculator,
   ChevronRight,
+  Moon,
+  Clock,
 } from 'lucide-react-native';
 import { useWorkspaces } from '@/hooks/useWorkspaces';
 import { useSupabase } from '@/hooks/useSupabase';
 import { useAppStore } from '@/store/useAppStore';
 import { useAttendance } from '@/hooks/useAttendance';
 import { getLocalDateString } from '@/lib/schedule/calendarUtils';
+import { QuietHoursModal } from '@/components/settings/QuietHoursModal';
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -66,6 +69,36 @@ export default function SettingsScreen() {
   const [cycleMode, setCycleMode] = useState<'standard_weekly' | 'alternating_ab'>('standard_weekly');
   const [weekAAnchorDate, setWeekAAnchorDate] = useState<string>('');
   const [isSavingCycleSettings, setIsSavingCycleSettings] = useState(false);
+
+  // Quiet Hours Modal & Settings State
+  const [isQuietHoursModalOpen, setIsQuietHoursModalOpen] = useState(false);
+  const [quietHoursSettings, setQuietHoursSettings] = useState<{
+    enabled: boolean;
+    start: string;
+    end: string;
+    bypass: boolean;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    async function fetchQuietSettings() {
+      const { data } = await supabase
+        .from('user_notification_settings')
+        .select('*')
+        .eq('user_id', user!.id)
+        .maybeSingle();
+
+      if (data) {
+        setQuietHoursSettings({
+          enabled: data.quiet_hours_enabled,
+          start: data.quiet_hours_start ? data.quiet_hours_start.slice(0, 5) : '22:00',
+          end: data.quiet_hours_end ? data.quiet_hours_end.slice(0, 5) : '07:00',
+          bypass: data.bypass_for_urgent,
+        });
+      }
+    }
+    void fetchQuietSettings();
+  }, [user?.id, supabase]);
 
   const isGenesisCR = activeSection?.role === 'genesis_cr';
   const isCR = isGenesisCR || activeSection?.role === 'co_admin';
@@ -437,6 +470,53 @@ export default function SettingsScreen() {
               Open Full Bunk Calculator
             </Text>
             <ChevronRight size={14} color="#FFFFFF" />
+          </Pressable>
+        </View>
+
+        {/* Smart Quiet Hours & Notifications Card */}
+        <View className="bg-white rounded-3xl p-5 border border-neutral-100/90 shadow-xs mb-4">
+          <View className="flex-row items-center justify-between mb-2.5">
+            <View className="flex-row items-center">
+              <View className="w-8 h-8 rounded-full bg-indigo-50 items-center justify-center mr-2.5">
+                <Moon size={16} color="#4F46E5" />
+              </View>
+              <Text className="text-sm font-bold text-neutral-900">
+                Smart Quiet Hours & Alerts
+              </Text>
+            </View>
+
+            <View
+              className={`px-2.5 py-0.5 rounded-full border ${
+                quietHoursSettings?.enabled !== false
+                  ? 'bg-indigo-50 border-indigo-200'
+                  : 'bg-neutral-100 border-neutral-200'
+              }`}
+            >
+              <Text
+                className={`text-[10px] font-black ${
+                  quietHoursSettings?.enabled !== false ? 'text-indigo-700' : 'text-neutral-500'
+                }`}
+              >
+                {quietHoursSettings?.enabled !== false ? 'Active' : 'Disabled'}
+              </Text>
+            </View>
+          </View>
+
+          <Text className="text-xs text-neutral-500 mb-3.5 leading-relaxed">
+            {quietHoursSettings?.enabled !== false
+              ? `Silencing non-urgent alerts between ${quietHoursSettings?.start ?? '22:00'} and ${quietHoursSettings?.end ?? '07:00'}. Urgent cancellations still bypass.`
+              : 'Quiet hours are turned off. You will receive all cohort alerts immediately.'}
+          </Text>
+
+          <Pressable
+            onPress={() => setIsQuietHoursModalOpen(true)}
+            className="w-full py-2.5 bg-indigo-50/80 border border-indigo-100 rounded-2xl flex-row items-center justify-center active:bg-indigo-100/80 transition-colors"
+          >
+            <Clock size={14} color="#4F46E5" />
+            <Text className="text-xs font-bold text-indigo-700 mx-1.5">
+              Configure Quiet Hours & Overrides
+            </Text>
+            <ChevronRight size={14} color="#4F46E5" />
           </Pressable>
         </View>
 
@@ -905,6 +985,28 @@ export default function SettingsScreen() {
           ClassSync v1.0.0 • Mobile Architecture Phase 2
         </Text>
       </ScrollView>
+
+      {/* Quiet Hours Settings Modal */}
+      <QuietHoursModal
+        visible={isQuietHoursModalOpen}
+        onClose={() => setIsQuietHoursModalOpen(false)}
+        onSaved={async () => {
+          if (!user?.id) return;
+          const { data } = await supabase
+            .from('user_notification_settings')
+            .select('*')
+            .eq('user_id', user.id)
+            .maybeSingle();
+          if (data) {
+            setQuietHoursSettings({
+              enabled: data.quiet_hours_enabled,
+              start: data.quiet_hours_start ? data.quiet_hours_start.slice(0, 5) : '22:00',
+              end: data.quiet_hours_end ? data.quiet_hours_end.slice(0, 5) : '07:00',
+              bypass: data.bypass_for_urgent,
+            });
+          }
+        }}
+      />
     </SafeAreaView>
   );
 }

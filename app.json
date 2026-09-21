@@ -30,7 +30,8 @@
       "expo-web-browser",
       "@react-native-community/datetimepicker",
       "expo-notifications",
-      "expo-splash-screen"
+      "expo-splash-screen",
+      "expo-sqlite"
     ]
   }
 }

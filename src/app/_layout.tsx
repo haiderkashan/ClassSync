@@ -9,6 +9,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useAuth } from '@clerk/clerk-expo';
 import { Calendar } from 'lucide-react-native';
 import { AppProviders } from '@/providers';
+import { useNotificationRouting } from '@/lib/notifications/useNotificationRouting';
 
 // Complete any pending auth session from browser redirect
 WebBrowser.maybeCompleteAuthSession();
@@ -20,6 +21,9 @@ function NavigationGuard() {
   const { isLoaded, isSignedIn } = useAuth();
   const segments = useSegments();
   const router = useRouter();
+
+  // Listen for push notification responses and route to target deep links
+  useNotificationRouting();
 
   useEffect(() => {
     if (!isLoaded) return;

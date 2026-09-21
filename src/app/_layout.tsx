@@ -51,94 +51,99 @@ function NavigationGuard() {
     }
   }, [isLoaded, isSignedIn, segments, router]);
 
-  // Render branded splash while Clerk restores session from SecureStore
-  if (!isLoaded) {
-    return (
-      <View className="flex-1 items-center justify-center bg-white">
-        <View className="w-20 h-20 rounded-3xl bg-brand-600 items-center justify-center mb-6 shadow-xl shadow-brand-600/30">
-          <Calendar size={40} color="#ffffff" strokeWidth={2.2} />
-        </View>
-        <Text className="text-2xl font-bold text-gray-900 mb-4">ClassSync</Text>
-        <ActivityIndicator size="small" color="#4f46e5" />
-      </View>
-    );
-  }
+  return null;
+}
+
+/**
+ * Branded Splash Overlay shown while Clerk is rehydrating the session token from SecureStore.
+ * Rendered as an absolute overlay so the underlying Stack navigator remains mounted.
+ */
+function SplashOverlay() {
+  const { isLoaded } = useAuth();
+  if (isLoaded) return null;
 
   return (
-    <>
-      <StatusBar style="auto" />
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen
-          name="join-section"
-          options={{
-            presentation: 'modal',
-            headerShown: false,
-          }}
-        />
-        <Stack.Screen
-          name="create-section"
-          options={{
-            presentation: 'modal',
-            headerShown: false,
-          }}
-        />
-        <Stack.Screen
-          name="add-course"
-          options={{
-            presentation: 'modal',
-            headerShown: false,
-          }}
-        />
-        <Stack.Screen
-          name="section-members"
-          options={{
-            presentation: 'modal',
-            headerShown: false,
-          }}
-        />
-        <Stack.Screen
-          name="schedule/edit-block"
-          options={{
-            presentation: 'modal',
-            headerShown: false,
-          }}
-        />
-        <Stack.Screen
-          name="schedule/broadcast-exception"
-          options={{
-            presentation: 'modal',
-            headerShown: false,
-          }}
-        />
-        <Stack.Screen
-          name="tasks/create-task"
-          options={{
-            presentation: 'modal',
-            headerShown: false,
-          }}
-        />
-        <Stack.Screen
-          name="attendance/course-metrics"
-          options={{
-            presentation: 'modal',
-            headerShown: false,
-          }}
-        />
-      </Stack>
-    </>
+    <View className="absolute inset-0 items-center justify-center bg-white z-50">
+      <View className="w-20 h-20 rounded-3xl bg-brand-600 items-center justify-center mb-6 shadow-xl shadow-brand-600/30">
+        <Calendar size={40} color="#ffffff" strokeWidth={2.2} />
+      </View>
+      <Text className="text-2xl font-bold text-gray-900 mb-4">ClassSync</Text>
+      <ActivityIndicator size="small" color="#4f46e5" />
+    </View>
   );
 }
 
 /**
- * Root Layout assembling SafeAreaProvider, AppProviders, and NavigationGuard.
+ * Root Layout assembling SafeAreaProvider, AppProviders, NavigationGuard, and Stack.
  */
 export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <AppProviders>
+        <StatusBar style="auto" />
         <NavigationGuard />
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="index" options={{ headerShown: false }} />
+          <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen
+            name="join-section"
+            options={{
+              presentation: 'modal',
+              headerShown: false,
+            }}
+          />
+          <Stack.Screen
+            name="create-section"
+            options={{
+              presentation: 'modal',
+              headerShown: false,
+            }}
+          />
+          <Stack.Screen
+            name="add-course"
+            options={{
+              presentation: 'modal',
+              headerShown: false,
+            }}
+          />
+          <Stack.Screen
+            name="section-members"
+            options={{
+              presentation: 'modal',
+              headerShown: false,
+            }}
+          />
+          <Stack.Screen
+            name="schedule/edit-block"
+            options={{
+              presentation: 'modal',
+              headerShown: false,
+            }}
+          />
+          <Stack.Screen
+            name="schedule/broadcast-exception"
+            options={{
+              presentation: 'modal',
+              headerShown: false,
+            }}
+          />
+          <Stack.Screen
+            name="tasks/create-task"
+            options={{
+              presentation: 'modal',
+              headerShown: false,
+            }}
+          />
+          <Stack.Screen
+            name="attendance/course-metrics"
+            options={{
+              presentation: 'modal',
+              headerShown: false,
+            }}
+          />
+        </Stack>
+        <SplashOverlay />
       </AppProviders>
     </SafeAreaProvider>
   );

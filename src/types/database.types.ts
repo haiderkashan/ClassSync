@@ -821,6 +821,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      process_notification_queue: { Args: never; Returns: number }
       register_push_token: {
         Args: {
           p_device_name?: string

@@ -259,6 +259,7 @@ export function setLocalTaskCompletions(userId: string, taskIds: string[]): void
 export interface GetAttendanceLogsOptions {
   userId?: string;
   courseId?: string;
+  courseIds?: string[];
   startDate?: string;
   endDate?: string;
 }
@@ -272,7 +273,7 @@ export function getLocalAttendanceLogs(
 ): AttendanceLogRow[] {
   if (isWeb) return [];
 
-  const { userId, courseId, startDate, endDate } = options;
+  const { userId, courseId, courseIds, startDate, endDate } = options;
   const whereClauses: string[] = [];
   const params: any[] = [];
 
@@ -284,6 +285,12 @@ export function getLocalAttendanceLogs(
   if (courseId) {
     whereClauses.push('a.course_id = ?');
     params.push(courseId);
+  }
+
+  if (courseIds && courseIds.length > 0) {
+    const placeholders = courseIds.map(() => '?').join(',');
+    whereClauses.push(`a.course_id IN (${placeholders})`);
+    params.push(...courseIds);
   }
 
   if (startDate) {

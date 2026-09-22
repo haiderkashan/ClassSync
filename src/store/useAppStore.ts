@@ -37,6 +37,14 @@ export type AttendanceLogRow = Tables<'attendance_logs'> & {
 
 export type WeekParity = 'weekly' | 'biweekly_week_a' | 'biweekly_week_b';
 
+export interface UserNotificationSettings {
+  quiet_hours_enabled: boolean;
+  quiet_hours_start: string;
+  quiet_hours_end: string;
+  bypass_for_urgent: boolean;
+  timezone: string;
+}
+
 export interface AppState {
   isHydrated: boolean;
   activeSectionId: string | null;
@@ -50,6 +58,10 @@ export interface AppState {
   tasks: AcademicTaskRow[];
   taskCompletions: string[]; // Set of task IDs completed by the user
   attendanceLogs: AttendanceLogRow[];
+
+  // Phase 6 Push Notification & Quiet Hours State
+  pushToken: string | null;
+  notificationSettings: UserNotificationSettings | null;
 
   setHydrated: (isHydrated: boolean) => void;
   setActiveSectionId: (id: string | null) => void;
@@ -73,6 +85,10 @@ export interface AppState {
   upsertLocalAttendanceLog: (log: AttendanceLogRow) => void;
   removeLocalAttendanceLog: (logId: string) => void;
 
+  // Phase 6 Actions
+  setPushToken: (token: string | null) => void;
+  setNotificationSettings: (settings: UserNotificationSettings | null) => void;
+
   reset: () => void;
 }
 
@@ -95,6 +111,10 @@ export const useAppStore = create<AppState>()(
       tasks: [],
       taskCompletions: [],
       attendanceLogs: [],
+
+      // Phase 6 Push Notification & Settings Initial State
+      pushToken: null,
+      notificationSettings: null,
 
       setHydrated: (isHydrated) => set({ isHydrated }),
       setActiveSectionId: (activeSectionId) => set({ activeSectionId }),
@@ -182,6 +202,10 @@ export const useAppStore = create<AppState>()(
           attendanceLogs: state.attendanceLogs.filter((l) => l.id !== logId),
         })),
 
+      // Phase 6 Push Notification & Settings Handlers
+      setPushToken: (pushToken) => set({ pushToken }),
+      setNotificationSettings: (notificationSettings) => set({ notificationSettings }),
+
       reset: () =>
         set({
           activeSectionId: null,
@@ -193,6 +217,8 @@ export const useAppStore = create<AppState>()(
           tasks: [],
           taskCompletions: [],
           attendanceLogs: [],
+          pushToken: null,
+          notificationSettings: null,
         }),
     }),
     {
@@ -202,21 +228,18 @@ export const useAppStore = create<AppState>()(
         activeSectionId: state.activeSectionId,
         activeSections: state.activeSections,
         activeCourses: state.activeCourses,
-        baseSchedules: state.baseSchedules,
-        overrides: state.overrides,
         currentParity: state.currentParity,
-        tasks: state.tasks,
-        taskCompletions: state.taskCompletions,
-        attendanceLogs: state.attendanceLogs,
+        pushToken: state.pushToken,
+        notificationSettings: state.notificationSettings,
       }),
       onRehydrateStorage: () => {
-        console.log('💾 [Zustand] Hydrating offline workspace, course, and timetable cache from AsyncStorage...');
+        console.log('💾 [Zustand] Hydrating offline session and notification cache from AsyncStorage...');
         return (state, error) => {
           if (error) {
             console.error('❌ [Zustand] Failed to rehydrate offline storage:', error);
           } else {
             console.log(
-              `💾 [Zustand] Offline workspace hydration completed: ${state?.activeSections.length ?? 0} section(s), ${state?.activeCourses.length ?? 0} course(s), ${state?.tasks.length ?? 0} task(s), ${state?.attendanceLogs.length ?? 0} attendance log(s), activeSectionId=${state?.activeSectionId ?? 'none'}`
+              `💾 [Zustand] Offline session hydration completed: ${state?.activeSections.length ?? 0} section(s), ${state?.activeCourses.length ?? 0} course(s), activeSectionId=${state?.activeSectionId ?? 'none'}, pushToken=${state?.pushToken ? 'configured' : 'none'}`
             );
             state?.setHydrated(true);
           }

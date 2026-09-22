@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database, Tables } from '@/types/database.types';
 import {
@@ -391,7 +392,9 @@ export async function syncEntityDeltas(context: SyncContext): Promise<SyncResult
     }
 
     // 3. Atomically ingest into local SQLite (or bypass if on Web)
-    if (!isWeb) {
+    const isWebRuntime = Platform.OS === 'web' || isWeb;
+
+    if (!isWebRuntime) {
       transaction(() => {
         // A. Process Deletion Tombstones
         if (tombstonesRes.data.length > 0) {
@@ -472,7 +475,7 @@ export async function syncEntityDeltas(context: SyncContext): Promise<SyncResult
     // 4. Reconcile updated data into reactive Zustand store
     const store = useAppStore.getState();
 
-    if (!isWeb) {
+    if (!isWebRuntime) {
       const freshSchedules = getLocalBaseSchedules({ courseIds });
       const freshOverrides = getLocalScheduleOverrides({ courseIds });
       const freshTasks = getLocalTasks({

@@ -15,6 +15,10 @@ import {
   type AcademicTaskRow,
 } from '@/store/useAppStore';
 import {
+  upsertLocalTasks,
+  deleteLocalTask,
+} from '@/lib/db/taskAttendanceRepository';
+import {
   groupTasksByDeadline,
   type GroupedTasks,
   type TaskType,
@@ -209,16 +213,19 @@ export function useAcademicTasks(options?: UseAcademicTasksOptions) {
           if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
             const newRow = payload.new as Tables<'academic_tasks'>;
             if (newRow && newRow.id) {
-              upsertLocalTask({
+              const taskItem: AcademicTaskRow = {
                 ...newRow,
                 course: null, // Full join populated on refetch
-              });
+              };
+              upsertLocalTask(taskItem);
+              upsertLocalTasks([taskItem]);
             }
             queryClient.invalidateQueries({ queryKey });
           } else if (payload.eventType === 'DELETE') {
             const oldRow = payload.old as { id?: string };
             if (oldRow && oldRow.id) {
               removeLocalTask(oldRow.id);
+              deleteLocalTask(oldRow.id);
             }
             queryClient.invalidateQueries({ queryKey });
           }

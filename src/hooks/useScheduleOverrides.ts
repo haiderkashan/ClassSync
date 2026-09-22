@@ -6,6 +6,10 @@ import {
   useAppStore,
   type ScheduleOverrideRow,
 } from '@/store/useAppStore';
+import {
+  upsertLocalScheduleOverrides,
+  deleteLocalScheduleOverride,
+} from '@/lib/db/scheduleRepository';
 import type { Tables } from '@/types/database.types';
 
 export interface UpsertScheduleOverrideInput {
@@ -161,16 +165,19 @@ export function useScheduleOverrides(options?: UseScheduleOverridesOptions) {
           if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
             const newRow = payload.new as Tables<'schedule_overrides'>;
             if (newRow && newRow.id) {
-              upsertLocalOverride({
+              const overrideItem: ScheduleOverrideRow = {
                 ...newRow,
                 course: null, // Joined relation will be populated upon query invalidation
-              });
+              };
+              upsertLocalOverride(overrideItem);
+              upsertLocalScheduleOverrides([overrideItem]);
             }
             queryClient.invalidateQueries({ queryKey });
           } else if (payload.eventType === 'DELETE') {
             const oldRow = payload.old as { id?: string };
             if (oldRow && oldRow.id) {
               removeLocalOverride(oldRow.id);
+              deleteLocalScheduleOverride(oldRow.id);
             }
             queryClient.invalidateQueries({ queryKey });
           }

@@ -8,6 +8,13 @@ import {
   type CourseRow,
   type WeekParity,
 } from '@/store/useAppStore';
+import { generateClientUuid } from '@/lib/db/platformDb';
+import { executeOptimisticMutation } from '@/lib/db/mutationQueue';
+import {
+  upsertLocalBaseSchedules,
+  deleteLocalBaseSchedule,
+} from '@/lib/db/scheduleRepository';
+import { isPoisonPillError } from '@/services/mutationReplayWorker';
 import type { Tables } from '@/types/database.types';
 
 export interface UpsertScheduleBlockInput {
@@ -63,6 +70,7 @@ export function useBaseSchedule() {
   const scheduleQuery = useQuery<BaseScheduleRow[]>({
     queryKey,
     enabled: !!activeSectionId || enrolledCourseIds.length > 0,
+    initialData: baseSchedules.length > 0 ? baseSchedules : undefined,
     queryFn: async () => {
       const blockMap = new Map<string, BaseScheduleRow>();
 
@@ -127,25 +135,36 @@ export function useBaseSchedule() {
   // 2. Optimistic mutation for upserting schedule blocks
   const upsertMutation = useMutation({
     mutationFn: async (input: UpsertScheduleBlockInput) => {
-      const { data, error } = await supabase.rpc('upsert_base_schedule_block', {
-        p_id: input.id || undefined,
-        p_course_id: input.course_id,
-        p_day_of_week: input.day_of_week,
-        p_start_time: input.start_time,
-        p_end_time: input.end_time,
-        p_room: input.room ?? undefined,
-        p_session_type: input.session_type ?? 'lecture',
-        p_frequency: input.frequency ?? 'weekly',
-        p_instructor: input.instructor ?? undefined,
-        p_color_override: input.color_override ?? undefined,
-      });
+      try {
+        const { data, error } = await supabase.rpc('upsert_base_schedule_block', {
+          p_id: input.id || undefined,
+          p_course_id: input.course_id,
+          p_day_of_week: input.day_of_week,
+          p_start_time: input.start_time,
+          p_end_time: input.end_time,
+          p_room: input.room ?? undefined,
+          p_session_type: input.session_type ?? 'lecture',
+          p_frequency: input.frequency ?? 'weekly',
+          p_instructor: input.instructor ?? undefined,
+          p_color_override: input.color_override ?? undefined,
+        });
 
-      if (error) {
-        console.error('[useBaseSchedule] Error upserting block:', error.message);
-        throw error;
+        if (error) {
+          if (isPoisonPillError(error)) {
+            console.error('[useBaseSchedule] Poison pill error upserting block:', error.message);
+            throw error;
+          }
+          console.warn('[useBaseSchedule] Transient failure, mutation queued in offline queue:', error.message);
+        }
+
+        return (data as string) || input.id || 'offline_queued';
+      } catch (err: any) {
+        if (isPoisonPillError(err)) {
+          throw err;
+        }
+        console.log('[useBaseSchedule] Device offline, mutation safely persisted locally.');
+        return input.id || 'offline_queued';
       }
-
-      return data as string;
     },
     onMutate: async (newBlock) => {
       // Cancel in-flight queries
@@ -155,7 +174,7 @@ export function useBaseSchedule() {
       const previousStoreData = baseSchedules;
 
       const associatedCourse = courses.find((c: CourseRow) => c.id === newBlock.course_id) ?? null;
-      const targetId = newBlock.id || `temp-${Date.now()}`;
+      const targetId = newBlock.id || generateClientUuid();
 
       const optimisticBlock: BaseScheduleRow = {
         id: targetId,
@@ -173,8 +192,15 @@ export function useBaseSchedule() {
         course: associatedCourse,
       };
 
-      // Optimistic update to Zustand store
-      upsertLocalScheduleBlock(optimisticBlock);
+      // Atomic SQLite (L2) + Offline Queue + Zustand (L1) write
+      executeOptimisticMutation({
+        entityType: 'base_schedule',
+        operation: 'INSERT',
+        recordId: targetId,
+        payload: optimisticBlock,
+        applyLocalDb: () => upsertLocalBaseSchedules([optimisticBlock]),
+        applyZustand: () => upsertLocalScheduleBlock(optimisticBlock),
+      });
 
       // Optimistic update to React Query cache
       queryClient.setQueryData<BaseScheduleRow[]>(queryKey, (old = []) => {
@@ -208,16 +234,27 @@ export function useBaseSchedule() {
   // 3. Optimistic mutation for deleting schedule blocks
   const deleteMutation = useMutation({
     mutationFn: async (blockId: string) => {
-      const { data, error } = await supabase.rpc('delete_base_schedule_block', {
-        p_block_id: blockId,
-      });
+      try {
+        const { data, error } = await supabase.rpc('delete_base_schedule_block', {
+          p_block_id: blockId,
+        });
 
-      if (error) {
-        console.error('[useBaseSchedule] Error deleting block:', error.message);
-        throw error;
+        if (error) {
+          if (isPoisonPillError(error)) {
+            console.error('[useBaseSchedule] Poison pill error deleting block:', error.message);
+            throw error;
+          }
+          console.warn('[useBaseSchedule] Transient failure deleting block, queued offline:', error.message);
+        }
+
+        return data;
+      } catch (err: any) {
+        if (isPoisonPillError(err)) {
+          throw err;
+        }
+        console.log('[useBaseSchedule] Device offline, block deletion queued locally.');
+        return null;
       }
-
-      return data;
     },
     onMutate: async (blockId) => {
       await queryClient.cancelQueries({ queryKey });
@@ -225,8 +262,16 @@ export function useBaseSchedule() {
       const previousQueryData = queryClient.getQueryData<BaseScheduleRow[]>(queryKey) ?? [];
       const previousStoreData = baseSchedules;
 
-      // Optimistically remove from Zustand and React Query
-      removeLocalScheduleBlock(blockId);
+      // Atomic SQLite (L2) + Offline Queue + Zustand (L1) deletion
+      executeOptimisticMutation({
+        entityType: 'base_schedule',
+        operation: 'DELETE',
+        recordId: blockId,
+        payload: { id: blockId },
+        applyLocalDb: () => deleteLocalBaseSchedule(blockId),
+        applyZustand: () => removeLocalScheduleBlock(blockId),
+      });
+
       queryClient.setQueryData<BaseScheduleRow[]>(queryKey, (old = []) =>
         old.filter((b) => b.id !== blockId)
       );

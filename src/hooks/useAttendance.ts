@@ -14,6 +14,13 @@ import {
   useAppStore,
   type AttendanceLogRow,
 } from '@/store/useAppStore';
+import { generateClientUuid } from '@/lib/db/platformDb';
+import { executeOptimisticMutation } from '@/lib/db/mutationQueue';
+import {
+  upsertLocalAttendanceLogs,
+  deleteLocalAttendanceLog,
+} from '@/lib/db/taskAttendanceRepository';
+import { isPoisonPillError } from '@/services/mutationReplayWorker';
 import {
   calculateCourseAttendance,
   calculateAttendanceMetrics,
@@ -61,10 +68,17 @@ export function useAttendance(options?: UseAttendanceOptions) {
     [user?.id, options?.courseId]
   );
 
+  // Filter logs for this hook's scope if courseId was specified
+  const filteredLogs = useMemo(() => {
+    if (!options?.courseId) return attendanceLogs;
+    return attendanceLogs.filter((log) => log.course_id === options.courseId);
+  }, [attendanceLogs, options?.courseId]);
+
   // 1. Fetch attendance logs from Supabase
   const attendanceQuery = useQuery<AttendanceLogRow[]>({
     queryKey,
     enabled: !!user?.id,
+    initialData: filteredLogs.length > 0 ? filteredLogs : undefined,
     queryFn: async () => {
       if (!user?.id) return [];
 
@@ -102,12 +116,6 @@ export function useAttendance(options?: UseAttendanceOptions) {
       setAttendanceLogs(attendanceQuery.data);
     }
   }, [attendanceQuery.data, setAttendanceLogs]);
-
-  // Filter logs for this hook's scope if courseId was specified
-  const filteredLogs = useMemo(() => {
-    if (!options?.courseId) return attendanceLogs;
-    return attendanceLogs.filter((log) => log.course_id === options.courseId);
-  }, [attendanceLogs, options?.courseId]);
 
   // 2. Compute course-by-course metrics using Bunk Calculator pure math engine
   const courseMetricsMap = useMemo(() => {
@@ -148,52 +156,149 @@ export function useAttendance(options?: UseAttendanceOptions) {
   // 4. Mutations
   const logAttendanceMutation = useMutation({
     mutationFn: async (input: LogAttendanceInput) => {
-      const { data, error } = await supabase.rpc('log_attendance_session', {
-        p_course_id: input.course_id,
-        p_date: input.attendance_date,
-        p_status: input.status,
-        p_schedule_block_id: input.schedule_block_id ?? undefined,
-        p_override_id: input.override_id ?? undefined,
-        p_notes: input.notes ?? undefined,
+      try {
+        const { data, error } = await supabase.rpc('log_attendance_session', {
+          p_course_id: input.course_id,
+          p_date: input.attendance_date,
+          p_status: input.status,
+          p_schedule_block_id: input.schedule_block_id ?? undefined,
+          p_override_id: input.override_id ?? undefined,
+          p_notes: input.notes ?? undefined,
+        });
+
+        if (error) {
+          if (isPoisonPillError(error)) {
+            console.error('[useAttendance] Poison pill error logging attendance:', error.message);
+            throw error;
+          }
+          console.warn('[useAttendance] Transient failure logging attendance, queued offline:', error.message);
+        }
+
+        return data;
+      } catch (err: any) {
+        if (isPoisonPillError(err)) {
+          throw err;
+        }
+        console.log('[useAttendance] Device offline, attendance logged optimistically in SQLite queue.');
+        return null;
+      }
+    },
+    onMutate: async (input) => {
+      await queryClient.cancelQueries({ queryKey });
+
+      const previousQueryData = queryClient.getQueryData<AttendanceLogRow[]>(queryKey) ?? [];
+      const previousStoreData = attendanceLogs;
+
+      const recordId = generateClientUuid();
+      const associatedCourse = enrolledCourses.find((c) => c.id === input.course_id) ?? null;
+
+      const optimisticLog: AttendanceLogRow = {
+        id: recordId,
+        course_id: input.course_id,
+        user_id: user?.id || 'offline_user',
+        attendance_date: input.attendance_date,
+        status: input.status,
+        schedule_block_id: input.schedule_block_id || null,
+        override_id: input.override_id || null,
+        notes: input.notes || null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        course: associatedCourse,
+        schedule_block: null,
+        override: null,
+      };
+
+      // Atomic SQLite (L2) + Offline Queue + Zustand (L1) write
+      executeOptimisticMutation({
+        entityType: 'attendance_log',
+        operation: 'INSERT',
+        recordId,
+        payload: optimisticLog,
+        applyLocalDb: () => upsertLocalAttendanceLogs([optimisticLog]),
+        applyZustand: () => upsertLocalAttendanceLog(optimisticLog),
       });
 
-      if (error) {
-        console.error('[useAttendance] Error logging attendance:', error.message);
-        throw error;
-      }
+      queryClient.setQueryData<AttendanceLogRow[]>(queryKey, (old = []) => [
+        optimisticLog,
+        ...old.filter(
+          (l) =>
+            !(
+              l.course_id === input.course_id &&
+              l.attendance_date === input.attendance_date
+            )
+        ),
+      ]);
 
-      return data;
+      return { previousQueryData, previousStoreData };
     },
-    onSuccess: (savedLog) => {
-      if (savedLog) {
-        upsertLocalAttendanceLog({
-          ...savedLog,
-          course: null,
-          schedule_block: null,
-          override: null,
-        });
+    onError: (err, input, context) => {
+      if (context?.previousQueryData) {
+        queryClient.setQueryData(queryKey, context.previousQueryData);
       }
+      if (context?.previousStoreData) {
+        setAttendanceLogs(context.previousStoreData);
+      }
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey });
     },
   });
 
   const deleteAttendanceMutation = useMutation({
     mutationFn: async (logId: string) => {
-      const { data, error } = await supabase.rpc('delete_attendance_log', {
-        p_id: logId,
-      });
+      try {
+        const { data, error } = await supabase.rpc('delete_attendance_log', {
+          p_id: logId,
+        });
 
-      if (error) {
-        console.error('[useAttendance] Error deleting attendance log:', error.message);
-        throw error;
+        if (error) {
+          if (isPoisonPillError(error)) {
+            console.error('[useAttendance] Poison pill error deleting attendance log:', error.message);
+            throw error;
+          }
+          console.warn('[useAttendance] Transient failure deleting attendance log, queued offline:', error.message);
+        }
+
+        return data;
+      } catch (err: any) {
+        if (isPoisonPillError(err)) {
+          throw err;
+        }
+        console.log('[useAttendance] Device offline, deletion queued locally.');
+        return null;
       }
-
-      return data;
     },
     onMutate: async (logId: string) => {
-      removeLocalAttendanceLog(logId);
+      await queryClient.cancelQueries({ queryKey });
+
+      const previousQueryData = queryClient.getQueryData<AttendanceLogRow[]>(queryKey) ?? [];
+      const previousStoreData = attendanceLogs;
+
+      // Atomic SQLite (L2) + Offline Queue + Zustand (L1) deletion
+      executeOptimisticMutation({
+        entityType: 'attendance_log',
+        operation: 'DELETE',
+        recordId: logId,
+        payload: { id: logId },
+        applyLocalDb: () => deleteLocalAttendanceLog(logId),
+        applyZustand: () => removeLocalAttendanceLog(logId),
+      });
+
+      queryClient.setQueryData<AttendanceLogRow[]>(queryKey, (old = []) =>
+        old.filter((l) => l.id !== logId)
+      );
+
+      return { previousQueryData, previousStoreData };
     },
-    onSuccess: () => {
+    onError: (err, logId, context) => {
+      if (context?.previousQueryData) {
+        queryClient.setQueryData(queryKey, context.previousQueryData);
+      }
+      if (context?.previousStoreData) {
+        setAttendanceLogs(context.previousStoreData);
+      }
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey });
     },
   });

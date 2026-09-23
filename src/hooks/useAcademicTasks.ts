@@ -18,6 +18,9 @@ import {
   upsertLocalTasks,
   deleteLocalTask,
 } from '@/lib/db/taskAttendanceRepository';
+import { generateClientUuid } from '@/lib/db/platformDb';
+import { executeOptimisticMutation } from '@/lib/db/mutationQueue';
+import { isPoisonPillError } from '@/services/mutationReplayWorker';
 import {
   groupTasksByDeadline,
   type GroupedTasks,
@@ -84,6 +87,7 @@ export function useAcademicTasks(options?: UseAcademicTasksOptions) {
   const tasksQuery = useQuery<AcademicTaskRow[]>({
     queryKey,
     enabled: !!user?.id && (!!activeSectionId || enrolledCourseIds.length > 0),
+    initialData: tasks.length > 0 ? tasks : undefined,
     queryFn: async () => {
       if (!user?.id) return [];
 
@@ -270,72 +274,195 @@ export function useAcademicTasks(options?: UseAcademicTasksOptions) {
   // 5. Mutations
   const upsertTaskMutation = useMutation({
     mutationFn: async (input: UpsertAcademicTaskInput) => {
-      const { data, error } = await supabase.rpc('upsert_academic_task', {
-        p_id: input.id ?? undefined,
-        p_section_id: input.section_id,
-        p_course_id: input.course_id ?? undefined,
-        p_title: input.title,
-        p_description: input.description ?? undefined,
-        p_task_type: input.task_type ?? 'assignment',
-        p_due_datetime: input.due_datetime,
-        p_is_personal: input.is_personal ?? true,
+      try {
+        const { data, error } = await supabase.rpc('upsert_academic_task', {
+          p_id: input.id ?? undefined,
+          p_section_id: input.section_id,
+          p_course_id: input.course_id ?? undefined,
+          p_title: input.title,
+          p_description: input.description ?? undefined,
+          p_task_type: input.task_type ?? 'assignment',
+          p_due_datetime: input.due_datetime,
+          p_is_personal: input.is_personal ?? true,
+        });
+
+        if (error) {
+          if (isPoisonPillError(error)) {
+            console.error('[useAcademicTasks] Poison pill error upserting task:', error.message);
+            throw error;
+          }
+          console.warn('[useAcademicTasks] Transient failure, task queued in offline queue:', error.message);
+        }
+
+        return data;
+      } catch (err: any) {
+        if (isPoisonPillError(err)) {
+          throw err;
+        }
+        console.log('[useAcademicTasks] Device offline, task queued optimistically in SQLite.');
+        return null;
+      }
+    },
+    onMutate: async (input) => {
+      await queryClient.cancelQueries({ queryKey });
+
+      const previousQueryData = queryClient.getQueryData<AcademicTaskRow[]>(queryKey) ?? [];
+      const previousStoreData = tasks;
+
+      const targetId = input.id || generateClientUuid();
+      const associatedCourse = courses.find((c) => c.id === input.course_id) ?? null;
+
+      const optimisticTask: AcademicTaskRow = {
+        id: targetId,
+        section_id: input.section_id,
+        course_id: input.course_id ?? null,
+        title: input.title,
+        description: input.description ?? null,
+        task_type: input.task_type ?? 'assignment',
+        due_datetime: input.due_datetime,
+        is_personal: input.is_personal ?? true,
+        created_by: user?.id || 'offline_user',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        course: associatedCourse,
+      };
+
+      // Atomic SQLite (L2) + Offline Queue + Zustand (L1) write
+      executeOptimisticMutation({
+        entityType: 'academic_task',
+        operation: 'INSERT',
+        recordId: targetId,
+        payload: optimisticTask,
+        applyLocalDb: () => upsertLocalTasks([optimisticTask]),
+        applyZustand: () => upsertLocalTask(optimisticTask),
       });
 
-      if (error) {
-        console.error('[useAcademicTasks] Error upserting task:', error.message);
-        throw error;
-      }
+      queryClient.setQueryData<AcademicTaskRow[]>(queryKey, (old = []) => {
+        const idx = old.findIndex((t) => t.id === targetId);
+        if (idx >= 0) {
+          const next = [...old];
+          next[idx] = optimisticTask;
+          return next;
+        }
+        return [...old, optimisticTask];
+      });
 
-      return data;
+      return { previousQueryData, previousStoreData };
     },
-    onSuccess: (savedTask) => {
-      if (savedTask) {
-        upsertLocalTask({
-          ...savedTask,
-          course: null,
-        });
+    onError: (err, input, context) => {
+      if (context?.previousQueryData) {
+        queryClient.setQueryData(queryKey, context.previousQueryData);
       }
+      if (context?.previousStoreData) {
+        setTasks(context.previousStoreData);
+      }
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey });
     },
   });
 
   const deleteTaskMutation = useMutation({
     mutationFn: async (taskId: string) => {
-      const { data, error } = await supabase.rpc('delete_academic_task', {
-        p_id: taskId,
-      });
+      try {
+        const { data, error } = await supabase.rpc('delete_academic_task', {
+          p_id: taskId,
+        });
 
-      if (error) {
-        console.error('[useAcademicTasks] Error deleting task:', error.message);
-        throw error;
+        if (error) {
+          if (isPoisonPillError(error)) {
+            console.error('[useAcademicTasks] Poison pill error deleting task:', error.message);
+            throw error;
+          }
+          console.warn('[useAcademicTasks] Transient failure deleting task, queued offline:', error.message);
+        }
+
+        return data;
+      } catch (err: any) {
+        if (isPoisonPillError(err)) {
+          throw err;
+        }
+        console.log('[useAcademicTasks] Device offline, task deletion queued locally.');
+        return null;
       }
-
-      return data;
     },
     onMutate: async (taskId: string) => {
-      removeLocalTask(taskId);
+      await queryClient.cancelQueries({ queryKey });
+
+      const previousQueryData = queryClient.getQueryData<AcademicTaskRow[]>(queryKey) ?? [];
+      const previousStoreData = tasks;
+
+      // Atomic SQLite (L2) + Offline Queue + Zustand (L1) deletion
+      executeOptimisticMutation({
+        entityType: 'academic_task',
+        operation: 'DELETE',
+        recordId: taskId,
+        payload: { id: taskId },
+        applyLocalDb: () => deleteLocalTask(taskId),
+        applyZustand: () => removeLocalTask(taskId),
+      });
+
+      queryClient.setQueryData<AcademicTaskRow[]>(queryKey, (old = []) =>
+        old.filter((t) => t.id !== taskId)
+      );
+
+      return { previousQueryData, previousStoreData };
     },
-    onSuccess: () => {
+    onError: (err, taskId, context) => {
+      if (context?.previousQueryData) {
+        queryClient.setQueryData(queryKey, context.previousQueryData);
+      }
+      if (context?.previousStoreData) {
+        setTasks(context.previousStoreData);
+      }
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey });
     },
   });
 
   const toggleTaskCompletionMutation = useMutation({
     mutationFn: async (taskId: string) => {
-      const { data, error } = await supabase.rpc('toggle_task_completion', {
-        p_task_id: taskId,
-      });
+      try {
+        const { data, error } = await supabase.rpc('toggle_task_completion', {
+          p_task_id: taskId,
+        });
 
-      if (error) {
-        console.error('[useAcademicTasks] Error toggling task completion:', error.message);
-        throw error;
+        if (error) {
+          if (isPoisonPillError(error)) {
+            console.error('[useAcademicTasks] Poison pill error toggling task completion:', error.message);
+            throw error;
+          }
+          console.warn('[useAcademicTasks] Transient failure toggling completion, queued offline:', error.message);
+        }
+
+        return { taskId, isCompleted: data };
+      } catch (err: any) {
+        if (isPoisonPillError(err)) {
+          throw err;
+        }
+        console.log('[useAcademicTasks] Device offline, task completion toggled locally.');
+        return { taskId, isCompleted: true };
       }
-
-      return { taskId, isCompleted: data };
     },
     onMutate: async (taskId: string) => {
-      // Instant optimistic local toggle
+      // Instant optimistic local toggle in Zustand
       toggleLocalTaskCompletion(taskId);
+
+      // Enqueue offline completion mutation
+      executeOptimisticMutation({
+        entityType: 'user_task_completion',
+        operation: 'INSERT',
+        recordId: `${taskId}_${user?.id || 'offline_user'}`,
+        payload: {
+          id: generateClientUuid(),
+          task_id: taskId,
+          user_id: user?.id || 'offline_user',
+          completed_at: new Date().toISOString(),
+        },
+        applyLocalDb: () => {},
+        applyZustand: () => {},
+      });
     },
     onError: (_error, taskId) => {
       // Revert local state on failure

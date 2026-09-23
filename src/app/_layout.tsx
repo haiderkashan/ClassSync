@@ -1,6 +1,6 @@
 import '../../global.css';
 import { env } from '@/lib/env';
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, ActivityIndicator, Text, Pressable } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import * as SplashScreen from 'expo-splash-screen';
@@ -11,6 +11,9 @@ import { useAuth } from '@clerk/expo';
 import { Calendar, AlertTriangle } from 'lucide-react-native';
 import { AppProviders } from '@/providers';
 import { useNotificationRouting } from '@/lib/notifications/useNotificationRouting';
+import { hydrateAppStoreFromLocalDb } from '@/lib/db/hydrateAppStore';
+import { useOfflineSync } from '@/hooks/useOfflineSync';
+import { useRealtimeSync } from '@/hooks/useRealtimeSync';
 
 // Prevent native splash screen from auto-hiding before auth session is resolved
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -55,7 +58,13 @@ export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
   );
 }
 
-function NavigationGuard() {
+function OfflineSyncCoordinator() {
+  useOfflineSync();
+  useRealtimeSync();
+  return null;
+}
+
+function NavigationGuard({ isDbHydrated }: { isDbHydrated: boolean }) {
   const { isLoaded, isSignedIn } = useAuth();
   const segments = useSegments();
   const router = useRouter();
@@ -64,14 +73,15 @@ function NavigationGuard() {
   useNotificationRouting();
 
   useEffect(() => {
-    if (!isLoaded) return;
+    // Only dismiss splash screen once BOTH Clerk auth session AND SQLite hydration are finished
+    if (!isLoaded || !isDbHydrated) return;
 
-    // Dismiss splash screen once Clerk has loaded the session
+    // Dismiss native splash screen
     SplashScreen.hideAsync().catch(() => {});
 
     const inAuthGroup = segments[0] === '(auth)';
     console.log(
-      `🔄 [AuthGuard] State changed: isLoaded=${isLoaded}, isSignedIn=${isSignedIn}, activeGroup=/${segments[0] || ''}`
+      `🔄 [AuthGuard] State changed: isLoaded=${isLoaded}, isDbHydrated=${isDbHydrated}, isSignedIn=${isSignedIn}, activeGroup=/${segments[0] || ''}`
     );
 
     if (!isSignedIn && !inAuthGroup) {
@@ -83,18 +93,18 @@ function NavigationGuard() {
       console.log('🚀 [AuthGuard] Redirecting authenticated user -> /(tabs)');
       router.replace('/(tabs)');
     }
-  }, [isLoaded, isSignedIn, segments, router]);
+  }, [isLoaded, isDbHydrated, isSignedIn, segments, router]);
 
   return null;
 }
 
 /**
- * Branded Splash Overlay shown while Clerk is rehydrating the session token from SecureStore.
+ * Branded Splash Overlay shown while Clerk is rehydrating the session token and local SQLite is hydrating.
  * Rendered as an absolute overlay so the underlying Stack navigator remains mounted.
  */
-function SplashOverlay() {
+function SplashOverlay({ isDbHydrated }: { isDbHydrated: boolean }) {
   const { isLoaded } = useAuth();
-  if (isLoaded) return null;
+  if (isLoaded && isDbHydrated) return null;
 
   return (
     <View pointerEvents="none" className="absolute inset-0 items-center justify-center bg-white z-50">
@@ -111,19 +121,36 @@ function SplashOverlay() {
  * Root Layout assembling SafeAreaProvider, AppProviders, NavigationGuard, and Stack.
  */
 export default function RootLayout() {
+  const [isDbHydrated, setIsDbHydrated] = useState(false);
+
   useEffect(() => {
-    // Safety guard: guarantee native splash screen is dismissed within 2.5s even if auth hangs
+    let isMounted = true;
+
+    // Hydrate Zustand L1 store from SQLite L2 disk immediately on cold boot
+    hydrateAppStoreFromLocalDb().finally(() => {
+      if (isMounted) {
+        setIsDbHydrated(true);
+      }
+    });
+
+    // Safety guard: guarantee native splash screen is dismissed within 3s even if network/db hangs
     const timer = setTimeout(() => {
       SplashScreen.hideAsync().catch(() => {});
-    }, 2500);
-    return () => clearTimeout(timer);
+    }, 3000);
+
+    return () => {
+      isMounted = false;
+      clearTimeout(timer);
+    };
   }, []);
 
   return (
     <SafeAreaProvider>
       <AppProviders>
         <StatusBar style="auto" />
-        <NavigationGuard />
+        <NavigationGuard isDbHydrated={isDbHydrated} />
+        <OfflineSyncCoordinator />
+        <SplashOverlay isDbHydrated={isDbHydrated} />
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="index" options={{ headerShown: false }} />
           <Stack.Screen name="(auth)" options={{ headerShown: false }} />
@@ -192,7 +219,6 @@ export default function RootLayout() {
             }}
           />
         </Stack>
-        <SplashOverlay />
       </AppProviders>
     </SafeAreaProvider>
   );

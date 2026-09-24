@@ -706,6 +706,18 @@ export default function SettingsScreen() {
                     Choose whether cohort classes repeat weekly or alternate between Week A and Week B.
                   </Text>
 
+                  {/* Academic Calendar & Break Settings Modal Link */}
+                  <Pressable
+                    onPress={() => router.push('/schedule/calendar-settings')}
+                    className="w-full py-2.5 bg-indigo-50 border border-indigo-100 rounded-2xl flex-row items-center justify-center active:bg-indigo-100/80 mb-3"
+                  >
+                    <Calendar size={14} color="#4F46E5" />
+                    <Text className="text-xs font-bold text-indigo-700 mx-1.5">
+                      Academic Calendar & Break Settings
+                    </Text>
+                    <ChevronRight size={14} color="#4F46E5" />
+                  </Pressable>
+
                   {/* Segmented Mode Selector */}
                   <View className="flex-row p-1 bg-neutral-100/90 rounded-full mb-3">
                     <Pressable

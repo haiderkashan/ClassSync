@@ -1,4 +1,4 @@
-export type Json =
+﻿export type Json =
   | string
   | number
   | boolean
@@ -354,6 +354,142 @@ export type Database = {
           {
             foreignKeyName: "notification_queue_user_id_fkey"
             columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      peer_report_votes: {
+        Row: {
+          created_at: string
+          id: string
+          report_id: string
+          updated_at: string
+          user_id: string
+          vote: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          report_id: string
+          updated_at?: string
+          user_id: string
+          vote: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          report_id?: string
+          updated_at?: string
+          user_id?: string
+          vote?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "peer_report_votes_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "peer_schedule_reports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "peer_report_votes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      peer_schedule_reports: {
+        Row: {
+          affirmation_count: number
+          base_schedule_id: string
+          course_id: string
+          created_at: string
+          created_by: string | null
+          denial_count: number
+          id: string
+          override_id: string | null
+          report_date: string
+          section_id: string
+          status: string
+          updated_at: string
+          veto_reason: string | null
+          vetoed_by: string | null
+        }
+        Insert: {
+          affirmation_count?: number
+          base_schedule_id: string
+          course_id: string
+          created_at?: string
+          created_by?: string | null
+          denial_count?: number
+          id?: string
+          override_id?: string | null
+          report_date: string
+          section_id: string
+          status?: string
+          updated_at?: string
+          veto_reason?: string | null
+          vetoed_by?: string | null
+        }
+        Update: {
+          affirmation_count?: number
+          base_schedule_id?: string
+          course_id?: string
+          created_at?: string
+          created_by?: string | null
+          denial_count?: number
+          id?: string
+          override_id?: string | null
+          report_date?: string
+          section_id?: string
+          status?: string
+          updated_at?: string
+          veto_reason?: string | null
+          vetoed_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "peer_schedule_reports_base_schedule_id_fkey"
+            columns: ["base_schedule_id"]
+            isOneToOne: false
+            referencedRelation: "base_schedule"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "peer_schedule_reports_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "peer_schedule_reports_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "peer_schedule_reports_override_id_fkey"
+            columns: ["override_id"]
+            isOneToOne: false
+            referencedRelation: "schedule_overrides"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "peer_schedule_reports_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "sections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "peer_schedule_reports_vetoed_by_fkey"
+            columns: ["vetoed_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -867,6 +1003,14 @@ export type Database = {
     }
     Functions: {
       archive_section: { Args: { p_section_id: string }; Returns: boolean }
+      cast_peer_vote: {
+        Args: {
+          p_base_schedule_id: string
+          p_report_date: string
+          p_vote: string
+        }
+        Returns: Json
+      }
       clone_day_schedule: {
         Args: {
           p_override_existing?: boolean
@@ -1106,6 +1250,10 @@ export type Database = {
           p_status?: string
         }
         Returns: string
+      }
+      veto_peer_report: {
+        Args: { p_reason?: string; p_report_id: string }
+        Returns: Json
       }
     }
     Enums: {

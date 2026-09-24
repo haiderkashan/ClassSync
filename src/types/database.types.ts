@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       academic_tasks: {
@@ -518,6 +543,47 @@ export type Database = {
           },
         ]
       }
+      section_calendar_breaks: {
+        Row: {
+          break_name: string
+          created_at: string
+          end_date: string
+          freeze_cycle: boolean
+          id: string
+          section_id: string
+          start_date: string
+          updated_at: string
+        }
+        Insert: {
+          break_name: string
+          created_at?: string
+          end_date: string
+          freeze_cycle?: boolean
+          id?: string
+          section_id: string
+          start_date: string
+          updated_at?: string
+        }
+        Update: {
+          break_name?: string
+          created_at?: string
+          end_date?: string
+          freeze_cycle?: boolean
+          id?: string
+          section_id?: string
+          start_date?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "section_calendar_breaks_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "sections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       section_members: {
         Row: {
           id: string
@@ -562,12 +628,15 @@ export type Database = {
           created_at: string
           created_by: string | null
           cycle_mode: string
+          cycle_naming_convention: string
           id: string
           institution_tag: string | null
           is_archived: boolean
           join_code: string
           name: string
+          semester_start_date: string | null
           timezone: string
+          total_instructional_weeks: number | null
           updated_at: string
           week_a_anchor_date: string | null
         }
@@ -575,12 +644,15 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           cycle_mode?: string
+          cycle_naming_convention?: string
           id?: string
           institution_tag?: string | null
           is_archived?: boolean
           join_code: string
           name: string
+          semester_start_date?: string | null
           timezone?: string
+          total_instructional_weeks?: number | null
           updated_at?: string
           week_a_anchor_date?: string | null
         }
@@ -588,12 +660,15 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           cycle_mode?: string
+          cycle_naming_convention?: string
           id?: string
           institution_tag?: string | null
           is_archived?: boolean
           join_code?: string
           name?: string
+          semester_start_date?: string | null
           timezone?: string
+          total_instructional_weeks?: number | null
           updated_at?: string
           week_a_anchor_date?: string | null
         }
@@ -812,6 +887,7 @@ export type Database = {
         Args: { p_block_id: string }
         Returns: boolean
       }
+      delete_calendar_break: { Args: { p_break_id: string }; Returns: boolean }
       delete_schedule_override: { Args: { p_id: string }; Returns: boolean }
       is_course_enrolled: { Args: { c_id: string }; Returns: boolean }
       is_section_admin: { Args: { sec_id: string }; Returns: boolean }
@@ -922,14 +998,26 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      update_section_cycle_settings: {
-        Args: {
-          p_cycle_mode: string
-          p_section_id: string
-          p_week_a_anchor_date?: string
-        }
-        Returns: boolean
-      }
+      update_section_cycle_settings:
+        | {
+            Args: {
+              p_cycle_mode: string
+              p_section_id: string
+              p_week_a_anchor_date?: string
+            }
+            Returns: boolean
+          }
+        | {
+            Args: {
+              p_cycle_mode: string
+              p_cycle_naming_convention?: string
+              p_section_id: string
+              p_semester_start_date?: string
+              p_total_instructional_weeks?: number
+              p_week_a_anchor_date?: string
+            }
+            Returns: boolean
+          }
       upsert_academic_task: {
         Args: {
           p_course_id?: string
@@ -975,6 +1063,32 @@ export type Database = {
           p_start_time?: string
         }
         Returns: string
+      }
+      upsert_calendar_break: {
+        Args: {
+          p_break_name: string
+          p_end_date: string
+          p_freeze_cycle?: boolean
+          p_id: string
+          p_section_id: string
+          p_start_date: string
+        }
+        Returns: {
+          break_name: string
+          created_at: string
+          end_date: string
+          freeze_cycle: boolean
+          id: string
+          section_id: string
+          start_date: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "section_calendar_breaks"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       upsert_schedule_override: {
         Args: {
@@ -1121,6 +1235,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {},
   },

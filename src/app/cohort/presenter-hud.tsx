@@ -22,6 +22,7 @@ import {
   Maximize2,
 } from 'lucide-react-native';
 import { useWorkspaces } from '@/hooks/useWorkspaces';
+import { useSupabase } from '@/hooks/useSupabase';
 import { setupPresenterDisplayMode } from '@/lib/presenter/displayService';
 
 export default function PresenterHudModal() {
@@ -41,14 +42,73 @@ export default function PresenterHudModal() {
   const joinCode = section?.join_code || '------';
   const joinUrl = `https://classsync.app/join?code=${joinCode}`;
 
+  const supabase = useSupabase();
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedUrl, setCopiedUrl] = useState(false);
+  const [enrolledCount, setEnrolledCount] = useState<number | null>(null);
+  const [isCountLoading, setIsCountLoading] = useState(true);
+  const [recentlyJoined, setRecentlyJoined] = useState(false);
 
   // Dynamic QR sizing tailored for auditorium & projection visibility
   const qrSize = useMemo(() => {
     const minDim = Math.min(width, height);
     return Math.max(220, Math.min(minDim * 0.65, 320));
   }, [width, height]);
+
+  // Fetch initial student count & listen for live Supabase Realtime INSERTs
+  useEffect(() => {
+    if (!section?.id) return;
+
+    let isMounted = true;
+
+    const fetchInitialCount = async () => {
+      try {
+        const { count, error } = await supabase
+          .from('section_members')
+          .select('*', { count: 'exact', head: true })
+          .eq('section_id', section.id);
+
+        if (!error && typeof count === 'number' && isMounted) {
+          setEnrolledCount(count);
+        }
+      } catch (err) {
+        console.warn('⚠️ [PresenterHUD] Failed to fetch member count:', err);
+      } finally {
+        if (isMounted) setIsCountLoading(false);
+      }
+    };
+
+    fetchInitialCount();
+
+    const channelName = `presenter_members_${section.id}_${Math.random().toString(36).substring(2, 7)}`;
+    const channel = supabase
+      .channel(channelName)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'section_members',
+          filter: `section_id=eq.${section.id}`,
+        },
+        (payload) => {
+          console.log('🎉 [PresenterHUD] Live student onboarded via Realtime:', payload.new);
+          if (isMounted) {
+            setEnrolledCount((prev) => (prev !== null ? prev + 1 : 1));
+            setRecentlyJoined(true);
+            setTimeout(() => {
+              if (isMounted) setRecentlyJoined(false);
+            }, 3500);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      isMounted = false;
+      supabase.removeChannel(channel);
+    };
+  }, [section?.id, supabase]);
 
   // Wire hardware display locks: max brightness, portrait lock, keep-awake
   useEffect(() => {
@@ -138,6 +198,36 @@ export default function PresenterHudModal() {
         >
           <X size={20} color="#ffffff" />
         </Pressable>
+      </View>
+
+      {/* Live Realtime Enrolled Student Counter Pill */}
+      <View className="px-6 pt-3 items-center">
+        <View
+          className={`px-4 py-2 rounded-full border flex-row items-center space-x-2 shadow-lg ${
+            recentlyJoined
+              ? 'bg-emerald-950/90 border-emerald-500/80'
+              : 'bg-neutral-900/90 border-neutral-800'
+          }`}
+        >
+          <View
+            className={`w-2.5 h-2.5 rounded-full mr-2 ${
+              recentlyJoined ? 'bg-emerald-400' : 'bg-emerald-500'
+            }`}
+          />
+          <Users size={14} color={recentlyJoined ? '#34d399' : '#a1a1aa'} />
+          <Text className="text-xs font-bold text-neutral-300 ml-1">
+            Live Enrolled:
+          </Text>
+          <Text className="text-xs font-black text-white ml-1">
+            {isCountLoading ? '...' : `${enrolledCount ?? 0} ${enrolledCount === 1 ? 'Student' : 'Students'}`}
+          </Text>
+          {recentlyJoined && (
+            <View className="ml-2 bg-emerald-500/20 px-2 py-0.5 rounded-full flex-row items-center">
+              <Sparkles size={10} color="#34d399" />
+              <Text className="text-[10px] font-black text-emerald-400 ml-1">+1 Joined!</Text>
+            </View>
+          )}
+        </View>
       </View>
 
       {/* Main High-Contrast Projector Canvas */}

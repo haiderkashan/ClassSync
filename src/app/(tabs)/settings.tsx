@@ -41,6 +41,7 @@ import {
   ChevronRight,
   Moon,
   Clock,
+  QrCode,
 } from 'lucide-react-native';
 import { useWorkspaces } from '@/hooks/useWorkspaces';
 import { useSupabase } from '@/hooks/useSupabase';
@@ -637,6 +638,16 @@ export default function SettingsScreen() {
 
               {/* Roster and Section Management Actions */}
               <View className="mt-3 pt-3 border-t border-neutral-200/60 flex-row flex-wrap gap-2">
+                <Pressable
+                  onPress={() => router.push('/cohort/presenter-hud')}
+                  className="bg-indigo-600 px-3.5 py-2 rounded-full flex-row items-center active:bg-indigo-700 shadow-xs"
+                >
+                  <QrCode size={13} color="#ffffff" strokeWidth={2.2} />
+                  <Text className="text-xs font-bold text-white ml-1.5">
+                    Project Join QR
+                  </Text>
+                </Pressable>
+
                 {isCR && (
                   <>
                     <Pressable

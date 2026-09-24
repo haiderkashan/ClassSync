@@ -1,5 +1,16 @@
 import type { WeekParity } from '@/store/useAppStore';
 
+export interface CalendarBreak {
+  id?: string;
+  section_id?: string;
+  break_name: string;
+  start_date: string; // YYYY-MM-DD
+  end_date: string;   // YYYY-MM-DD
+  freeze_cycle: boolean;
+}
+
+export type CycleNamingConvention = 'week_ab' | 'odd_even' | 'cycle_12';
+
 /**
  * Parses a YYYY-MM-DD date string into [year, monthIndex, dayOfMonth].
  */
@@ -65,23 +76,67 @@ export function getTomorrowDateString(
 }
 
 /**
+ * Determines whether a given calendar date falls inside any active break.
+ * Returns the matching break record if found, or null if classes are active.
+ */
+export function isDateInBreak(
+  targetDate: string | Date,
+  breaks: CalendarBreak[] = []
+): CalendarBreak | null {
+  const targetStr = typeof targetDate === 'string' ? targetDate.slice(0, 10) : getLocalDateString(targetDate);
+  for (const b of breaks) {
+    const startStr = b.start_date.slice(0, 10);
+    const endStr = b.end_date.slice(0, 10);
+    if (targetStr >= startStr && targetStr <= endStr) {
+      return b;
+    }
+  }
+  return null;
+}
+
+/**
+ * Checks whether the instructional week (Monday to Friday) represented by a Monday timestamp
+ * overlaps with any break configured to freeze the cycle.
+ */
+function isWeekFrozen(mondayMs: number, breaks: CalendarBreak[]): boolean {
+  const d = new Date(mondayMs);
+  const mondayStr = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+
+  const fridayD = new Date(mondayMs + 4 * 86400000);
+  const fridayStr = `${fridayD.getUTCFullYear()}-${String(fridayD.getUTCMonth() + 1).padStart(2, '0')}-${String(fridayD.getUTCDate()).padStart(2, '0')}`;
+
+  for (const b of breaks) {
+    if (!b.freeze_cycle) continue;
+    const bStart = b.start_date.slice(0, 10);
+    const bEnd = b.end_date.slice(0, 10);
+
+    // Overlap condition between week's instructional days [mondayStr, fridayStr] and break [bStart, bEnd]
+    if (mondayStr <= bEnd && fridayStr >= bStart) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
  * Calculates whether a target calendar date falls on 'biweekly_week_a' or 'biweekly_week_b'
- * based on the semester's Week A anchor date (the Monday of Week A).
+ * based on the semester's Week A anchor date and optional frozen term breaks.
  *
  * Algorithm:
  * 1. Normalizes both dates to the Monday of their respective calendar weeks in UTC.
- * 2. Computes the exact elapsed calendar days and divides by 7 to determine elapsed full weeks.
- * 3. Applies modular arithmetic:
- *      (diffWeeks % 2 === 0) => 'biweekly_week_a'
- *      (diffWeeks % 2 !== 0) => 'biweekly_week_b'
+ * 2. Computes the elapsed calendar weeks.
+ * 3. Subtracts all intervening weeks that are covered by breaks with `freeze_cycle: true`.
+ * 4. Applies modular arithmetic:
+ *      (effectiveWeeks % 2 === 0) => 'biweekly_week_a'
+ *      (effectiveWeeks % 2 !== 0) => 'biweekly_week_b'
  *
- * This math is 100% immune to Daylight Saving Time shifts (23-hour / 25-hour days),
- * leap years, and supports dates occurring before the anchor date.
+ * 100% immune to DST shifts, leap years, and negative date ranges.
  */
 export function calculateWeekParity(
   targetDate: string | Date,
   anchorDate?: string | Date | null,
-  cycleMode: string = 'alternating_ab'
+  cycleMode: string = 'alternating_ab',
+  breaks: CalendarBreak[] = []
 ): WeekParity {
   if (cycleMode !== 'alternating_ab' || !anchorDate) {
     return 'weekly';
@@ -102,17 +157,127 @@ export function calculateWeekParity(
   const diffDays = Math.round((targetMonday - anchorMonday) / 86400000);
   const diffWeeks = Math.floor(diffDays / 7);
 
+  // Compute intervening frozen break weeks
+  let frozenWeeks = 0;
+  if (targetMonday > anchorMonday) {
+    let currentMonday = anchorMonday + 7 * 86400000;
+    while (currentMonday <= targetMonday) {
+      // If an intervening week was frozen, it paused cycle toggling
+      if (currentMonday < targetMonday && isWeekFrozen(currentMonday, breaks)) {
+        frozenWeeks++;
+      }
+      currentMonday += 7 * 86400000;
+    }
+  } else if (targetMonday < anchorMonday) {
+    let currentMonday = targetMonday;
+    while (currentMonday < anchorMonday) {
+      if (isWeekFrozen(currentMonday, breaks)) {
+        frozenWeeks++;
+      }
+      currentMonday += 7 * 86400000;
+    }
+  }
+
+  const effectiveWeeks = targetMonday >= anchorMonday
+    ? diffWeeks - frozenWeeks
+    : diffWeeks + frozenWeeks;
+
   // Symmetrical modulo that correctly handles negative numbers in JS
-  const mod = ((diffWeeks % 2) + 2) % 2;
+  const mod = ((effectiveWeeks % 2) + 2) % 2;
   return mod === 0 ? 'biweekly_week_a' : 'biweekly_week_b';
+}
+
+/**
+ * Computes the 1-indexed instructional week number for a target date relative to semester start,
+ * subtracting non-instructional weeks covered by frozen breaks.
+ * Returns null if the target date is prior to semester start.
+ */
+export function getInstructionalWeekNumber(
+  targetDate: string | Date,
+  semesterStartDate?: string | Date | null,
+  breaks: CalendarBreak[] = []
+): number | null {
+  if (!semesterStartDate) return null;
+
+  const targetStr = typeof targetDate === 'string' ? targetDate : targetDate.toISOString();
+  const startStr = typeof semesterStartDate === 'string' ? semesterStartDate : semesterStartDate.toISOString();
+
+  const [ty, tm, td] = parseDateParts(targetStr);
+  const [sy, sm, sd] = parseDateParts(startStr);
+
+  const targetUTC = Date.UTC(ty, tm, td);
+  const startUTC = Date.UTC(sy, sm, sd);
+
+  const targetMonday = getMondayOfDate(targetUTC);
+  const startMonday = getMondayOfDate(startUTC);
+
+  if (targetMonday < startMonday) {
+    return null; // Prior to semester start
+  }
+
+  const calendarWeeks = Math.floor(Math.round((targetMonday - startMonday) / 86400000) / 7);
+
+  // Count frozen break weeks between startMonday and targetMonday
+  let frozenWeeks = 0;
+  let currentMonday = startMonday;
+  while (currentMonday < targetMonday) {
+    if (isWeekFrozen(currentMonday, breaks)) {
+      frozenWeeks++;
+    }
+    currentMonday += 7 * 86400000;
+  }
+
+  const instructionalWeek = calendarWeeks - frozenWeeks + 1;
+  return Math.max(1, instructionalWeek);
+}
+
+export interface AcademicWeekLabelOptions {
+  parity: WeekParity;
+  weekNumber?: number | null;
+  namingConvention?: CycleNamingConvention;
+  inBreak?: boolean;
+  breakName?: string | null;
+}
+
+/**
+ * Formats a user-friendly academic week string for headers and timeline cards
+ * according to the section's naming convention (Week A/B, Odd/Even, Cycle 1/2).
+ */
+export function formatAcademicWeekLabel({
+  parity,
+  weekNumber,
+  namingConvention = 'week_ab',
+  inBreak = false,
+  breakName = null,
+}: AcademicWeekLabelOptions): string {
+  if (inBreak && breakName) {
+    return breakName;
+  }
+
+  let cycleTag = '';
+  if (parity === 'biweekly_week_a') {
+    if (namingConvention === 'odd_even') cycleTag = 'Odd Week';
+    else if (namingConvention === 'cycle_12') cycleTag = 'Cycle 1';
+    else cycleTag = 'Week A';
+  } else if (parity === 'biweekly_week_b') {
+    if (namingConvention === 'odd_even') cycleTag = 'Even Week';
+    else if (namingConvention === 'cycle_12') cycleTag = 'Cycle 2';
+    else cycleTag = 'Week B';
+  }
+
+  if (weekNumber) {
+    if (cycleTag) {
+      return `Week ${weekNumber} • ${cycleTag}`;
+    }
+    return `Week ${weekNumber}`;
+  }
+
+  return cycleTag || 'Weekly Schedule';
 }
 
 /**
  * Computes the remaining milliseconds until the next midnight (00:00:01 AM)
  * in the specified IANA timezone.
- *
- * Used by the live midnight watcher to schedule a zero-overhead timer that
- * refreshes the dynamic agenda when the clock strikes midnight locally.
  */
 export function getMillisecondsUntilMidnight(
   timezone: string = 'UTC',
@@ -141,7 +306,7 @@ export function getMillisecondsUntilMidnight(
     const elapsedSecondsInDay = hours * 3600 + minutes * 60 + seconds;
     const totalSecondsInDay = 86400;
     const remainingSeconds = totalSecondsInDay - elapsedSecondsInDay;
-    
+
     // Add 1000ms buffer so timeout fires safely 1 second inside the new calendar day
     const remainingMs = remainingSeconds * 1000 - fromDate.getMilliseconds() + 1000;
     return Math.max(remainingMs, 1000);

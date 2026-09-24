@@ -1,26 +1,36 @@
 import React from 'react';
 import { View, Text, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
-import { GraduationCap, LogIn, PlusCircle } from 'lucide-react-native';
+import { GraduationCap, LogIn, PlusCircle, QrCode } from 'lucide-react-native';
 
 export interface EmptyStateProps {
   title?: string;
   subtitle?: string;
   onJoinPress?: () => void;
   onCreatePress?: () => void;
+  onScanPress?: () => void;
 }
 
 /**
  * Reusable Empty State component displayed when a student has no active section/cohort.
- * Features an illustrated hero badge and distinct calls-to-action to Join or Create a Section.
+ * Features an illustrated hero badge and distinct calls-to-action to Scan QR, Join with Code, or Create a Section.
  */
 export function EmptyState({
   title = 'No Enrolled Section',
-  subtitle = "You are not enrolled in any class section yet. Join an existing cohort with your Class Rep's 6-character code, or create a new section.",
+  subtitle = "You are not enrolled in any class section yet. Scan your cohort's presenter QR, enter a 6-character code, or create a new section.",
   onJoinPress,
   onCreatePress,
+  onScanPress,
 }: EmptyStateProps) {
   const router = useRouter();
+
+  const handleScan = () => {
+    if (onScanPress) {
+      onScanPress();
+    } else {
+      router.push('/cohort/scan-qr');
+    }
+  };
 
   const handleJoin = () => {
     if (onJoinPress) {
@@ -57,25 +67,36 @@ export function EmptyState({
 
       {/* Action Buttons */}
       <View className="w-full max-w-xs space-y-3">
-        {/* Join Section (Primary) */}
+        {/* Scan Presenter QR (Primary Quick Onboard) */}
         <Pressable
-          onPress={handleJoin}
-          className="w-full bg-brand-600 py-3.5 px-5 rounded-2xl flex-row items-center justify-center shadow-sm shadow-brand-600/30 active:scale-[0.98] active:bg-brand-700"
+          onPress={handleScan}
+          className="w-full bg-indigo-600 py-3.5 px-5 rounded-2xl flex-row items-center justify-center shadow-sm shadow-indigo-600/30 active:scale-[0.98] active:bg-indigo-700"
         >
-          <LogIn size={20} color="#ffffff" strokeWidth={2.2} />
+          <QrCode size={20} color="#ffffff" strokeWidth={2.2} />
           <Text className="text-white text-base font-semibold ml-2.5">
-            Join a Section
+            Scan Cohort QR
           </Text>
         </Pressable>
 
-        {/* Create Section (Secondary Outline) */}
+        {/* Join Section with Code */}
+        <Pressable
+          onPress={handleJoin}
+          className="w-full bg-white border border-neutral-200/90 py-3.5 px-5 rounded-2xl flex-row items-center justify-center shadow-2xs active:scale-[0.98] active:bg-neutral-50"
+        >
+          <LogIn size={20} color="#18181b" strokeWidth={2.2} />
+          <Text className="text-neutral-900 text-base font-semibold ml-2.5">
+            Join with Code
+          </Text>
+        </Pressable>
+
+        {/* Create Section (Tertiary Action) */}
         <Pressable
           onPress={handleCreate}
-          className="w-full bg-white border border-gray-200 py-3.5 px-5 rounded-2xl flex-row items-center justify-center active:scale-[0.98] active:bg-gray-50"
+          className="w-full bg-transparent py-2.5 px-5 rounded-2xl flex-row items-center justify-center active:bg-neutral-100"
         >
-          <PlusCircle size={20} color="#4f46e5" strokeWidth={2.2} />
-          <Text className="text-brand-600 text-base font-semibold ml-2.5">
-            Create a Section
+          <PlusCircle size={18} color="#4f46e5" strokeWidth={2.2} />
+          <Text className="text-indigo-600 text-sm font-semibold ml-2">
+            Create a New Section
           </Text>
         </Pressable>
       </View>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,23 +11,45 @@ import {
   Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { X, KeyRound, ArrowRight, AlertCircle, CheckCircle2, BookOpen, Users } from 'lucide-react-native';
+import { X, KeyRound, ArrowRight, AlertCircle, CheckCircle2, BookOpen, Users, QrCode } from 'lucide-react-native';
 import { useSupabase } from '@/hooks/useSupabase';
 import { useAppStore } from '@/store/useAppStore';
 import { normalizeJoinCode } from '@/lib/utils/codeGenerator';
 
 export default function JoinSectionModal() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ code?: string }>();
   const queryClient = useQueryClient();
   const supabase = useSupabase();
-  const { setActiveSectionId } = useAppStore();
+  const { setActiveSectionId, pendingJoinCode, setPendingJoinCode } = useAppStore();
 
-  const [code, setCode] = useState('');
+  const [code, setCode] = useState(() => {
+    if (params.code) {
+      return normalizeJoinCode(params.code).slice(0, 6);
+    }
+    if (pendingJoinCode) {
+      return normalizeJoinCode(pendingJoinCode).slice(0, 6);
+    }
+    return '';
+  });
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // Pre-fill from route parameters or Zustand OAuth pending state and clear
+  useEffect(() => {
+    if (params.code) {
+      setCode(normalizeJoinCode(params.code).slice(0, 6));
+      if (pendingJoinCode) {
+        setPendingJoinCode(null);
+      }
+    } else if (pendingJoinCode) {
+      setCode(normalizeJoinCode(pendingJoinCode).slice(0, 6));
+      setPendingJoinCode(null);
+    }
+  }, [params.code, pendingJoinCode, setPendingJoinCode]);
 
   const handleCodeChange = (text: string) => {
     const normalized = normalizeJoinCode(text).slice(0, 6);
@@ -162,6 +184,19 @@ export default function JoinSectionModal() {
                 <Text className="text-sm text-neutral-500 leading-relaxed">
                   Enter any 6-character code to join your entire cohort section or enroll in an individual course as a Guest student.
                 </Text>
+              </View>
+
+              {/* Quick Scan Action */}
+              <View className="mt-5">
+                <Pressable
+                  onPress={() => router.push('/cohort/scan-qr')}
+                  className="w-full py-3.5 px-4 bg-indigo-50 border border-indigo-200/80 rounded-2xl flex-row items-center justify-center space-x-2 active:bg-indigo-100/90 shadow-2xs"
+                >
+                  <QrCode size={18} color="#4f46e5" />
+                  <Text className="text-xs font-bold text-indigo-700 ml-2">
+                    Scan Presenter QR Code
+                  </Text>
+                </Pressable>
               </View>
 
               {/* Join Code Input Form */}

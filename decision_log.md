@@ -693,6 +693,43 @@ This document records the architectural and product decisions made during the de
   - **100% Worklet Thread Stability:** Eliminates all Reanimated render-phase mutation warnings in React 19.
   - **Timezone-Immune Calendar Selection:** Selecting any day across all 7 days of the week consistently compiles and displays the correct date and schedule.
 
+---
 
+## ADR-040: Local-First 3-Tier Caching Architecture (Zustand L1, SQLite L2, Supabase L3)
 
+- **Date:** 2026-09-24
+- **Status:** Accepted
+- **Context:** University campuses feature severe cellular dead zones (sub-level lecture halls, shielded concrete laboratories). Students demand sub-100ms cold boot times, instant schedule queries, and seamless offline functionality without seeing empty states or infinite loading spinners.
+- **Alternatives Considered:**
+  1. *Memory-Only Caching (React Query / Zustand in-memory only):* Discarded on app close; requires network round-trip on cold boot.
+  2. *AsyncStorage Key-Value Store:* Unindexed string serialization causes serialization overhead, cannot handle complex relational queries (merging base schedules + overrides + tasks), and risks UI blocking on large datasets.
+  3. *3-Tier Caching Architecture (Zustand L1 Memory, Expo SQLite L2 Disk, Supabase PostgreSQL L3 Remote Cloud):*
+     - **L1 (Memory):** Synchronous in-memory Zustand store for 60fps/120fps UI render cycles and optimistic updates.
+     - **L2 (Disk):** Persistent relational SQLite database (`classsync.db`) tuned with WAL mode (`journal_mode = WAL`), `synchronous = NORMAL`, foreign keys enabled, and indexed entity tables (`cached_base_schedules`, `cached_schedule_overrides`, `cached_academic_tasks`, `cached_attendance_logs`, `offline_mutations`, `sync_cursors`).
+     - **L3 (Remote Cloud):** Remote Supabase PostgreSQL database acting as the ultimate cloud authority, synced via cursor-based delta sync (`updated_at > last_synced_at`) and PostgreSQL tombstone deletion audit tables (`sync_tombstones`).
+- **Decision:** Adopt the 3-Tier Caching Model with explicit web bypass (`platformDb.web.ts`) to maintain Expo Web Bundler compatibility.
+- **Why This Decision is Best:**
+  - **Instant Cold Boot:** App hydrates Zustand state from local SQLite on startup before the first frame renders, eliminating blank loading screens.
+  - **Zero Network Dependency for Reads:** Timetable, overrides, deadlines, and attendance logs are available immediately offline.
+  - **Cross-Platform Immunity:** Native iOS/Android devices run high-speed C-based SQLite, while Web gracefully falls back to direct network and memory caching without bundler crashes.
 
+---
+
+## ADR-041: Offline FIFO Mutation Queue with Battery-Aware NetInfo Replay & Realtime Write-Through
+
+- **Date:** 2026-09-24
+- **Status:** Accepted
+- **Context:** Students take attendance or create personal tasks in underground lecture halls without cellular connectivity. Actions must feel instantaneous and persist reliably without data loss, surviving app restarts, and syncing automatically to Supabase when connectivity is restored.
+- **Alternatives Considered:**
+  1. *Blocking UI on Network Requests:* Show spinning modal and fail if offline (terrible UX in lecture halls).
+  2. *Stateless Polling Timers:* Retrying network calls on a fixed interval causes rapid battery drain in dead zones.
+  3. *Durable FIFO Offline Mutation Queue with Battery-Aware NetInfo Replay & Realtime Write-Through:*
+     - **Optimistic Writes:** When a user performs a mutation (e.g. log attendance or create/toggle task), the action is committed in an atomic SQLite transaction updating both the local entity cache (`cached_attendance_logs`) and enqueuing a record in `offline_mutations` with client-generated RFC4122 v4 UUID (`generateClientUuid`).
+     - **State Synchrony:** Zustand L1 state updates immediately so the UI transitions instantly (e.g. attendance pill turns emerald green).
+     - **Battery-Aware Replay Worker:** Worker checks `NetInfo.isConnected` before attempting replay. If offline, the worker aborts immediately without attempting network requests. When `NetInfo` fires an online event or `AppState` returns to `'active'`, the worker replays queued mutations strictly in FIFO order (`retry_count ASC, id ASC`).
+     - **Realtime Write-Through:** Incoming Supabase Realtime WebSocket payloads (`INSERT`, `UPDATE`, `DELETE`) write through directly to SQLite repositories, ensuring live changes received during an active session persist to L2 disk and survive the next cold boot.
+- **Decision:** Adopt the durable FIFO offline mutation queue with atomic optimistic transactions, battery-aware replay worker, and realtime write-through.
+- **Why This Decision is Best:**
+  - **Sub-Second Perceived Latency:** User interactions never wait for network confirmation.
+  - **Battery Conservation:** Replay engine remains quiescent in dead zones and only wakes when the OS signals network availability.
+  - **Data Integrity & Eventual Consistency:** Idempotent PL/pgSQL RPCs on Supabase guarantee that replayed mutations converge to the identical state on cloud and edge.

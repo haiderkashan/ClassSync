@@ -932,5 +932,79 @@ ClassSync implements three complementary layers of defense:
 3. **Worklet Safety in React 19:** In React 19 and Reanimated 4.5, using NativeWind `transition-all` on dynamically toggled buttons (such as the 7-day strip) mutates Reanimated shared values during the render phase (`Writing to 'value' during component render`). Eliminating `transition-all` from interactive button strips and using standard Tailwind color tokens prevents UI worklet crashes on native devices.
 4. **Noon-Anchored Calendar Calculations:** Setting reference dates to 12:00:00 (Noon) ensures that calendar-day conversions across IANA timezones never drift across midnight.
 
+---
+
+## 21. Local-First 3-Tier Offline Architecture, PRAGMA Tuning & Mutation Queue Replay
+
+### 21.1 The 3-Tier Caching Model: Memory, Local Disk & Cloud Authority
+
+In enterprise-grade offline-first mobile applications, data exists along a three-tier hierarchy that balances frame rate performance with absolute persistence:
+
+```
+[ User Action / UI Render ]
+            │ (0ms synchronous)
+            ▼
+┌─────────────────────────────┐
+│  Tier 1: Zustand Store (L1) │  <--- In-Memory Fast Cache (60/120 FPS React Render Loop)
+└──────────────┬──────────────┘
+               │ (1-5ms synchronous ACID transaction)
+               ▼
+┌─────────────────────────────┐
+│  Tier 2: Expo SQLite (L2)   │  <--- Local Disk Relational Cache (classsync.db)
+└──────────────┬──────────────┘
+               │ (Background Async Network Sync)
+               ▼
+┌─────────────────────────────┐
+│  Tier 3: Supabase (L3)      │  <--- Cloud Authority (PostgreSQL 15+ & Realtime WebSockets)
+└─────────────────────────────┘
+```
+
+1. **L1 (In-Memory Zustand Store):** Serves synchronous reads to React components with zero async suspension. All optimistic mutations immediately write to L1, guaranteeing immediate visual feedback (e.g. attendance pills transitioning to emerald green instantaneously upon tap).
+2. **L2 (Local SQLite Database):** Provides durable local persistence across app boots. Holds complete relational schemas (`cached_base_schedules`, `cached_schedule_overrides`, `cached_academic_tasks`, `cached_task_completions`, `cached_attendance_logs`) and the durable `offline_mutations` queue.
+3. **L3 (Supabase PostgreSQL):** Acts as the remote single source of truth. Dispatches live updates via Realtime WebSockets and provides cursor-based delta synchronization.
+
+### 21.2 SQLite PRAGMA High-Performance Tuning
+
+ClassSync configures native SQLite engine PRAGMAs on database initialization (`localSchema.ts`) to maximize throughput and eliminate I/O stutter:
+
+- `PRAGMA journal_mode = WAL;` (Write-Ahead Logging): Decouples reader threads from writer threads. Multiple concurrent reader queries execute without locking, while writers append sequentially to the WAL log file.
+- `PRAGMA synchronous = NORMAL;` (Disk Sync Optimization): In WAL mode, `NORMAL` guarantees database integrity against application crashes while eliminating redundant `fsync` system calls on every write transaction.
+- `PRAGMA foreign_keys = ON;` (Referential Integrity): Enforces relational integrity on local tables, cascading deletes and preventing orphaned foreign keys.
+- `PRAGMA temp_store = MEMORY;` (RAM Indexing): Stores temporary indexes and intermediate sort tables in memory rather than writing temporary files to flash storage.
+
+### 21.3 PostgreSQL Tombstone Deletion Protocol (`sync_tombstones`)
+
+A critical challenge in delta sync architectures (`updated_at > last_synced_at`) is detecting remote deletions: when an entity is deleted from PostgreSQL, it no longer exists, leaving no timestamp for client delta cursors to detect.
+
+ClassSync solves this with an audit tombstone architecture:
+1. **The `sync_tombstones` Table:** Stores `{ id, entity_type, entity_id, section_id, course_id, user_id, deleted_at }`.
+2. **Generic Database Trigger (`record_sync_tombstone`):** An `AFTER DELETE` trigger fires on `base_schedules`, `schedule_overrides`, `academic_tasks`, `task_completions`, and `attendance_logs`, capturing the deleted primary key and scope identifiers before row removal.
+3. **Multi-Scope Harvesting:** When the client reconnects, `deltaSyncEngine` harvests tombstones matching the student's exact authorization scope (`user_id = auth_user`, `section_id = active_section`, and `course_id IN active_courses`), purging matching rows from local SQLite and Zustand memory before applying inserts.
+
+### 21.4 The FIFO Offline Mutation Queue & Optimistic Transactions
+
+When an offline student performs a state change (such as tapping "Present" on an attendance pill or creating a personal deadline):
+1. **Client-Side UUID Allocation:** Client generates an RFC4122 v4 UUID using `expo-crypto` (`generateClientUuid`), eliminating dependency on remote database ID generation.
+2. **Atomic Optimistic SQLite Transaction:** Using `executeOptimisticMutation`, the app writes the update to the local cached table (e.g. `cached_attendance_logs`) and inserts the mutation into `offline_mutations` inside a single ACID `db.withTransactionSync` block.
+3. **Battery-Aware Replay Worker:**
+   - The worker explicitly queries `@react-native-community/netinfo` prior to executing any network requests.
+   - If `isConnected === false`, the worker halts immediately without consuming battery cycles on doomed TCP timeouts.
+   - When network connectivity returns or the app resumes (`AppState === 'active'`), the queue drains strictly in FIFO order (`retry_count ASC, id ASC`).
+   - Network errors trigger exponential backoff capped at 5 retries (`Math.min(60000, 1000 * 2^retry_count)`).
+
+### 21.5 Realtime WebSocket Write-Through
+
+When live updates occur while the application is active in the foreground, Supabase Realtime WebSocket listeners (`useRealtimeSync`) capture incoming `INSERT`, `UPDATE`, and `DELETE` payloads. 
+
+Rather than only updating volatile L1 memory, `useRealtimeSync` writes incoming payloads directly through to the corresponding local SQLite repositories. This ensures that any status broadcast or schedule modification received during a session is permanently captured on L2 disk and instantly visible on the next cold boot.
+
+### 21.6 Hydration Lifecycle & Splash Screen Coordination
+
+To eliminate hydration race conditions and prevent visual empty-state flashes on cold boot:
+1. `src/lib/db/hydrateAppStore.ts` queries all SQLite entity tables on launch.
+2. `src/app/_layout.tsx` coordinates `expo-splash-screen`, holding the native splash screen visible until both Clerk authentication resolution and SQLite store hydration complete.
+3. Data hooks (`useBaseSchedule`, `useAttendance`, `useAcademicTasks`) populate TanStack Query `initialData` directly from Zustand, rendering populated timetables in <100ms before any network request is initiated.
+
+
 
 

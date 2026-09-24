@@ -261,6 +261,13 @@ export default function RootLayout() {
               headerShown: false,
             }}
           />
+          <Stack.Screen
+            name="cohort/scan-qr"
+            options={{
+              presentation: 'fullScreenModal',
+              headerShown: false,
+            }}
+          />
         </Stack>
       </AppProviders>
     </SafeAreaProvider>

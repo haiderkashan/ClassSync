@@ -204,9 +204,25 @@ export function ScheduleBlockCard({
   const palette = getSessionPalette(block.session_type);
   const SessionIcon = palette.icon;
 
+  const namingConvention =
+    ((activeSection as any)?.cycle_naming_convention as string) || 'week_ab';
+
   const isBiweekly =
-    block.frequency === 'biweekly_week_a' || block.frequency === 'biweekly_week_b';
-  const biweeklyLabel = block.frequency === 'biweekly_week_a' ? 'Week A' : 'Week B';
+    block.frequency === 'biweekly_week_a' ||
+    block.frequency === 'biweekly_week_b' ||
+    block.frequency === 'week_a' ||
+    block.frequency === 'week_b';
+
+  const biweeklyLabel = useMemo(() => {
+    const isA = block.frequency === 'biweekly_week_a' || block.frequency === 'week_a';
+    if (namingConvention === 'odd_even') {
+      return isA ? 'Odd Week Only' : 'Even Week Only';
+    }
+    if (namingConvention === 'cycle_12') {
+      return isA ? 'Cycle 1 Only' : 'Cycle 2 Only';
+    }
+    return isA ? 'Week A Only' : 'Week B Only';
+  }, [block.frequency, namingConvention]);
 
   // Exception override properties
   const isCancelled = block.status === 'cancelled' || !!block.is_cancelled;

@@ -8,6 +8,7 @@ import {
 import {
   getDayOfWeekFromDateString,
   calculateWeekParity,
+  type CalendarBreak,
 } from '@/lib/schedule/calendarUtils';
 
 export type ScheduleOverrideRow = Tables<'schedule_overrides'> & {
@@ -76,6 +77,8 @@ export interface CompileDailyScheduleOptions {
   cycleMode?: string;
   /** Whether to include cancelled sessions in the compiled output (default: true) */
   includeCancelled?: boolean;
+  /** Section calendar breaks for cycle freeze calculation */
+  breaks?: CalendarBreak[];
 }
 
 /**
@@ -157,7 +160,7 @@ export function compileDailySchedule(
 
   // 2. Resolve Week Parity (Weekly vs Week A vs Week B)
   const activeParity: WeekParity =
-    targetParity ?? calculateWeekParity(targetDate, anchorDate, cycleMode);
+    targetParity ?? calculateWeekParity(targetDate, anchorDate, cycleMode, options.breaks);
 
   // 3. Build lookup set of inactive course IDs for Bundle & Toggle filtering
   const inactiveCourseIds = new Set<string>();

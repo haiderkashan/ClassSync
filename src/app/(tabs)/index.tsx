@@ -37,7 +37,16 @@ import {
   compileDailySchedule,
   type CompiledScheduleItem,
 } from '@/lib/schedule/scheduleCompiler';
-import { getLocalDateString } from '@/lib/schedule/calendarUtils';
+import {
+  getLocalDateString,
+  calculateWeekParity,
+  isDateInBreak,
+  getInstructionalWeekNumber,
+  formatAcademicWeekLabel,
+  type CalendarBreak,
+} from '@/lib/schedule/calendarUtils';
+import { useQuery } from '@tanstack/react-query';
+import { useSupabase } from '@/hooks/useSupabase';
 import type { BaseScheduleRow, WeekParity } from '@/store/useAppStore';
 
 const DAYS_OF_WEEK = [
@@ -68,6 +77,27 @@ export default function AgendaScreen() {
     setCurrentParity,
   } = useBaseSchedule();
   const { refetch: refetchOverrides } = useScheduleOverrides();
+
+  const supabase = useSupabase();
+
+  // Fetch active section calendar breaks
+  const { data: sectionBreaks = [] } = useQuery({
+    queryKey: ['section_calendar_breaks', activeSection?.id],
+    queryFn: async () => {
+      if (!activeSection?.id) return [];
+      const { data, error } = await supabase
+        .from('section_calendar_breaks')
+        .select('*')
+        .eq('section_id', activeSection.id)
+        .order('start_date', { ascending: true });
+      if (error) {
+        console.warn('⚠️ [Agenda] Failed to fetch calendar breaks:', error.message);
+        return [];
+      }
+      return data as CalendarBreak[];
+    },
+    enabled: !!activeSection?.id,
+  });
 
   // Resolve current device day of the week (1=Mon ... 7=Sun)
   const todayDayOfWeek = useMemo(() => {
@@ -106,6 +136,41 @@ export default function AgendaScreen() {
     return getLocalDateString(dayObj.fullDate, activeSection?.timezone || 'UTC');
   }, [selectedDay, weekDates, activeSection?.timezone]);
 
+  // Check if currently selected day falls in any registered break
+  const currentBreak = useMemo(() => {
+    return isDateInBreak(selectedDateString, sectionBreaks);
+  }, [selectedDateString, sectionBreaks]);
+
+  // Compute 1-indexed instructional week number
+  const instructionalWeekNum = useMemo(() => {
+    const semStart = (activeSection as any)?.semester_start_date || activeSection?.week_a_anchor_date;
+    return getInstructionalWeekNumber(selectedDateString, semStart, sectionBreaks);
+  }, [selectedDateString, activeSection, sectionBreaks]);
+
+  // Compute calculated parity for selected date
+  const calculatedParity = useMemo(() => {
+    return calculateWeekParity(
+      selectedDateString,
+      activeSection?.week_a_anchor_date,
+      activeSection?.cycle_mode || 'standard_weekly',
+      sectionBreaks
+    );
+  }, [selectedDateString, activeSection?.week_a_anchor_date, activeSection?.cycle_mode, sectionBreaks]);
+
+  // Format academic week badge label (e.g. "Week 4 • Week A")
+  const academicWeekLabel = useMemo(() => {
+    if (activeSection?.cycle_mode !== 'alternating_ab' && !instructionalWeekNum) {
+      return null;
+    }
+    return formatAcademicWeekLabel({
+      parity: calculatedParity,
+      weekNumber: instructionalWeekNum,
+      namingConvention: (activeSection as any)?.cycle_naming_convention || 'week_ab',
+      inBreak: !!currentBreak,
+      breakName: currentBreak?.break_name,
+    });
+  }, [activeSection, calculatedParity, instructionalWeekNum, currentBreak]);
+
   // Dynamically compile daily schedule incorporating live status overrides & makeups
   const dayBlocks = useMemo(() => {
     return compileDailySchedule({
@@ -117,6 +182,7 @@ export default function AgendaScreen() {
       anchorDate: activeSection?.week_a_anchor_date,
       cycleMode: activeSection?.cycle_mode || 'standard_weekly',
       includeCancelled: true,
+      breaks: sectionBreaks,
     });
   }, [
     selectedDateString,
@@ -126,6 +192,7 @@ export default function AgendaScreen() {
     currentParity,
     activeSection?.week_a_anchor_date,
     activeSection?.cycle_mode,
+    sectionBreaks,
   ]);
 
   // Formatted selected day label, e.g. "Monday, September 19"
@@ -259,13 +326,18 @@ export default function AgendaScreen() {
 
           {/* Header Sub-Row: Selected Day Full Name & Parity Segmented Control */}
           <View className="mt-3 pt-2.5 border-t border-neutral-100 flex-row items-center justify-between">
-            <View className="flex-row items-center">
+            <View className="flex-row items-center flex-wrap gap-1.5 flex-1 mr-2">
               <Text className="text-xs font-bold text-neutral-800 tracking-tight">
                 {selectedDayFullHeader}
               </Text>
               {isToday && (
-                <View className="ml-2 bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 rounded-full">
+                <View className="bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 rounded-full">
                   <Text className="text-[10px] font-bold text-emerald-700">Today</Text>
+                </View>
+              )}
+              {academicWeekLabel && (
+                <View className="bg-indigo-50 border border-indigo-200/80 px-2 py-0.5 rounded-full">
+                  <Text className="text-[10px] font-bold text-indigo-700">{academicWeekLabel}</Text>
                 </View>
               )}
             </View>
@@ -363,6 +435,28 @@ export default function AgendaScreen() {
               <ArrowRight size={13} color="#ffffff" />
             </View>
           </Pressable>
+        )}
+
+        {/* Recess / Academic Break Banner */}
+        {currentBreak && (
+          <View className="mx-5 mt-3 p-4 bg-indigo-50/90 border border-indigo-200/80 rounded-3xl flex-row items-center space-x-3 shadow-2xs">
+            <View className="w-10 h-10 rounded-2xl bg-indigo-100 items-center justify-center">
+              <Sparkles size={20} color="#4F46E5" />
+            </View>
+            <View className="flex-1 ml-2.5">
+              <View className="flex-row items-center space-x-1.5">
+                <Text className="text-xs font-black text-indigo-950">{currentBreak.break_name}</Text>
+                {currentBreak.freeze_cycle && (
+                  <View className="bg-purple-100 px-1.5 py-0.5 rounded-full">
+                    <Text className="text-[9px] font-bold text-purple-800">Cycle Paused</Text>
+                  </View>
+                )}
+              </View>
+              <Text className="text-[11px] text-indigo-700 mt-0.5 leading-relaxed">
+                Semester recess from {currentBreak.start_date} to {currentBreak.end_date}. Regular classes are on break.
+              </Text>
+            </View>
+          </View>
         )}
 
         {/* All Classes Cancelled Banner */}

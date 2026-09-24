@@ -208,6 +208,7 @@ export const useAppStore = create<AppState>()(
 
       reset: () =>
         set({
+          isHydrated: false,
           activeSectionId: null,
           activeSections: [],
           activeCourses: [],

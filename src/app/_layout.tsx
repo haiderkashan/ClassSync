@@ -1,6 +1,6 @@
 import '../../global.css';
 import { env } from '@/lib/env';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { View, ActivityIndicator, Text, Pressable } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import * as SplashScreen from 'expo-splash-screen';
@@ -12,6 +12,8 @@ import { Calendar, AlertTriangle } from 'lucide-react-native';
 import { AppProviders } from '@/providers';
 import { useNotificationRouting } from '@/lib/notifications/useNotificationRouting';
 import { hydrateAppStoreFromLocalDb } from '@/lib/db/hydrateAppStore';
+import { resetLocalDatabase } from '@/lib/db/localDatabase';
+import { useAppStore } from '@/store/useAppStore';
 import { useOfflineSync } from '@/hooks/useOfflineSync';
 import { useRealtimeSync } from '@/hooks/useRealtimeSync';
 
@@ -68,9 +70,32 @@ function NavigationGuard({ isDbHydrated }: { isDbHydrated: boolean }) {
   const { isLoaded, isSignedIn } = useAuth();
   const segments = useSegments();
   const router = useRouter();
+  const wasSignedInRef = useRef(false);
 
   // Listen for push notification responses and route to target deep links (safely no-ops in Expo Go)
   useNotificationRouting();
+
+  // Watch for sign-out / session loss across the application to purge local stores
+  useEffect(() => {
+    if (!isLoaded) return;
+
+    if (isSignedIn) {
+      wasSignedInRef.current = true;
+    } else if (wasSignedInRef.current && !isSignedIn) {
+      console.log('🔒 [NavigationGuard] User signed out: purging local SQLite database and Zustand store...');
+      wasSignedInRef.current = false;
+      try {
+        resetLocalDatabase();
+      } catch (err) {
+        console.warn('⚠️ [NavigationGuard] Failed to reset local database on sign-out:', err);
+      }
+      try {
+        useAppStore.getState().reset();
+      } catch (err) {
+        console.warn('⚠️ [NavigationGuard] Failed to reset Zustand store on sign-out:', err);
+      }
+    }
+  }, [isLoaded, isSignedIn]);
 
   useEffect(() => {
     // Only dismiss splash screen once BOTH Clerk auth session AND SQLite hydration are finished

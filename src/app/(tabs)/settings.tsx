@@ -48,6 +48,8 @@ import { useAppStore } from '@/store/useAppStore';
 import { useAttendance } from '@/hooks/useAttendance';
 import { getLocalDateString } from '@/lib/schedule/calendarUtils';
 import { QuietHoursModal } from '@/components/settings/QuietHoursModal';
+import { resetLocalDatabase } from '@/lib/db/localDatabase';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -57,7 +59,7 @@ export default function SettingsScreen() {
   const supabase = useSupabase();
 
   const { sections, courses, activeSection, isLoading: isWorkspaceLoading } = useWorkspaces();
-  const { setActiveCourses, setActiveSectionId } = useAppStore();
+  const { setActiveCourses, setActiveSectionId, reset } = useAppStore();
   const { overallMetrics, getCourseMetrics } = useAttendance();
 
   const [isSigningOut, setIsSigningOut] = useState(false);
@@ -147,6 +149,25 @@ export default function SettingsScreen() {
   const handleSignOut = async () => {
     setIsSigningOut(true);
     try {
+      console.log('🔒 [Settings] User triggered sign out: purging local SQLite and Zustand stores...');
+      // 1. Wipe L2 local SQLite database completely (drops and recreates all tables)
+      resetLocalDatabase();
+
+      // 2. Wipe L1 Zustand in-memory store and clear persisted storage
+      reset();
+      try {
+        if (useAppStore.persist?.clearStorage) {
+          useAppStore.persist.clearStorage();
+        }
+        await AsyncStorage.removeItem('classsync-app-storage');
+      } catch (storageErr) {
+        console.warn('⚠️ [Settings] Failed to clear AsyncStorage on logout:', storageErr);
+      }
+
+      // 3. Clear TanStack Query cache to avoid displaying stale session queries
+      queryClient.clear();
+
+      // 4. Perform Clerk sign out
       await signOut();
     } catch (error) {
       console.error('[Settings] Error signing out:', error);

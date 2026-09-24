@@ -250,6 +250,13 @@ export default function RootLayout() {
               headerShown: false,
             }}
           />
+          <Stack.Screen
+            name="cohort/presenter-hud"
+            options={{
+              presentation: 'fullScreenModal',
+              headerShown: false,
+            }}
+          />
         </Stack>
       </AppProviders>
     </SafeAreaProvider>

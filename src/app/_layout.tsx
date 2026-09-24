@@ -16,6 +16,7 @@ import { resetLocalDatabase } from '@/lib/db/localDatabase';
 import { useAppStore } from '@/store/useAppStore';
 import { useOfflineSync } from '@/hooks/useOfflineSync';
 import { useRealtimeSync } from '@/hooks/useRealtimeSync';
+import { useDeepLinkJoin } from '@/hooks/useDeepLinkJoin';
 
 // Prevent native splash screen from auto-hiding before auth session is resolved
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -74,6 +75,9 @@ function NavigationGuard({ isDbHydrated }: { isDbHydrated: boolean }) {
 
   // Listen for push notification responses and route to target deep links (safely no-ops in Expo Go)
   useNotificationRouting();
+
+  // Listen for cohort deep links and route to join-section once hydrated
+  useDeepLinkJoin();
 
   // Watch for sign-out / session loss across the application to purge local stores
   useEffect(() => {

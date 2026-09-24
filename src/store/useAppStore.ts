@@ -63,6 +63,10 @@ export interface AppState {
   pushToken: string | null;
   notificationSettings: UserNotificationSettings | null;
 
+  // Phase 8.3 Deep Link & OAuth Persistence
+  pendingJoinCode: string | null;
+  setPendingJoinCode: (code: string | null) => void;
+
   setHydrated: (isHydrated: boolean) => void;
   setActiveSectionId: (id: string | null) => void;
   setActiveSections: (sections: SectionRow[]) => void;
@@ -115,6 +119,9 @@ export const useAppStore = create<AppState>()(
       // Phase 6 Push Notification & Settings Initial State
       pushToken: null,
       notificationSettings: null,
+
+      // Phase 8.3 Deep Link & OAuth Persistence Initial State
+      pendingJoinCode: null,
 
       setHydrated: (isHydrated) => set({ isHydrated }),
       setActiveSectionId: (activeSectionId) => set({ activeSectionId }),
@@ -206,6 +213,9 @@ export const useAppStore = create<AppState>()(
       setPushToken: (pushToken) => set({ pushToken }),
       setNotificationSettings: (notificationSettings) => set({ notificationSettings }),
 
+      // Phase 8.3 Deep Link & OAuth Persistence Handlers
+      setPendingJoinCode: (pendingJoinCode) => set({ pendingJoinCode }),
+
       reset: () =>
         set({
           isHydrated: false,
@@ -220,6 +230,7 @@ export const useAppStore = create<AppState>()(
           attendanceLogs: [],
           pushToken: null,
           notificationSettings: null,
+          pendingJoinCode: null,
         }),
     }),
     {
@@ -232,6 +243,7 @@ export const useAppStore = create<AppState>()(
         currentParity: state.currentParity,
         pushToken: state.pushToken,
         notificationSettings: state.notificationSettings,
+        pendingJoinCode: state.pendingJoinCode,
       }),
       onRehydrateStorage: () => {
         console.log('💾 [Zustand] Hydrating offline session and notification cache from AsyncStorage...');

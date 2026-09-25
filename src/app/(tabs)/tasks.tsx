@@ -120,9 +120,9 @@ export default function TasksScreen() {
         title: 'Due Soon (Next 7 Days)',
         key: 'dueSoon',
         data: groupedTasks.dueSoon,
-        badgeColor: '#2563EB',
-        badgeBg: '#EFF6FF',
-        badgeBorder: '#BFDBFE',
+        badgeColor: '#D97706',
+        badgeBg: '#FEF08A',
+        badgeBorder: '#FACC15',
         icon: Clock,
       });
     }
@@ -183,9 +183,9 @@ export default function TasksScreen() {
   );
 
   return (
-    <SafeAreaView className="flex-1 bg-[#F8F9FA]" edges={['top', 'left', 'right']}>
+    <SafeAreaView className="flex-1 bg-[#FAFAF9]" edges={['top', 'left', 'right']}>
       {/* Top Header & Sticky Navigation */}
-      <View className="px-5 pt-3 pb-2 bg-white/90 backdrop-blur-md border-b border-neutral-200/50">
+      <View className="px-5 pt-3 pb-2 bg-white border-b border-neutral-200/50">
         <View className="flex-row items-center justify-between mb-3">
           <View>
             <Text className="text-2xl font-black text-neutral-900 tracking-tight">
@@ -199,33 +199,33 @@ export default function TasksScreen() {
           {/* Header Quick Add Button */}
           <Pressable
             onPress={() => router.push('/tasks/create-task')}
-            className="flex-row items-center bg-blue-50 border border-blue-200/80 px-3 py-1.5 rounded-full active:bg-blue-100 transition-colors"
+            className="flex-row items-center bg-[#FEF08A]/80 border border-[#FACC15] px-3.5 py-1.5 rounded-full active:bg-[#FEF08A] shadow-2xs"
           >
-            <Plus size={14} color="#2563EB" strokeWidth={2.6} />
-            <Text className="text-xs font-bold text-blue-700 ml-1">New Task</Text>
+            <Plus size={14} color="#18181B" strokeWidth={2.6} />
+            <Text className="text-xs font-bold text-neutral-900 ml-1">New Task</Text>
           </Pressable>
         </View>
 
-        {/* Master Segmented Toggle ("Pending" vs "Completed") - Deficiency 1 Fix */}
-        <View className="bg-neutral-100 p-1 rounded-2xl flex-row mb-3">
+        {/* Master Segmented Toggle ("Pending" vs "Completed") */}
+        <View className="bg-neutral-100 p-1 rounded-2xl flex-row mb-3 border border-neutral-200/60">
           {/* Pending Tab */}
           <Pressable
             onPress={() => setActiveTab('pending')}
             className={`flex-1 py-2 rounded-xl flex-row items-center justify-center transition-all ${
               activeTab === 'pending'
-                ? 'bg-white shadow-xs'
+                ? 'bg-[#FACC15] shadow-xs'
                 : 'active:bg-neutral-200/50'
             }`}
           >
             <Clock
               size={13}
-              color={activeTab === 'pending' ? '#0F172A' : '#64748B'}
-              strokeWidth={2.2}
+              color={activeTab === 'pending' ? '#18181B' : '#71717A'}
+              strokeWidth={2.4}
             />
             <Text
               className={`text-xs ml-1.5 ${
                 activeTab === 'pending'
-                  ? 'font-black text-neutral-900'
+                  ? 'font-black text-[#18181B]'
                   : 'font-semibold text-neutral-500'
               }`}
             >
@@ -233,12 +233,12 @@ export default function TasksScreen() {
             </Text>
             <View
               className={`ml-1.5 px-1.5 py-0.2 rounded-full ${
-                activeTab === 'pending' ? 'bg-neutral-900' : 'bg-neutral-200'
+                activeTab === 'pending' ? 'bg-[#18181B]' : 'bg-neutral-200'
               }`}
             >
               <Text
                 className={`text-[10px] font-bold ${
-                  activeTab === 'pending' ? 'text-white' : 'text-neutral-600'
+                  activeTab === 'pending' ? 'text-[#FACC15]' : 'text-neutral-600'
                 }`}
               >
                 {pendingCount}
@@ -251,19 +251,19 @@ export default function TasksScreen() {
             onPress={() => setActiveTab('completed')}
             className={`flex-1 py-2 rounded-xl flex-row items-center justify-center transition-all ${
               activeTab === 'completed'
-                ? 'bg-white shadow-xs'
+                ? 'bg-[#18181B] shadow-xs'
                 : 'active:bg-neutral-200/50'
             }`}
           >
             <CheckCircle2
               size={13}
-              color={activeTab === 'completed' ? '#10B981' : '#64748B'}
-              strokeWidth={2.2}
+              color={activeTab === 'completed' ? '#34D399' : '#71717A'}
+              strokeWidth={2.4}
             />
             <Text
               className={`text-xs ml-1.5 ${
                 activeTab === 'completed'
-                  ? 'font-black text-neutral-900'
+                  ? 'font-black text-white'
                   : 'font-semibold text-neutral-500'
               }`}
             >
@@ -432,10 +432,10 @@ export default function TasksScreen() {
       <View className="absolute bottom-24 right-5">
         <Pressable
           onPress={() => router.push('/tasks/create-task')}
-          className="bg-neutral-900 px-5 py-3.5 rounded-full shadow-lg shadow-neutral-900/30 flex-row items-center active:bg-neutral-800 transition-transform active:scale-95"
+          className="bg-[#FACC15] px-5 py-3.5 rounded-full shadow-lg shadow-black/10 flex-row items-center active:bg-[#EAB308] transition-transform active:scale-95"
         >
-          <Plus size={18} color="#FFFFFF" strokeWidth={2.6} />
-          <Text className="text-xs font-black text-white ml-2">New Task</Text>
+          <Plus size={18} color="#18181B" strokeWidth={2.6} />
+          <Text className="text-xs font-black text-neutral-900 ml-2">New Task</Text>
         </Pressable>
       </View>
     </SafeAreaView>

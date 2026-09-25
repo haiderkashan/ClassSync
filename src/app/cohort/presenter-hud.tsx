@@ -176,8 +176,8 @@ export default function PresenterHudModal() {
       <View className="px-6 py-4 flex-row items-center justify-between border-b border-neutral-800/80">
         <View className="flex-1 mr-4">
           <View className="flex-row items-center space-x-1.5">
-            <View className="w-2 h-2 rounded-full bg-emerald-400" />
-            <Text className="text-[11px] font-bold uppercase tracking-widest text-emerald-400">
+            <View className="w-2 h-2 rounded-full bg-[#FACC15]" />
+            <Text className="text-[11px] font-bold uppercase tracking-widest text-[#FACC15] ml-1.5">
               Presenter Mode
             </Text>
           </View>
@@ -233,7 +233,7 @@ export default function PresenterHudModal() {
       {/* Main High-Contrast Projector Canvas */}
       <View className="flex-1 items-center justify-center px-6 py-4">
         {/* Crisp White QR Shield */}
-        <View className="p-6 bg-white rounded-3xl shadow-2xl items-center justify-center border-4 border-neutral-800">
+        <View className="p-6 bg-white rounded-3xl shadow-2xl items-center justify-center border-4 border-[#FACC15]/30">
           <QRCode
             value={joinUrl}
             size={qrSize}
@@ -256,10 +256,10 @@ export default function PresenterHudModal() {
           </Text>
           <Pressable
             onPress={handleCopyCode}
-            className="w-full py-4 px-6 bg-neutral-900 border-2 border-neutral-800 rounded-3xl flex-row items-center justify-center space-x-3 active:border-indigo-500 active:bg-neutral-850"
+            className="w-full py-4 px-6 bg-[#18181B] border-2 border-[#FACC15]/70 rounded-3xl flex-row items-center justify-center space-x-3 active:border-[#FACC15] shadow-lg shadow-black/40"
           >
-            <Hash size={24} color="#818cf8" />
-            <Text className="text-4xl font-black font-mono tracking-widest text-white ml-2">
+            <Hash size={24} color="#FACC15" />
+            <Text className="text-4xl font-black font-mono tracking-widest text-[#FACC15] ml-2">
               {joinCode}
             </Text>
             <View className="ml-3 pl-3 border-l border-neutral-800">
@@ -295,10 +295,10 @@ export default function PresenterHudModal() {
 
           <Pressable
             onPress={handleNativeShare}
-            className="flex-1 py-3.5 px-4 bg-indigo-600 rounded-2xl flex-row items-center justify-center space-x-2 active:bg-indigo-700 shadow-md shadow-indigo-950"
+            className="flex-1 py-3.5 px-4 bg-[#FACC15] rounded-2xl flex-row items-center justify-center space-x-2 active:bg-[#EAB308] shadow-md shadow-black/20"
           >
-            <Share2 size={16} color="#ffffff" />
-            <Text className="text-xs font-bold text-white ml-2">Share Invite</Text>
+            <Share2 size={16} color="#18181B" strokeWidth={2.4} />
+            <Text className="text-xs font-bold text-neutral-900 ml-2">Share Invite</Text>
           </Pressable>
         </View>
       </View>

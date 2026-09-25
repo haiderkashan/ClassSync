@@ -336,7 +336,7 @@ export default function SettingsScreen() {
   const avatarUrl = user?.imageUrl;
 
   return (
-    <SafeAreaView className="flex-1 bg-[#F8F9FA]" edges={['top', 'left', 'right']}>
+    <SafeAreaView className="flex-1 bg-[#FAFAF9]" edges={['top', 'left', 'right']}>
       <ScrollView className="flex-1 px-5 pt-3" showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View className="mb-4">
@@ -510,13 +510,13 @@ export default function SettingsScreen() {
             <View
               className={`px-2.5 py-0.5 rounded-full border ${
                 quietHoursSettings?.enabled !== false
-                  ? 'bg-indigo-50 border-indigo-200'
+                  ? 'bg-[#FEF08A]/70 border-[#FACC15]'
                   : 'bg-neutral-100 border-neutral-200'
               }`}
             >
               <Text
                 className={`text-[10px] font-black ${
-                  quietHoursSettings?.enabled !== false ? 'text-indigo-700' : 'text-neutral-500'
+                  quietHoursSettings?.enabled !== false ? 'text-[#854D0E]' : 'text-neutral-500'
                 }`}
               >
                 {quietHoursSettings?.enabled !== false ? 'Active' : 'Disabled'}
@@ -555,9 +555,9 @@ export default function SettingsScreen() {
             </View>
 
             {activeSection?.role === 'genesis_cr' && (
-              <View className="flex-row items-center bg-amber-50 border border-amber-200/70 px-2.5 py-0.5 rounded-full">
-                <Crown size={12} color="#d97706" />
-                <Text className="text-[10px] font-bold text-amber-800 ml-1">
+              <View className="flex-row items-center bg-[#FEF08A]/80 border border-[#FACC15] px-2.5 py-0.5 rounded-full shadow-2xs">
+                <Crown size={12} color="#854D0E" />
+                <Text className="text-[10px] font-bold text-neutral-900 ml-1">
                   Genesis CR
                 </Text>
               </View>
@@ -623,9 +623,9 @@ export default function SettingsScreen() {
               )}
 
               <View className="flex-row items-center justify-between mt-3 pt-2.5 border-t border-neutral-200/60">
-                <View className="flex-row items-center bg-white px-2.5 py-1 rounded-full border border-neutral-200/60 shadow-2xs">
-                  <Hash size={12} color="#71717a" />
-                  <Text className="text-xs font-mono font-bold text-neutral-800 ml-1">
+                <View className="flex-row items-center bg-[#FEF08A]/70 border border-[#FACC15] px-2.5 py-1 rounded-full shadow-2xs">
+                  <Hash size={12} color="#854D0E" />
+                  <Text className="text-xs font-mono font-bold text-neutral-900 ml-1">
                     {activeSection.join_code}
                   </Text>
                 </View>
@@ -640,10 +640,10 @@ export default function SettingsScreen() {
               <View className="mt-3 pt-3 border-t border-neutral-200/60 flex-row flex-wrap gap-2">
                 <Pressable
                   onPress={() => router.push('/cohort/presenter-hud')}
-                  className="bg-indigo-600 px-3.5 py-2 rounded-full flex-row items-center active:bg-indigo-700 shadow-xs"
+                  className="bg-[#FACC15] px-3.5 py-2 rounded-full flex-row items-center active:bg-[#EAB308] shadow-xs"
                 >
-                  <QrCode size={13} color="#ffffff" strokeWidth={2.2} />
-                  <Text className="text-xs font-bold text-white ml-1.5">
+                  <QrCode size={13} color="#18181B" strokeWidth={2.4} />
+                  <Text className="text-xs font-bold text-neutral-900 ml-1.5">
                     Project Join QR
                   </Text>
                 </Pressable>

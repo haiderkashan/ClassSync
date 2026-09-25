@@ -280,17 +280,17 @@ export function TaskCard({
           </View>
         </Pressable>
 
-        {/* Circular Checkbox */}
+        {/* Checkbox (Stitch Squircle) */}
         <Pressable
           onPress={() => onToggleComplete(task.id)}
           hitSlop={12}
-          className={`w-7 h-7 rounded-full items-center justify-center transition-all ${
+          className={`w-6 h-6 rounded-lg items-center justify-center transition-all ${
             isCompleted
-              ? 'bg-emerald-500 border-2 border-emerald-500 shadow-xs'
-              : 'bg-white border-2 border-neutral-300 active:border-neutral-400'
+              ? 'bg-[#FACC15] border-2 border-[#EAB308] shadow-2xs'
+              : 'bg-white border-2 border-neutral-300 active:border-neutral-500'
           }`}
         >
-          {isCompleted && <Check size={14} color="#FFFFFF" strokeWidth={3} />}
+          {isCompleted && <Check size={14} color="#18181B" strokeWidth={3} />}
         </Pressable>
       </View>
 

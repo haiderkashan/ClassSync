@@ -30,6 +30,8 @@ import {
   isAttendanceEligible,
   type AttendanceStatus,
 } from '@/lib/attendance/bunkCalculator';
+import type { PeerReportWithVotes } from '@/hooks/usePeerVerification';
+import { isPeerVotingWindowOpen } from '@/services/peerVerificationService';
 
 export interface ScheduleBlockCardProps {
   block: BaseScheduleRow | CompiledScheduleItem | any;
@@ -38,6 +40,9 @@ export interface ScheduleBlockCardProps {
   readOnly?: boolean;
   isAdmin?: boolean;
   date?: string; // Target calendar date 'YYYY-MM-DD'
+  peerReport?: PeerReportWithVotes;
+  userVote?: 'affirm' | 'deny' | null;
+  onPeerVotePress?: (block: any) => void;
 }
 
 /**
@@ -130,6 +135,9 @@ export function ScheduleBlockCard({
   readOnly = false,
   isAdmin = false,
   date,
+  peerReport,
+  userVote,
+  onPeerVotePress,
 }: ScheduleBlockCardProps) {
   const { allLogs, logAttendance, isLogging } = useAttendance();
   const { activeSection } = useWorkspaces();
@@ -403,6 +411,98 @@ export function ScheduleBlockCard({
             {customNote}
           </Text>
         </View>
+      )}
+
+      {/* Crowd-Sourced Peer Verification Card */}
+      {targetDate && !isGeneralSession && (
+        <>
+          {peerReport && peerReport.status === 'pending' && (
+            <Pressable
+              onPress={(e) => {
+                e.stopPropagation();
+                onPeerVotePress?.(block);
+              }}
+              className="mt-2.5 p-3 bg-amber-50 border border-amber-300/80 rounded-2xl flex-row items-center justify-between shadow-2xs active:bg-amber-100"
+            >
+              <View className="flex-row items-center flex-1 mr-2">
+                <View className="w-8 h-8 rounded-xl bg-amber-100 items-center justify-center mr-2.5">
+                  <ShieldAlert size={16} color="#d97706" />
+                </View>
+                <View className="flex-1">
+                  <View className="flex-row items-center space-x-1.5">
+                    <Text className="text-xs font-black text-amber-950">
+                      Peer Cancellation Reported
+                    </Text>
+                    <View className="bg-amber-200/80 px-1.5 py-0.2 rounded-full">
+                      <Text className="text-[9px] font-bold text-amber-900">
+                        {peerReport.affirmation_count}/3 Votes
+                      </Text>
+                    </View>
+                  </View>
+                  <Text className="text-[11px] text-amber-800 mt-0.5 leading-tight">
+                    {userVote ? `You voted: ${userVote === 'affirm' ? 'Cancelled' : 'In Session'}` : 'Tap to confirm or deny class cancellation'}
+                  </Text>
+                </View>
+              </View>
+
+              <View className="px-2.5 py-1 bg-amber-500 rounded-full">
+                <Text className="text-[10px] font-black text-white">Vote</Text>
+              </View>
+            </Pressable>
+          )}
+
+          {peerReport && peerReport.status === 'confirmed' && (
+            <Pressable
+              onPress={(e) => {
+                e.stopPropagation();
+                onPeerVotePress?.(block);
+              }}
+              className="mt-2.5 p-2.5 bg-rose-50 border border-rose-200 rounded-2xl flex-row items-center justify-between"
+            >
+              <View className="flex-row items-center flex-1 mr-2">
+                <ShieldAlert size={14} color="#e11d48" />
+                <Text className="text-[11px] font-black text-rose-900 ml-1.5">
+                  Peer Verified: Class Cancelled ({peerReport.affirmation_count} votes)
+                </Text>
+              </View>
+              {isAdmin && (
+                <View className="bg-rose-100 px-2 py-0.5 rounded-full">
+                  <Text className="text-[9px] font-bold text-rose-800">CR Veto</Text>
+                </View>
+              )}
+            </Pressable>
+          )}
+
+          {!isCancelled && (!peerReport || peerReport.status === 'vetoed') && (
+            (() => {
+              const windowCheck = isPeerVotingWindowOpen(
+                targetDate,
+                block.start_time,
+                timezone
+              );
+              if (!windowCheck.isOpen) return null;
+              return (
+                <Pressable
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    onPeerVotePress?.(block);
+                  }}
+                  className="mt-2 pt-2 border-t border-black/5 flex-row items-center justify-between"
+                >
+                  <View className="flex-row items-center space-x-1">
+                    <ShieldAlert size={11} color="#d97706" />
+                    <Text className="text-[10px] font-bold text-amber-800 ml-1">
+                      Instructor Absent? Tap to report cancellation
+                    </Text>
+                  </View>
+                  <View className="px-2 py-0.5 bg-amber-100/90 rounded-full">
+                    <Text className="text-[9px] font-bold text-amber-900">Live Window</Text>
+                  </View>
+                </Pressable>
+              );
+            })()
+          )}
+        </>
       )}
 
       {/* 1-Tap Attendance Logger (Time-Guarded) */}

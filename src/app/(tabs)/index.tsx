@@ -28,6 +28,8 @@ import { useScheduleOverrides } from '@/hooks/useScheduleOverrides';
 import { EmptyState } from '@/components/EmptyState';
 import { ScheduleBlockCard } from '@/components/ScheduleBlockCard';
 import { FreePeriodSpacer } from '@/components/FreePeriodSpacer';
+import { PeerVotingModal } from '@/components/peer/PeerVotingModal';
+import { usePeerVerification } from '@/hooks/usePeerVerification';
 import {
   getDayName,
   calculateDurationMinutes,
@@ -135,6 +137,21 @@ export default function AgendaScreen() {
     if (!dayObj) return getLocalDateString(new Date(), activeSection?.timezone || 'UTC');
     return getLocalDateString(dayObj.fullDate, activeSection?.timezone || 'UTC');
   }, [selectedDay, weekDates, activeSection?.timezone]);
+
+  // Crowd-Sourced Peer Verification Hook & Realtime Consensus
+  const {
+    getReportForBlock,
+    getUserVoteForBlock,
+    castVote,
+    vetoReport,
+    isCastingVote,
+    isVetoing,
+  } = usePeerVerification({
+    sectionId: activeSection?.id,
+    targetDate: selectedDateString,
+  });
+
+  const [activeVotingBlock, setActiveVotingBlock] = useState<any | null>(null);
 
   // Check if currently selected day falls in any registered break
   const currentBreak = useMemo(() => {
@@ -598,36 +615,47 @@ export default function AgendaScreen() {
 
                     {/* Right: Floating Pastel Schedule Block Card */}
                     <View className="flex-1 pb-1">
-                      <ScheduleBlockCard
-                        block={block}
-                        date={selectedDateString}
-                        readOnly={!isSectionAdmin}
-                        isAdmin={isSectionAdmin}
-                        onPress={() => {
-                          if (isSectionAdmin) {
-                            router.push({
-                              pathname: '/schedule/broadcast-exception',
-                              params: {
-                                base_schedule_id: block.is_makeup ? undefined : (block.base_schedule_id || block.id),
-                                course_id: block.course_id,
-                                override_date: selectedDateString,
-                              },
-                            });
-                          }
-                        }}
-                        onLongPress={() => {
-                          if (isSectionAdmin) {
-                            router.push({
-                              pathname: '/schedule/broadcast-exception',
-                              params: {
-                                base_schedule_id: block.is_makeup ? undefined : (block.base_schedule_id || block.id),
-                                course_id: block.course_id,
-                                override_date: selectedDateString,
-                              },
-                            });
-                          }
-                        }}
-                      />
+                      {(() => {
+                        const blockId = block.base_schedule_id || block.id;
+                        const report = getReportForBlock(blockId);
+                        const vote = getUserVoteForBlock(blockId);
+
+                        return (
+                          <ScheduleBlockCard
+                            block={block}
+                            date={selectedDateString}
+                            readOnly={!isSectionAdmin}
+                            isAdmin={isSectionAdmin}
+                            peerReport={report}
+                            userVote={vote}
+                            onPeerVotePress={(target) => setActiveVotingBlock(target)}
+                            onPress={() => {
+                              if (isSectionAdmin) {
+                                router.push({
+                                  pathname: '/schedule/broadcast-exception',
+                                  params: {
+                                    base_schedule_id: block.is_makeup ? undefined : (block.base_schedule_id || block.id),
+                                    course_id: block.course_id,
+                                    override_date: selectedDateString,
+                                  },
+                                });
+                              }
+                            }}
+                            onLongPress={() => {
+                              if (isSectionAdmin) {
+                                router.push({
+                                  pathname: '/schedule/broadcast-exception',
+                                  params: {
+                                    base_schedule_id: block.is_makeup ? undefined : (block.base_schedule_id || block.id),
+                                    course_id: block.course_id,
+                                    override_date: selectedDateString,
+                                  },
+                                });
+                              }
+                            }}
+                          />
+                        );
+                      })()}
                     </View>
                   </View>
                 </React.Fragment>
@@ -636,6 +664,30 @@ export default function AgendaScreen() {
           </View>
         )}
       </ScrollView>
+
+      {/* Peer Voting & CR Veto Consensus Modal */}
+      {activeVotingBlock && (
+        <PeerVotingModal
+          visible={!!activeVotingBlock}
+          onClose={() => setActiveVotingBlock(null)}
+          block={activeVotingBlock}
+          report={getReportForBlock(activeVotingBlock.base_schedule_id || activeVotingBlock.id)}
+          isAdmin={isSectionAdmin}
+          targetDate={selectedDateString}
+          userVote={getUserVoteForBlock(activeVotingBlock.base_schedule_id || activeVotingBlock.id)}
+          onCastVote={async (vote) => {
+            await castVote({
+              baseScheduleId: activeVotingBlock.base_schedule_id || activeVotingBlock.id,
+              vote,
+            });
+          }}
+          onVetoReport={async (reportId, reason) => {
+            await vetoReport({ reportId, reason });
+          }}
+          isVoting={isCastingVote}
+          isVetoing={isVetoing}
+        />
+      )}
     </SafeAreaView>
   );
 }

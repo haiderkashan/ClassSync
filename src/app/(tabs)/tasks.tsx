@@ -1,10 +1,10 @@
 // ============================================================================
 // ClassSync Academic Tasks Screen
 // File: src/app/(tabs)/tasks.tsx
-// Description: Main tasks dashboard featuring Master Segmented Toggle
-//              ("Pending" vs "Completed"), high-performance SectionList
-//              for deadline grouping (Overdue, Due Soon rolling 7-day, Upcoming),
-//              FlatList for Completed archive, course filter pills, and FAB.
+// Description: Overhauled mobile tasks dashboard generated via Stitch UI.
+//              Features Master Segmented Control, horizontal course rail,
+//              SectionList deadline grouping (Overdue, Due Soon, Upcoming),
+//              and floating yellow '+ New Task' action pill.
 // ============================================================================
 
 import React, { useState, useMemo } from 'react';
@@ -28,9 +28,9 @@ import {
   Calendar,
   AlertTriangle,
   Sparkles,
-  Layers,
   Inbox,
   CheckCheck,
+  GraduationCap,
 } from 'lucide-react-native';
 import { useWorkspaces } from '@/hooks/useWorkspaces';
 import { useAppStore, type AcademicTaskRow } from '@/store/useAppStore';
@@ -39,7 +39,6 @@ import { TaskCard } from '@/components/tasks/TaskCard';
 import {
   groupTasksByDeadline,
   filterTasks,
-  type TaskType,
 } from '@/lib/tasks/taskUtils';
 
 interface TaskSection {
@@ -69,7 +68,7 @@ export default function TasksScreen() {
     isSectionAdmin,
   } = useAcademicTasks();
 
-  // Master Segmented Toggle: 'pending' vs 'completed' (Deficiency 1 Fix)
+  // Master Segmented Toggle: 'pending' vs 'completed'
   const [activeTab, setActiveTab] = useState<'pending' | 'completed'>('pending');
 
   // Course Filter
@@ -120,7 +119,7 @@ export default function TasksScreen() {
         title: 'Due Soon (Next 7 Days)',
         key: 'dueSoon',
         data: groupedTasks.dueSoon,
-        badgeColor: '#D97706',
+        badgeColor: '#854D0E',
         badgeBg: '#FEF08A',
         badgeBorder: '#FACC15',
         icon: Clock,
@@ -132,9 +131,9 @@ export default function TasksScreen() {
         title: 'Upcoming',
         key: 'upcoming',
         data: groupedTasks.upcoming,
-        badgeColor: '#475569',
-        badgeBg: '#F8FAFC',
-        badgeBorder: '#E2E8F0',
+        badgeColor: '#52525B',
+        badgeBg: '#F4F4F5',
+        badgeBorder: '#E4E4E7',
         icon: Calendar,
       });
     }
@@ -142,103 +141,69 @@ export default function TasksScreen() {
     return sections;
   }, [groupedTasks]);
 
-  // Empty State: Pending View
-  const renderPendingEmptyState = () => (
-    <View className="py-16 px-6 items-center justify-center">
-      <View className="w-16 h-16 rounded-3xl bg-emerald-50 border border-emerald-100 items-center justify-center mb-4 shadow-xs">
-        <Sparkles size={28} color="#059669" strokeWidth={2.2} />
-      </View>
-      <Text className="text-lg font-black text-neutral-900 tracking-tight mb-1 text-center">
-        {selectedCourseId ? 'No Pending Tasks for Course' : 'All Caught Up! 🎉'}
-      </Text>
-      <Text className="text-xs font-medium text-neutral-500 text-center max-w-xs leading-relaxed mb-6">
-        {selectedCourseId
-          ? 'There are no active deadlines for this course. Switch to All Courses or create a new task.'
-          : 'You have completed all scheduled assignments, quizzes, and project milestones.'}
-      </Text>
-
-      <Pressable
-        onPress={() => router.push('/tasks/create-task')}
-        className="px-5 py-2.5 rounded-full bg-neutral-900 flex-row items-center shadow-xs active:bg-neutral-800"
-      >
-        <Plus size={14} color="#FFFFFF" strokeWidth={2.6} />
-        <Text className="text-xs font-bold text-white ml-1.5">Add New Task</Text>
-      </Pressable>
-    </View>
-  );
-
-  // Empty State: Completed Archive View
-  const renderCompletedEmptyState = () => (
-    <View className="py-16 px-6 items-center justify-center">
-      <View className="w-16 h-16 rounded-3xl bg-neutral-100 border border-neutral-200/60 items-center justify-center mb-4">
-        <CheckCheck size={28} color="#94A3B8" strokeWidth={2} />
-      </View>
-      <Text className="text-lg font-black text-neutral-900 tracking-tight mb-1 text-center">
-        Archive is Empty
-      </Text>
-      <Text className="text-xs font-medium text-neutral-500 text-center max-w-xs leading-relaxed">
-        Check off tasks from your Pending list to archive them here.
-      </Text>
-    </View>
-  );
+  const activeSectionName = activeSection?.name || 'ClassSync Cohort';
 
   return (
     <SafeAreaView className="flex-1 bg-[#FAFAF9]" edges={['top', 'left', 'right']}>
-      {/* Top Header & Sticky Navigation */}
-      <View className="px-5 pt-3 pb-2 bg-white border-b border-neutral-200/50">
-        <View className="flex-row items-center justify-between mb-3">
-          <View>
-            <Text className="text-2xl font-black text-neutral-900 tracking-tight">
-              Academic Tasks
-            </Text>
-            <Text className="text-xs font-semibold text-neutral-500 mt-0.5">
-              {activeSection?.name || 'Academic Workspace'}
-            </Text>
+      {/* 1. Mobile Header */}
+      <View className="px-5 pt-2 pb-3 bg-white border-b border-neutral-200/80">
+        <View className="flex-row items-center justify-between">
+          <View className="flex-row items-center space-x-2.5 flex-1 mr-2">
+            <View className="w-9 h-9 rounded-xl bg-neutral-100 border border-neutral-200/80 items-center justify-center">
+              <GraduationCap size={18} color="#18181B" strokeWidth={2.2} />
+            </View>
+            <View className="flex-1 ml-1.5">
+              <Text className="text-xl font-black text-neutral-900 tracking-tight" numberOfLines={1}>
+                Academic Tasks
+              </Text>
+              <View className="flex-row items-center space-x-1.5 mt-0.5">
+                <Text className="text-[11px] font-semibold text-neutral-500" numberOfLines={1}>
+                  {activeSectionName}
+                </Text>
+                <View className="w-1 h-1 rounded-full bg-neutral-300" />
+                <Text className="text-[11px] font-bold text-neutral-900">
+                  {pendingCount} Pending
+                </Text>
+              </View>
+            </View>
           </View>
 
-          {/* Header Quick Add Button */}
+          {/* Quick Add Button in Header */}
           <Pressable
             onPress={() => router.push('/tasks/create-task')}
-            className="flex-row items-center bg-[#FEF08A]/80 border border-[#FACC15] px-3.5 py-1.5 rounded-full active:bg-[#FEF08A] shadow-2xs"
+            className="flex-row items-center space-x-1 bg-[#FACC15] px-3 py-1.5 rounded-xl active:bg-yellow-400 shadow-2xs"
+            accessibilityLabel="Add Task"
           >
-            <Plus size={14} color="#18181B" strokeWidth={2.6} />
-            <Text className="text-xs font-bold text-neutral-900 ml-1">New Task</Text>
+            <Plus size={14} color="#18181B" strokeWidth={2.5} />
+            <Text className="text-xs font-black text-neutral-950 ml-0.5">New</Text>
           </Pressable>
         </View>
 
-        {/* Master Segmented Toggle ("Pending" vs "Completed") */}
-        <View className="bg-neutral-100 p-1 rounded-2xl flex-row mb-3 border border-neutral-200/60">
-          {/* Pending Tab */}
+        {/* 2. Master Segmented Control */}
+        <View className="w-full bg-neutral-100 p-1 rounded-2xl flex-row items-center mt-3 border border-neutral-200/60">
           <Pressable
             onPress={() => setActiveTab('pending')}
-            className={`flex-1 py-2 rounded-xl flex-row items-center justify-center transition-all ${
+            className={`flex-1 py-2 px-3 rounded-xl flex-row items-center justify-center space-x-1.5 transition-all ${
               activeTab === 'pending'
                 ? 'bg-[#FACC15] shadow-xs'
                 : 'active:bg-neutral-200/50'
             }`}
           >
-            <Clock
-              size={13}
-              color={activeTab === 'pending' ? '#18181B' : '#71717A'}
-              strokeWidth={2.4}
-            />
             <Text
-              className={`text-xs ml-1.5 ${
-                activeTab === 'pending'
-                  ? 'font-black text-[#18181B]'
-                  : 'font-semibold text-neutral-500'
+              className={`text-xs font-black ${
+                activeTab === 'pending' ? 'text-neutral-950' : 'text-neutral-500'
               }`}
             >
               Pending
             </Text>
             <View
-              className={`ml-1.5 px-1.5 py-0.2 rounded-full ${
-                activeTab === 'pending' ? 'bg-[#18181B]' : 'bg-neutral-200'
+              className={`px-1.5 py-0.2 rounded-full ${
+                activeTab === 'pending' ? 'bg-neutral-950/10' : 'bg-neutral-200'
               }`}
             >
               <Text
-                className={`text-[10px] font-bold ${
-                  activeTab === 'pending' ? 'text-[#FACC15]' : 'text-neutral-600'
+                className={`text-[10px] font-extrabold ${
+                  activeTab === 'pending' ? 'text-neutral-950' : 'text-neutral-600'
                 }`}
               >
                 {pendingCount}
@@ -246,37 +211,29 @@ export default function TasksScreen() {
             </View>
           </Pressable>
 
-          {/* Completed Archive Tab */}
           <Pressable
             onPress={() => setActiveTab('completed')}
-            className={`flex-1 py-2 rounded-xl flex-row items-center justify-center transition-all ${
+            className={`flex-1 py-2 px-3 rounded-xl flex-row items-center justify-center space-x-1.5 transition-all ${
               activeTab === 'completed'
-                ? 'bg-[#18181B] shadow-xs'
+                ? 'bg-[#FACC15] shadow-xs'
                 : 'active:bg-neutral-200/50'
             }`}
           >
-            <CheckCircle2
-              size={13}
-              color={activeTab === 'completed' ? '#34D399' : '#71717A'}
-              strokeWidth={2.4}
-            />
             <Text
-              className={`text-xs ml-1.5 ${
-                activeTab === 'completed'
-                  ? 'font-black text-white'
-                  : 'font-semibold text-neutral-500'
+              className={`text-xs font-black ${
+                activeTab === 'completed' ? 'text-neutral-950' : 'text-neutral-500'
               }`}
             >
               Completed
             </Text>
             <View
-              className={`ml-1.5 px-1.5 py-0.2 rounded-full ${
-                activeTab === 'completed' ? 'bg-emerald-600' : 'bg-neutral-200'
+              className={`px-1.5 py-0.2 rounded-full ${
+                activeTab === 'completed' ? 'bg-neutral-950/10' : 'bg-neutral-200'
               }`}
             >
               <Text
-                className={`text-[10px] font-bold ${
-                  activeTab === 'completed' ? 'text-white' : 'text-neutral-600'
+                className={`text-[10px] font-extrabold ${
+                  activeTab === 'completed' ? 'text-neutral-950' : 'text-neutral-600'
                 }`}
               >
                 {completedCount}
@@ -285,157 +242,211 @@ export default function TasksScreen() {
           </Pressable>
         </View>
 
-        {/* Horizontal Course Filter Bar */}
+        {/* 3. Horizontal Course Filter Rail */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          className="flex-row -mx-1 pb-1"
+          className="mt-2.5 -mx-5 px-5 flex-row py-1"
         >
           {/* All Courses Chip */}
           <Pressable
             onPress={() => setSelectedCourseId(null)}
-            className={`mx-1 px-3 py-1.5 rounded-full border transition-all ${
+            className={`mr-2 h-8 px-3.5 rounded-full flex-row items-center space-x-1.5 border transition-all ${
               selectedCourseId === null
-                ? 'bg-neutral-900 border-neutral-900 shadow-xs'
-                : 'bg-white border-neutral-200/80 active:bg-neutral-50'
+                ? 'bg-[#FACC15]/20 border-[#FACC15] shadow-2xs'
+                : 'bg-white border-neutral-200 active:bg-neutral-50'
             }`}
           >
             <Text
-              className={`text-xs font-bold ${
-                selectedCourseId === null ? 'text-white' : 'text-neutral-600'
+              className={`text-xs font-black ${
+                selectedCourseId === null ? 'text-neutral-950' : 'text-neutral-700'
               }`}
             >
               All Courses
             </Text>
+            <View
+              className={`px-1.5 py-0.2 rounded-full ${
+                selectedCourseId === null ? 'bg-[#FACC15]' : 'bg-neutral-100'
+              }`}
+            >
+              <Text className="text-[10px] font-extrabold text-neutral-950">
+                {tasks.length}
+              </Text>
+            </View>
           </Pressable>
 
-          {/* Individual Courses */}
-          {enrolledCourses.map((course) => {
-            const isSelected = selectedCourseId === course.id;
+          {/* Individual Enrolled Course Chips */}
+          {enrolledCourses.map((c) => {
+            const isSelected = selectedCourseId === c.id;
+            const courseTaskCount = tasks.filter((t) => t.course_id === c.id).length;
+
             return (
               <Pressable
-                key={course.id}
-                onPress={() => setSelectedCourseId(course.id)}
-                className={`mx-1 px-3 py-1.5 rounded-full border flex-row items-center transition-all ${
+                key={c.id}
+                onPress={() => setSelectedCourseId(c.id)}
+                className={`mr-2 h-8 px-3 rounded-full flex-row items-center space-x-1.5 border transition-all ${
                   isSelected
-                    ? 'bg-neutral-900 border-neutral-900 shadow-xs'
-                    : 'bg-white border-neutral-200/80 active:bg-neutral-50'
+                    ? 'bg-[#FACC15]/20 border-[#FACC15] shadow-2xs'
+                    : 'bg-white border-neutral-200 active:bg-neutral-50'
                 }`}
               >
                 <View
-                  className="w-2 h-2 rounded-full mr-1.5"
-                  style={{ backgroundColor: course.color_hex || '#3B82F6' }}
+                  className="w-2 h-2 rounded-full"
+                  style={{ backgroundColor: c.color_hex || '#FACC15' }}
                 />
                 <Text
                   className={`text-xs font-bold ${
-                    isSelected ? 'text-white' : 'text-neutral-700'
+                    isSelected ? 'text-neutral-950' : 'text-neutral-700'
                   }`}
+                  numberOfLines={1}
                 >
-                  {course.code || course.name}
+                  {c.code || c.name}
                 </Text>
+                {courseTaskCount > 0 && (
+                  <Text className="text-[10px] text-neutral-400 font-bold">
+                    ({courseTaskCount})
+                  </Text>
+                )}
               </Pressable>
             );
           })}
         </ScrollView>
       </View>
 
-      {/* Main List Rendering */}
-      {isLoading && tasks.length === 0 ? (
-        <View className="flex-1 items-center justify-center">
-          <ActivityIndicator size="small" color="#2563EB" />
-          <Text className="text-xs font-semibold text-neutral-500 mt-2">
-            Loading academic tasks...
-          </Text>
-        </View>
-      ) : activeTab === 'pending' ? (
-        /* High-Performance SectionList for Pending Tasks (Deficiency 3 Fix) */
-        <SectionList<AcademicTaskRow, TaskSection>
-          sections={pendingSections}
-          keyExtractor={(item) => item.id}
-          stickySectionHeadersEnabled={true}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{
-            paddingHorizontal: 20,
-            paddingTop: 10,
-            paddingBottom: 100, // Space for FAB & Floating Nav Pill
-          }}
-          refreshControl={
-            <RefreshControl refreshing={isFetching} onRefresh={refetch} />
-          }
-          renderSectionHeader={({ section }) => (
-            <View className="flex-row items-center justify-between pt-4 pb-2 bg-[#F8F9FA]">
-              <View className="flex-row items-center">
-                <section.icon size={13} color={section.badgeColor} />
-                <Text className="text-xs font-black text-neutral-800 ml-1.5 uppercase tracking-wider">
-                  {section.title}
-                </Text>
+      {/* 4. Main Content Area */}
+      <View className="flex-1 px-4 pt-3">
+        {isLoading ? (
+          <View className="py-20 items-center justify-center">
+            <ActivityIndicator size="large" color="#18181B" />
+            <Text className="text-xs font-semibold text-neutral-400 mt-3">
+              Syncing academic deadlines...
+            </Text>
+          </View>
+        ) : activeTab === 'pending' ? (
+          /* PENDING SECTIONLIST */
+          pendingSections.length === 0 ? (
+            <View className="py-16 px-6 items-center justify-center bg-white border border-neutral-200/80 rounded-3xl shadow-2xs my-4">
+              <View className="w-14 h-14 rounded-2xl bg-[#FACC15]/20 border border-[#FACC15]/40 items-center justify-center mb-3">
+                <Sparkles size={24} color="#854D0E" strokeWidth={2} />
               </View>
-              <View
-                style={{
-                  backgroundColor: section.badgeBg,
-                  borderColor: section.badgeBorder,
-                }}
-                className="px-2 py-0.2 rounded-full border"
-              >
-                <Text
-                  style={{ color: section.badgeColor }}
-                  className="text-[10px] font-black"
-                >
-                  {section.data.length}
-                </Text>
-              </View>
-            </View>
-          )}
-          renderItem={({ item }) => (
-            <TaskCard
-              task={item}
-              isCompleted={false}
-              onToggleComplete={toggleTaskCompletion}
-              onEdit={(t) => router.push(`/tasks/create-task?id=${t.id}`)}
-              onDelete={deleteTask}
-              currentUserId={user?.id}
-              isSectionAdmin={isSectionAdmin}
-            />
-          )}
-          ListEmptyComponent={renderPendingEmptyState}
-        />
-      ) : (
-        /* FlatList for Completed Archive (Deficiency 3 Fix) */
-        <FlatList<AcademicTaskRow>
-          data={groupedTasks.completed}
-          keyExtractor={(item) => item.id}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{
-            paddingHorizontal: 20,
-            paddingTop: 12,
-            paddingBottom: 100, // Space for FAB & Floating Nav Pill
-          }}
-          refreshControl={
-            <RefreshControl refreshing={isFetching} onRefresh={refetch} />
-          }
-          renderItem={({ item }) => (
-            <TaskCard
-              task={item}
-              isCompleted={true}
-              onToggleComplete={toggleTaskCompletion}
-              onEdit={(t) => router.push(`/tasks/create-task?id=${t.id}`)}
-              onDelete={deleteTask}
-              currentUserId={user?.id}
-              isSectionAdmin={isSectionAdmin}
-            />
-          )}
-          ListEmptyComponent={renderCompletedEmptyState}
-        />
-      )}
+              <Text className="text-base font-black text-neutral-900 mb-1 text-center">
+                All Caught Up!
+              </Text>
+              <Text className="text-xs font-medium text-neutral-500 text-center max-w-xs mb-5 leading-relaxed">
+                You have no pending deadlines or assignments scheduled right now. Tap below to create a personal study task.
+              </Text>
 
-      {/* Floating Action Button (FAB) */}
-      <View className="absolute bottom-24 right-5">
+              <Pressable
+                onPress={() => router.push('/tasks/create-task')}
+                className="flex-row items-center space-x-1.5 bg-[#FACC15] px-4 py-2.5 rounded-full active:bg-yellow-400 shadow-sm"
+              >
+                <Plus size={15} color="#18181B" strokeWidth={2.5} />
+                <Text className="text-neutral-950 font-black text-xs ml-1">
+                  Add First Academic Task
+                </Text>
+              </Pressable>
+            </View>
+          ) : (
+            <SectionList
+              sections={pendingSections}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={{ paddingBottom: 110 }}
+              showsVerticalScrollIndicator={false}
+              refreshControl={
+                <RefreshControl refreshing={isFetching} onRefresh={refetch} tintColor="#18181B" />
+              }
+              renderSectionHeader={({ section }) => {
+                const IconComponent = section.icon;
+
+                return (
+                  <View className="flex-row items-center justify-between pt-3 pb-2 bg-[#FAFAF9]">
+                    <View className="flex-row items-center space-x-2">
+                      <View
+                        className="px-2.5 py-1 rounded-full flex-row items-center space-x-1 border"
+                        style={{
+                          backgroundColor: section.badgeBg,
+                          borderColor: section.badgeBorder,
+                        }}
+                      >
+                        <IconComponent size={11} color={section.badgeColor} />
+                        <Text
+                          className="text-[11px] font-black uppercase tracking-wider ml-1"
+                          style={{ color: section.badgeColor }}
+                        >
+                          {section.title}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <Text className="text-[11px] font-black text-neutral-400">
+                      {section.data.length} task{section.data.length === 1 ? '' : 's'}
+                    </Text>
+                  </View>
+                );
+              }}
+              renderItem={({ item }) => (
+                <TaskCard
+                  task={item}
+                  isCompleted={false}
+                  onToggleComplete={toggleTaskCompletion}
+                  onEdit={(t) => router.push(`/tasks/create-task?id=${t.id}`)}
+                  onDelete={deleteTask}
+                  currentUserId={user?.id}
+                  isSectionAdmin={isSectionAdmin}
+                />
+              )}
+            />
+          )
+        ) : (
+          /* COMPLETED FLATLIST */
+          groupedTasks.completed.length === 0 ? (
+            <View className="py-16 px-6 items-center justify-center bg-white border border-neutral-200/80 rounded-3xl shadow-2xs my-4">
+              <View className="w-14 h-14 rounded-2xl bg-neutral-100 items-center justify-center mb-3">
+                <CheckCheck size={24} color="#71717A" strokeWidth={2} />
+              </View>
+              <Text className="text-base font-black text-neutral-900 mb-1 text-center">
+                No Completed Tasks Yet
+              </Text>
+              <Text className="text-xs font-medium text-neutral-500 text-center max-w-xs leading-relaxed">
+                When you check off assignments and quizzes, they will be archived here for your academic record.
+              </Text>
+            </View>
+          ) : (
+            <FlatList
+              data={groupedTasks.completed}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={{ paddingBottom: 110 }}
+              showsVerticalScrollIndicator={false}
+              refreshControl={
+                <RefreshControl refreshing={isFetching} onRefresh={refetch} tintColor="#18181B" />
+              }
+              renderItem={({ item }) => (
+                <TaskCard
+                  task={item}
+                  isCompleted={true}
+                  onToggleComplete={toggleTaskCompletion}
+                  onEdit={(t) => router.push(`/tasks/create-task?id=${t.id}`)}
+                  onDelete={deleteTask}
+                  currentUserId={user?.id}
+                  isSectionAdmin={isSectionAdmin}
+                />
+              )}
+            />
+          )
+        )}
+      </View>
+
+      {/* 5. Floating Action Button (FAB) */}
+      <View className="absolute bottom-6 right-5">
         <Pressable
           onPress={() => router.push('/tasks/create-task')}
-          className="bg-[#FACC15] px-5 py-3.5 rounded-full shadow-lg shadow-black/10 flex-row items-center active:bg-[#EAB308] transition-transform active:scale-95"
+          className="flex-row items-center space-x-2 bg-[#FACC15] px-5 py-3.5 rounded-full shadow-lg shadow-yellow-500/25 active:scale-95 active:bg-yellow-400 transition-transform"
+          accessibilityLabel="Add New Task"
         >
-          <Plus size={18} color="#18181B" strokeWidth={2.6} />
-          <Text className="text-xs font-black text-neutral-900 ml-2">New Task</Text>
+          <Plus size={18} color="#18181B" strokeWidth={2.5} />
+          <Text className="text-neutral-950 font-black text-sm tracking-wide ml-1">
+            New Task
+          </Text>
         </Pressable>
       </View>
     </SafeAreaView>

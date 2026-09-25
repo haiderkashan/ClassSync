@@ -1,10 +1,8 @@
 // ============================================================================
 // ClassSync Academic Task Publishing & Edit Modal
 // File: src/app/tasks/create-task.tsx
-// Description: Presentation modal for creating and updating academic tasks,
-//              featuring soft UI inputs, task type chips, course selector,
-//              cross-platform web-safe date picker, strict CR cohort broadcast
-//              authorization guards, and atomic mutation submission.
+// Description: Overhauled mobile bottom sheet modal for creating and updating
+//              academic tasks, generated via Stitch UI overhaul.
 // ============================================================================
 
 import React, { useState, useMemo } from 'react';
@@ -17,6 +15,7 @@ import {
   KeyboardAvoidingView,
   ActivityIndicator,
   Platform,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -32,13 +31,11 @@ import {
   Calendar,
   Clock,
   Sparkles,
-  Layers,
   Lock,
-  ShieldCheck,
-  User,
   Users,
   AlertCircle,
-  Send,
+  Trash2,
+  GraduationCap,
 } from 'lucide-react-native';
 import { useWorkspaces } from '@/hooks/useWorkspaces';
 import { useAppStore } from '@/store/useAppStore';
@@ -48,12 +45,22 @@ import {
   TASK_TYPE_METADATA,
   type TaskType,
 } from '@/lib/tasks/taskUtils';
+import type { CourseRow } from '@/store/useAppStore';
+
+const CATEGORIES: { id: TaskType; label: string; icon: any }[] = [
+  { id: 'assignment', label: 'Assignment', icon: FileText },
+  { id: 'quiz', label: 'Quiz / Exam', icon: HelpCircle },
+  { id: 'project', label: 'Project', icon: FolderGit2 },
+  { id: 'presentation', label: 'Presentation', icon: Presentation },
+  { id: 'administrative', label: 'Administrative', icon: Megaphone },
+];
 
 export default function CreateTaskModal() {
   const router = useRouter();
   const { activeSection, courses, activeSectionId } = useWorkspaces();
   const { activeCourses, tasks } = useAppStore();
-  const { upsertTask, isUpserting, isSectionAdmin } = useAcademicTasks();
+  const { upsertTask, isUpserting, deleteTask, isDeleting, isSectionAdmin } =
+    useAcademicTasks();
 
   const params = useLocalSearchParams<{
     id?: string;
@@ -96,9 +103,7 @@ export default function CreateTaskModal() {
     return d;
   });
 
-  // CRITICAL DIRECTIVE: Default is_personal = true.
-  // The toggle to broadcast to the cohort (is_personal = false) MUST be strictly disabled
-  // unless the user is a genesis_cr or co_admin.
+  // Default is_personal = true unless CR broadcasts to cohort
   const [isPersonal, setIsPersonal] = useState<boolean>(
     existingTask ? existingTask.is_personal : true
   );
@@ -106,6 +111,7 @@ export default function CreateTaskModal() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const isEditing = !!existingTask;
+  const activeSectionName = activeSection?.name || 'ClassSync Cohort';
 
   const handleSave = async () => {
     if (!title.trim()) {
@@ -129,7 +135,6 @@ export default function CreateTaskModal() {
         description: description.trim() || null,
         task_type: taskType,
         due_datetime: dueDateTime.toISOString(),
-        // Non-admins are strictly forced to is_personal = true
         is_personal: isSectionAdmin ? isPersonal : true,
       });
 
@@ -142,213 +147,146 @@ export default function CreateTaskModal() {
     }
   };
 
+  const handleDelete = () => {
+    if (!existingTask) return;
+
+    Alert.alert(
+      'Delete Academic Task',
+      `Are you sure you want to delete "${existingTask.title}"?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteTask(existingTask.id);
+              router.back();
+            } catch (err: any) {
+              setErrorMessage(err?.message || 'Failed to delete task.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   return (
-    <SafeAreaView className="flex-1 bg-[#F8F9FA]" edges={['top', 'left', 'right']}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        className="flex-1"
-      >
-        {/* Modal Header */}
-        <View className="px-5 pt-3 pb-4 flex-row items-center justify-between border-b border-neutral-200/60 bg-white/80 backdrop-blur-md">
-          <View>
-            <Text className="text-xl font-black text-neutral-900 tracking-tight">
-              {isEditing ? 'Edit Academic Task' : 'New Academic Task'}
+    <SafeAreaView className="flex-1 bg-[#FAFAF9]" edges={['top', 'left', 'right', 'bottom']}>
+      {/* 1. Modal Top Bar & Drag Handle */}
+      <View className="px-5 pt-2 pb-3 bg-white border-b border-neutral-200/80">
+        <View className="w-12 h-1.5 bg-neutral-200 rounded-full mx-auto mb-3" />
+        <View className="flex-row items-center justify-between">
+          <View className="flex-1 mr-2">
+            <Text className="text-lg font-black text-neutral-900 tracking-tight">
+              {isEditing ? 'Edit Academic Task' : 'Create Academic Task'}
             </Text>
-            <Text className="text-xs font-medium text-neutral-500 mt-0.5">
-              {activeSection?.name || 'Academic Workspace'}
-            </Text>
+            <View className="flex-row items-center space-x-1.5 mt-0.5">
+              <View className="w-1.5 h-1.5 rounded-full bg-[#FACC15]" />
+              <Text className="text-xs text-neutral-500 font-semibold" numberOfLines={1}>
+                {activeSectionName}
+              </Text>
+            </View>
           </View>
 
           <Pressable
             onPress={() => router.back()}
-            hitSlop={12}
-            className="w-9 h-9 rounded-full bg-neutral-100 items-center justify-center active:bg-neutral-200 transition-colors"
+            className="w-9 h-9 rounded-full bg-neutral-100 border border-neutral-200/80 items-center justify-center active:bg-neutral-200"
+            accessibilityLabel="Close modal"
           >
-            <X size={18} color="#475569" strokeWidth={2.4} />
+            <X size={18} color="#18181B" />
           </Pressable>
         </View>
+      </View>
 
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        className="flex-1"
+      >
         <ScrollView
-          className="flex-1 px-5"
-          contentContainerStyle={{ paddingBottom: 60, paddingTop: 16 }}
-          showsVerticalScrollIndicator={false}
+          className="flex-1 px-4 pt-4"
+          contentContainerStyle={{ paddingBottom: 120 }}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Error Banner */}
+          {/* Error Message Alert */}
           {errorMessage && (
-            <View className="mb-4 bg-rose-50 border border-rose-200 rounded-2xl p-3.5 flex-row items-start">
-              <AlertCircle size={16} color="#E11D48" className="mt-0.5" />
-              <Text className="text-xs font-semibold text-rose-700 ml-2.5 flex-1 leading-relaxed">
+            <View className="mb-4 p-3.5 bg-rose-50 border border-rose-200 rounded-2xl flex-row items-center space-x-2">
+              <AlertCircle size={16} color="#E11D48" />
+              <Text className="text-xs text-rose-700 font-bold flex-1 ml-1.5">
                 {errorMessage}
               </Text>
             </View>
           )}
 
-          {/* Title Input Card */}
-          <View className="bg-white rounded-3xl p-4 mb-4 border border-neutral-100/90 shadow-2xs">
-            <Text className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider mb-2">
-              Task Title <Text className="text-rose-500">*</Text>
+          {/* 2. Task Title Input */}
+          <View className="mb-4 bg-white border border-neutral-200/90 rounded-2xl p-3.5 focus-within:border-[#FACC15] shadow-2xs">
+            <Text className="text-[10px] font-black text-neutral-400 uppercase tracking-wider mb-1">
+              TASK TITLE
             </Text>
             <TextInput
               value={title}
-              onChangeText={(text) => {
-                setTitle(text);
-                if (errorMessage) setErrorMessage(null);
-              }}
-              placeholder="e.g., Midterm Project Submission"
-              placeholderTextColor="#94A3B8"
-              className="bg-neutral-50 border border-neutral-200/70 rounded-2xl px-4 py-3 text-sm font-semibold text-neutral-900 focus:border-blue-500"
-              maxLength={120}
-              autoFocus={!isEditing}
+              onChangeText={setTitle}
+              placeholder="e.g. Distributed Systems Lab 3"
+              placeholderTextColor="#A1A1AA"
+              className="text-base font-bold text-neutral-900 p-0"
             />
           </View>
 
-          {/* Task Type Chips Card */}
-          <View className="bg-white rounded-3xl p-4 mb-4 border border-neutral-100/90 shadow-2xs">
-            <View className="flex-row items-center justify-between mb-3">
-              <Text className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider">
-                Task Type
+          {/* 3. Description / Notes Textarea */}
+          <View className="mb-5 bg-white border border-neutral-200/90 rounded-2xl p-3.5 focus-within:border-[#FACC15] shadow-2xs">
+            <View className="flex-row items-center justify-between mb-1">
+              <Text className="text-[10px] font-black text-neutral-400 uppercase tracking-wider">
+                NOTES & SUBMISSION DETAILS
               </Text>
-              <View className="flex-row items-center">
-                <Sparkles size={12} color="#3B82F6" />
-                <Text className="text-[11px] font-bold text-blue-600 ml-1">
-                  {TASK_TYPE_METADATA[taskType]?.label}
-                </Text>
-              </View>
+              <Text className="text-[10px] font-medium text-neutral-400">
+                Optional
+              </Text>
             </View>
-
-            <View className="flex-row flex-wrap -m-1">
-              {(
-                [
-                  'assignment',
-                  'quiz',
-                  'project',
-                  'presentation',
-                  'administrative',
-                ] as TaskType[]
-              ).map((type) => {
-                const meta = TASK_TYPE_METADATA[type];
-                const isSelected = taskType === type;
-
-                return (
-                  <Pressable
-                    key={type}
-                    onPress={() => setTaskType(type)}
-                    style={{
-                      backgroundColor: isSelected ? meta.badgeBg : '#F8FAFC',
-                      borderColor: isSelected ? meta.borderColor : '#E2E8F0',
-                    }}
-                    className={`m-1 px-3.5 py-2 rounded-2xl border flex-row items-center transition-all ${
-                      isSelected ? 'shadow-xs' : ''
-                    }`}
-                  >
-                    {type === 'assignment' && (
-                      <FileText
-                        size={14}
-                        color={isSelected ? meta.badgeText : '#64748B'}
-                      />
-                    )}
-                    {type === 'quiz' && (
-                      <HelpCircle
-                        size={14}
-                        color={isSelected ? meta.badgeText : '#64748B'}
-                      />
-                    )}
-                    {type === 'project' && (
-                      <FolderGit2
-                        size={14}
-                        color={isSelected ? meta.badgeText : '#64748B'}
-                      />
-                    )}
-                    {type === 'presentation' && (
-                      <Presentation
-                        size={14}
-                        color={isSelected ? meta.badgeText : '#64748B'}
-                      />
-                    )}
-                    {type === 'administrative' && (
-                      <Megaphone
-                        size={14}
-                        color={isSelected ? meta.badgeText : '#64748B'}
-                      />
-                    )}
-
-                    <Text
-                      style={{
-                        color: isSelected ? meta.badgeText : '#475569',
-                      }}
-                      className={`text-xs ml-1.5 ${
-                        isSelected ? 'font-black' : 'font-semibold'
-                      }`}
-                    >
-                      {meta.label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
+            <TextInput
+              value={description}
+              onChangeText={setDescription}
+              placeholder="Add instructions, submission links, or rubric notes..."
+              placeholderTextColor="#A1A1AA"
+              multiline
+              numberOfLines={3}
+              textAlignVertical="top"
+              className="text-sm font-medium text-neutral-800 p-0 min-h-[70px]"
+            />
           </View>
 
-          {/* Course Selector Card */}
-          <View className="bg-white rounded-3xl p-4 mb-4 border border-neutral-100/90 shadow-2xs">
-            <View className="flex-row items-center justify-between mb-3">
-              <Text className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider">
-                Course Affiliation
-              </Text>
-              <BookOpen size={13} color="#94A3B8" />
-            </View>
+          {/* 4. Category Chips */}
+          <View className="mb-5">
+            <Text className="text-[11px] font-black text-neutral-400 uppercase tracking-wider px-1 mb-2">
+              CATEGORY
+            </Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} className="-mx-4 px-4 flex-row py-1">
+              {CATEGORIES.map((cat) => {
+                const isSelected = taskType === cat.id;
+                const IconComponent = cat.icon;
 
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              className="flex-row -mx-1"
-            >
-              {/* General / Cohort-wide option (Course ID = null) */}
-              <Pressable
-                onPress={() => setSelectedCourseId(null)}
-                className={`mx-1 px-3.5 py-2.5 rounded-2xl border flex-row items-center ${
-                  selectedCourseId === null
-                    ? 'bg-neutral-900 border-neutral-900'
-                    : 'bg-neutral-50 border-neutral-200/80'
-                }`}
-              >
-                <Layers
-                  size={14}
-                  color={selectedCourseId === null ? '#FFFFFF' : '#64748B'}
-                />
-                <Text
-                  className={`text-xs font-bold ml-1.5 ${
-                    selectedCourseId === null ? 'text-white' : 'text-neutral-700'
-                  }`}
-                >
-                  General / Announcement
-                </Text>
-              </Pressable>
-
-              {/* Enrolled Courses */}
-              {enrolledCourses.map((course) => {
-                const isSelected = selectedCourseId === course.id;
                 return (
                   <Pressable
-                    key={course.id}
-                    onPress={() => setSelectedCourseId(course.id)}
-                    className={`mx-1 px-3.5 py-2.5 rounded-2xl border flex-row items-center ${
+                    key={cat.id}
+                    onPress={() => setTaskType(cat.id)}
+                    className={`mr-2 px-3.5 py-2.5 rounded-2xl flex-row items-center space-x-1.5 border transition-all ${
                       isSelected
-                        ? 'bg-neutral-900 border-neutral-900'
-                        : 'bg-neutral-50 border-neutral-200/80'
+                        ? 'bg-[#FACC15] border-[#EAB308] shadow-2xs'
+                        : 'bg-white border-neutral-200/80 active:bg-neutral-100'
                     }`}
                   >
-                    <View
-                      className="w-2.5 h-2.5 rounded-full mr-2"
-                      style={{ backgroundColor: course.color_hex || '#3B82F6' }}
+                    <IconComponent
+                      size={14}
+                      color="#18181B"
+                      strokeWidth={isSelected ? 2.5 : 2}
                     />
                     <Text
-                      className={`text-xs font-bold ${
-                        isSelected ? 'text-white' : 'text-neutral-700'
+                      className={`text-xs ml-1 ${
+                        isSelected
+                          ? 'font-black text-neutral-950'
+                          : 'font-bold text-neutral-700'
                       }`}
-                      numberOfLines={1}
                     >
-                      {course.code || course.name}
+                      {cat.label}
                     </Text>
                   </Pressable>
                 );
@@ -356,160 +294,212 @@ export default function CreateTaskModal() {
             </ScrollView>
           </View>
 
-          {/* Due Date & Time Picker (Cross-platform with strict web fallback) */}
-          <DateTimePickerWebSafe
-            value={dueDateTime}
-            onChange={setDueDateTime}
-          />
-
-          {/* Broadcast Scope & CR Guard Card */}
-          <View className="bg-white rounded-3xl p-4 mb-4 border border-neutral-100/90 shadow-2xs">
-            <View className="flex-row items-center justify-between mb-3">
-              <Text className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider">
-                Audience & Visibility
+          {/* 5. Linked Course Selector Strip */}
+          <View className="mb-5">
+            <View className="flex-row items-center justify-between px-1 mb-2">
+              <Text className="text-[11px] font-black text-neutral-400 uppercase tracking-wider">
+                LINKED COURSE
               </Text>
-              {isSectionAdmin ? (
-                <View className="flex-row items-center bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-200">
-                  <ShieldCheck size={12} color="#2563EB" />
-                  <Text className="text-[10px] font-bold text-blue-700 ml-1">
-                    CR Authorized
-                  </Text>
-                </View>
-              ) : (
-                <View className="flex-row items-center bg-neutral-100 px-2.5 py-0.5 rounded-full border border-neutral-200/60">
-                  <Lock size={11} color="#64748B" />
-                  <Text className="text-[10px] font-bold text-neutral-600 ml-1">
-                    Personal Only
-                  </Text>
-                </View>
-              )}
+              <Text className="text-[11px] font-semibold text-neutral-500">
+                {enrolledCourses.length} Courses
+              </Text>
             </View>
 
-            {/* Broadcast Selection: Strictly disabled for regular members */}
-            {isSectionAdmin ? (
-              <View className="flex-row -mx-1">
-                {/* Personal Option */}
-                <Pressable
-                  onPress={() => setIsPersonal(true)}
-                  className={`flex-1 mx-1 p-3.5 rounded-2xl border transition-all ${
-                    isPersonal
-                      ? 'bg-neutral-900 border-neutral-900 shadow-xs'
-                      : 'bg-neutral-50 border-neutral-200/80 active:bg-neutral-100'
-                  }`}
-                >
-                  <View className="flex-row items-center mb-1">
-                    <User size={14} color={isPersonal ? '#FFFFFF' : '#475569'} />
-                    <Text
-                      className={`text-xs font-bold ml-1.5 ${
-                        isPersonal ? 'text-white' : 'text-neutral-800'
-                      }`}
-                    >
-                      Personal Only
-                    </Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} className="-mx-4 px-4 flex-row py-1">
+              {/* General / No Course Chip */}
+              <Pressable
+                onPress={() => setSelectedCourseId(null)}
+                className={`mr-2.5 px-4 py-3 rounded-2xl border min-w-[150px] justify-between transition-all ${
+                  selectedCourseId === null
+                    ? 'bg-[#FACC15]/15 border-[#EAB308] shadow-2xs'
+                    : 'bg-white border-neutral-200/80 active:bg-neutral-50'
+                }`}
+              >
+                <View className="flex-row items-center justify-between mb-2">
+                  <View className="px-2 py-0.5 rounded-full bg-neutral-100 border border-neutral-200">
+                    <Text className="text-[10px] font-bold text-neutral-600">GENERAL</Text>
                   </View>
-                  <Text
-                    className={`text-[10px] font-medium leading-tight ${
-                      isPersonal ? 'text-neutral-300' : 'text-neutral-500'
-                    }`}
-                  >
-                    Private to your schedule
-                  </Text>
-                </Pressable>
-
-                {/* Cohort Broadcast Option */}
-                <Pressable
-                  onPress={() => setIsPersonal(false)}
-                  className={`flex-1 mx-1 p-3.5 rounded-2xl border transition-all ${
-                    !isPersonal
-                      ? 'bg-blue-600 border-blue-600 shadow-xs'
-                      : 'bg-neutral-50 border-neutral-200/80 active:bg-neutral-100'
-                  }`}
-                >
-                  <View className="flex-row items-center mb-1">
-                    <Users size={14} color={!isPersonal ? '#FFFFFF' : '#475569'} />
-                    <Text
-                      className={`text-xs font-bold ml-1.5 ${
-                        !isPersonal ? 'text-white' : 'text-neutral-800'
-                      }`}
-                    >
-                      Broadcast Cohort
-                    </Text>
-                  </View>
-                  <Text
-                    className={`text-[10px] font-medium leading-tight ${
-                      !isPersonal ? 'text-blue-100' : 'text-neutral-500'
-                    }`}
-                  >
-                    Syncs to entire section
-                  </Text>
-                </Pressable>
-              </View>
-            ) : (
-              /* Informative card for regular students */
-              <View className="flex-row items-start bg-neutral-50 p-3.5 rounded-2xl border border-neutral-200/60">
-                <User size={16} color="#3B82F6" className="mt-0.5" />
-                <View className="ml-2.5 flex-1">
-                  <Text className="text-xs font-bold text-neutral-800">
-                    Personal Task (Private Checklist)
-                  </Text>
-                  <Text className="text-[11px] font-medium text-neutral-500 mt-0.5 leading-relaxed">
-                    This task is only visible to you. Cohort-wide broadcasting is restricted to Section Admins (Genesis CR and Co-Admins).
-                  </Text>
+                  {selectedCourseId === null && (
+                    <View className="w-5 h-5 rounded-full bg-[#FACC15] items-center justify-center">
+                      <Check size={12} color="#18181B" strokeWidth={3} />
+                    </View>
+                  )}
                 </View>
-              </View>
-            )}
+                <Text className="text-xs font-bold text-neutral-900">
+                  Cohort General
+                </Text>
+              </Pressable>
+
+              {/* Individual Enrolled Courses */}
+              {enrolledCourses.map((c: CourseRow) => {
+                const isSelected = selectedCourseId === c.id;
+                const color = c.color_hex || '#FACC15';
+
+                return (
+                  <Pressable
+                    key={c.id}
+                    onPress={() => setSelectedCourseId(c.id)}
+                    className={`mr-2.5 px-4 py-3 rounded-2xl border min-w-[170px] justify-between transition-all ${
+                      isSelected
+                        ? 'bg-[#FACC15]/15 border-[#EAB308] shadow-2xs'
+                        : 'bg-white border-neutral-200/80 active:bg-neutral-50'
+                    }`}
+                  >
+                    <View className="flex-row items-center justify-between mb-2">
+                      <View className="px-2 py-0.5 rounded-full bg-neutral-100 border border-neutral-200">
+                        <Text className="text-[10px] font-black font-mono text-neutral-800">
+                          {c.code || 'COURSE'}
+                        </Text>
+                      </View>
+                      {isSelected ? (
+                        <View className="w-5 h-5 rounded-full bg-[#FACC15] items-center justify-center">
+                          <Check size={12} color="#18181B" strokeWidth={3} />
+                        </View>
+                      ) : (
+                        <View
+                          className="w-3 h-3 rounded-full"
+                          style={{ backgroundColor: color }}
+                        />
+                      )}
+                    </View>
+                    <View>
+                      <Text className="text-xs font-black text-neutral-900" numberOfLines={1}>
+                        {c.name}
+                      </Text>
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
           </View>
 
-          {/* Description Input Card */}
-          <View className="bg-white rounded-3xl p-4 mb-6 border border-neutral-100/90 shadow-2xs">
-            <Text className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider mb-2">
-              Description / Instructions (Optional)
+          {/* 6. Deadline & Time Picker (Web-Safe & Native) */}
+          <View className="mb-5 bg-white p-4 rounded-3xl border border-neutral-200/80 shadow-2xs">
+            <Text className="text-[11px] font-black text-neutral-400 uppercase tracking-wider mb-2.5">
+              DEADLINE & DUE TIME
             </Text>
-            <TextInput
-              value={description}
-              onChangeText={setDescription}
-              placeholder="Add submission links, guidelines, or materials..."
-              placeholderTextColor="#94A3B8"
-              className="bg-neutral-50 border border-neutral-200/70 rounded-2xl p-4 text-xs font-medium text-neutral-800 focus:border-blue-500"
-              multiline
-              numberOfLines={3}
-              textAlignVertical="top"
-              maxLength={1000}
+            <DateTimePickerWebSafe
+              value={dueDateTime}
+              onChange={(newDate) => setDueDateTime(newDate)}
             />
           </View>
 
-          {/* Submit Action Button */}
+          {/* 7. Visibility & Cohort Broadcast Control */}
+          <View className="mb-6 bg-white p-4 rounded-3xl border border-neutral-200/80 shadow-2xs">
+            <Text className="text-[11px] font-black text-neutral-400 uppercase tracking-wider mb-2">
+              VISIBILITY & COHORT SYNC
+            </Text>
+
+            <View className="p-1 rounded-2xl bg-neutral-100 flex-row">
+              {/* Option 1: Personal */}
+              <Pressable
+                onPress={() => setIsPersonal(true)}
+                className={`flex-1 py-2.5 rounded-xl items-center justify-center flex-row space-x-1.5 transition-all ${
+                  isPersonal
+                    ? 'bg-white shadow-xs border border-neutral-200/60'
+                    : 'active:bg-neutral-200/60'
+                }`}
+              >
+                {isPersonal && (
+                  <View className="w-1.5 h-1.5 rounded-full bg-[#FACC15] mr-1" />
+                )}
+                <Text
+                  className={`text-xs font-black ${
+                    isPersonal ? 'text-neutral-950' : 'text-neutral-600'
+                  }`}
+                >
+                  Personal Task
+                </Text>
+              </Pressable>
+
+              {/* Option 2: Cohort Broadcast (CR Only) */}
+              <Pressable
+                onPress={() => {
+                  if (isSectionAdmin) {
+                    setIsPersonal(false);
+                  } else {
+                    Alert.alert(
+                      'Representative Broadcast Restricted',
+                      'Cohort-wide deadline broadcasts are exclusive to verified Class Representatives (Genesis CR / Co-Admins).'
+                    );
+                  }
+                }}
+                className={`flex-1 py-2.5 rounded-xl items-center justify-center flex-row space-x-1.5 transition-all ${
+                  !isPersonal
+                    ? 'bg-white shadow-xs border border-neutral-200/60'
+                    : 'active:bg-neutral-200/60'
+                }`}
+              >
+                {!isSectionAdmin ? (
+                  <Lock size={12} color="#71717A" />
+                ) : !isPersonal ? (
+                  <View className="w-1.5 h-1.5 rounded-full bg-[#FACC15] mr-1" />
+                ) : null}
+                <Text
+                  className={`text-xs font-black ${
+                    !isPersonal ? 'text-neutral-950' : 'text-neutral-600'
+                  }`}
+                >
+                  Cohort Broadcast
+                </Text>
+                {!isSectionAdmin && (
+                  <View className="px-1.5 py-0.2 rounded bg-neutral-200">
+                    <Text className="text-[9px] font-bold text-neutral-600">CR</Text>
+                  </View>
+                )}
+              </Pressable>
+            </View>
+
+            <Text className="text-[11px] text-neutral-500 mt-2 font-medium leading-relaxed">
+              {isPersonal
+                ? 'Personal tasks remain private and sync only across your own devices.'
+                : 'Cohort tasks will immediately broadcast to all enrolled section peers.'}
+            </Text>
+          </View>
+        </ScrollView>
+
+        {/* 8. Sticky Bottom Action Area */}
+        <View className="absolute bottom-0 inset-x-0 bg-white/95 border-t border-neutral-200/80 px-4 pt-3 pb-6 shadow-lg">
           <Pressable
             onPress={handleSave}
             disabled={isUpserting}
-            className={`w-full py-4 rounded-2xl flex-row items-center justify-center transition-all ${
+            className={`w-full py-4 rounded-2xl items-center justify-center flex-row space-x-2 shadow-sm ${
               isUpserting
-                ? 'bg-neutral-400'
-                : !isPersonal
-                ? 'bg-blue-600 active:bg-blue-700 shadow-md shadow-blue-500/20'
-                : 'bg-neutral-900 active:bg-neutral-800 shadow-md shadow-neutral-900/20'
+                ? 'bg-neutral-300'
+                : 'bg-[#FACC15] active:bg-yellow-400'
             }`}
           >
             {isUpserting ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
+              <ActivityIndicator size="small" color="#18181B" />
             ) : (
               <>
-                {!isPersonal ? (
-                  <Send size={16} color="#FFFFFF" strokeWidth={2.4} />
-                ) : (
-                  <Check size={16} color="#FFFFFF" strokeWidth={2.6} />
-                )}
-                <Text className="text-sm font-black text-white ml-2">
-                  {isEditing
-                    ? 'Save Changes'
-                    : !isPersonal
-                    ? 'Broadcast to Section Cohort'
-                    : 'Create Personal Task'}
+                <Check size={18} color="#18181B" strokeWidth={2.5} />
+                <Text className="text-neutral-950 text-sm font-black tracking-wide ml-1.5">
+                  {isEditing ? 'Save Changes' : 'Create Academic Task'}
                 </Text>
               </>
             )}
           </Pressable>
-        </ScrollView>
+
+          {isEditing && (
+            <Pressable
+              onPress={handleDelete}
+              disabled={isDeleting}
+              className="w-full py-2.5 mt-1.5 items-center justify-center flex-row space-x-1.5 active:bg-rose-50 rounded-xl"
+            >
+              {isDeleting ? (
+                <ActivityIndicator size="small" color="#E11D48" />
+              ) : (
+                <>
+                  <Trash2 size={15} color="#E11D48" />
+                  <Text className="text-xs font-bold text-rose-600 ml-1">
+                    Delete Task
+                  </Text>
+                </>
+              )}
+            </Pressable>
+          )}
+        </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

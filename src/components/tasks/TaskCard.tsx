@@ -1,9 +1,10 @@
 // ============================================================================
-// ClassSync Soft UI Task Card Component
+// ClassSync Premium Task Card Component
 // File: src/components/tasks/TaskCard.tsx
-// Description: Reusable, pill-shaped task card component featuring circular
-//              checkbox toggle, course tags, relative deadline badges,
-//              and strict ownership action guards (Edit/Delete).
+// Description: Modern squircle task card generated via Stitch UI overhaul.
+//              Features circular completion checkbox, left leading stripe,
+//              monospace course tags, relative deadline badges, and strict
+//              ownership guards.
 // ============================================================================
 
 import React, { useState } from 'react';
@@ -15,7 +16,6 @@ import {
   Trash2,
   Lock,
   Users,
-  AlertCircle,
   FileText,
   HelpCircle,
   FolderGit2,
@@ -23,12 +23,11 @@ import {
   Megaphone,
   ChevronDown,
   ChevronUp,
+  AlertTriangle,
 } from 'lucide-react-native';
 import {
   formatDeadlineRelative,
   getTaskTypeMetadata,
-  type AcademicTask,
-  type TaskType,
 } from '@/lib/tasks/taskUtils';
 import type { AcademicTaskRow } from '@/store/useAppStore';
 
@@ -53,9 +52,7 @@ export function TaskCard({
 }: TaskCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
-  // CRITICAL DEFICIENCY 2 FIX: Conditional Action Guards
-  // Only the creator can edit/delete personal tasks.
-  // Only Genesis CR or Co-Admin can edit/delete cohort-wide tasks.
+  // Ownership Action Guards
   const canManage =
     (task.is_personal && task.created_by === currentUserId) ||
     (!task.is_personal && isSectionAdmin);
@@ -84,227 +81,238 @@ export function TaskCard({
     );
   };
 
-  const renderTypeIcon = (type: string, size = 12, color?: string) => {
-    const iconColor = color || typeMeta.badgeText;
+  const renderTypeIcon = (type: string, size = 12, color = '#18181B') => {
     switch (type.toLowerCase()) {
       case 'quiz':
-        return <HelpCircle size={size} color={iconColor} />;
+        return <HelpCircle size={size} color={color} />;
       case 'project':
-        return <FolderGit2 size={size} color={iconColor} />;
+        return <FolderGit2 size={size} color={color} />;
       case 'presentation':
-        return <Presentation size={size} color={iconColor} />;
+        return <Presentation size={size} color={color} />;
       case 'administrative':
-        return <Megaphone size={size} color={iconColor} />;
+        return <Megaphone size={size} color={color} />;
       case 'assignment':
       default:
-        return <FileText size={size} color={iconColor} />;
+        return <FileText size={size} color={color} />;
     }
   };
 
+  // Color bar indicator: Rose if overdue, Yellow if urgent/due soon, Neutral if upcoming, Emerald if completed
+  const stripeColor = isCompleted
+    ? '#10B981'
+    : deadline.isOverdue
+    ? '#E11D48'
+    : deadline.isUrgent
+    ? '#FACC15'
+    : '#A1A1AA';
+
   return (
     <View
-      className={`rounded-3xl p-4 mb-3 border transition-all ${
+      className={`rounded-2xl p-3.5 mb-2.5 border relative overflow-hidden bg-white shadow-2xs transition-all ${
         isCompleted
-          ? 'bg-neutral-50/80 border-neutral-200/60 opacity-75'
+          ? 'border-neutral-200/60 bg-neutral-50/60 opacity-80'
           : deadline.isOverdue
-          ? 'bg-white border-rose-200/80 shadow-2xs'
-          : 'bg-white border-neutral-100/90 shadow-2xs'
+          ? 'border-rose-200'
+          : deadline.isUrgent
+          ? 'border-[#FACC15]/60'
+          : 'border-neutral-200/80'
       }`}
     >
-      {/* Top Meta Row: Task Type Chip + Course Tag + Cohort Scope */}
-      <View className="flex-row items-center justify-between mb-2.5">
-        <View className="flex-row items-center flex-wrap gap-1.5 flex-1 pr-2">
-          {/* Task Type Pill */}
-          <View
-            style={{
-              backgroundColor: isCompleted ? '#F1F5F9' : typeMeta.badgeBg,
-              borderColor: isCompleted ? '#E2E8F0' : typeMeta.borderColor,
-            }}
-            className="px-2.5 py-0.5 rounded-full border flex-row items-center"
+      {/* 1. Left Edge Solid Accent Indicator Bar */}
+      <View
+        className="absolute left-0 top-0 bottom-0 w-1.5"
+        style={{ backgroundColor: stripeColor }}
+      />
+
+      <View className="pl-1.5">
+        {/* 2. Top Header Metadata: Tags & Actions */}
+        <View className="flex-row items-center justify-between mb-2">
+          <View className="flex-row items-center flex-wrap gap-1.5 flex-1 pr-2">
+            {/* Course Code Tag */}
+            {task.course ? (
+              <View className="px-2 py-0.5 rounded-md bg-neutral-100 border border-neutral-200/80 flex-row items-center">
+                <View
+                  className="w-1.5 h-1.5 rounded-full mr-1.5"
+                  style={{ backgroundColor: task.course.color_hex || '#FACC15' }}
+                />
+                <Text className="text-[10px] font-black font-mono text-neutral-800">
+                  {task.course.code || task.course.name}
+                </Text>
+              </View>
+            ) : (
+              <View className="px-2 py-0.5 rounded-md bg-neutral-100 border border-neutral-200/80">
+                <Text className="text-[10px] font-bold text-neutral-600">General</Text>
+              </View>
+            )}
+
+            {/* Task Type Pill */}
+            <View className="px-2 py-0.5 rounded-full bg-[#FACC15]/20 border border-[#FACC15]/40 flex-row items-center space-x-1">
+              {renderTypeIcon(task.task_type, 10, '#18181B')}
+              <Text className="text-[10px] font-black text-neutral-900 uppercase ml-1">
+                {typeMeta.label}
+              </Text>
+            </View>
+
+            {/* Scope Badge (Cohort vs Personal) */}
+            {!task.is_personal ? (
+              <View className="px-2 py-0.5 rounded-full bg-blue-50 border border-blue-200/70 flex-row items-center">
+                <Users size={10} color="#2563EB" />
+                <Text className="text-[9px] font-black text-blue-700 uppercase tracking-wider ml-1">
+                  Cohort
+                </Text>
+              </View>
+            ) : (
+              <View className="px-2 py-0.5 rounded-full bg-neutral-100 border border-neutral-200/60 flex-row items-center">
+                <Lock size={9} color="#71717A" />
+                <Text className="text-[9px] font-bold text-neutral-500 ml-1">Personal</Text>
+              </View>
+            )}
+          </View>
+
+          {/* Action Icons (Edit / Delete) */}
+          {canManage && (
+            <View className="flex-row items-center space-x-1">
+              {onEdit && (
+                <Pressable
+                  onPress={() => onEdit(task)}
+                  hitSlop={8}
+                  className="w-7 h-7 rounded-lg bg-neutral-100 items-center justify-center active:bg-neutral-200"
+                  accessibilityLabel="Edit task"
+                >
+                  <Pencil size={11} color="#18181B" />
+                </Pressable>
+              )}
+
+              {onDelete && (
+                <Pressable
+                  onPress={handleDeletePress}
+                  hitSlop={8}
+                  className="w-7 h-7 rounded-lg bg-rose-50 items-center justify-center active:bg-rose-100 ml-1"
+                  accessibilityLabel="Delete task"
+                >
+                  <Trash2 size={11} color="#E11D48" />
+                </Pressable>
+              )}
+            </View>
+          )}
+        </View>
+
+        {/* 3. Main Row: Checkbox + Title */}
+        <View className="flex-row items-start justify-between">
+          {/* Circular Checkbox */}
+          <Pressable
+            onPress={() => onToggleComplete(task.id)}
+            hitSlop={10}
+            className={`w-6 h-6 rounded-full items-center justify-center mr-2.5 mt-0.5 border-2 transition-all ${
+              isCompleted
+                ? 'bg-[#FACC15] border-[#FACC15] shadow-2xs'
+                : deadline.isOverdue
+                ? 'border-rose-400 bg-rose-50 active:bg-rose-100'
+                : 'border-neutral-300 bg-white active:border-[#FACC15]'
+            }`}
+            accessibilityLabel={isCompleted ? 'Mark incomplete' : 'Mark complete'}
           >
-            {renderTypeIcon(
-              task.task_type,
-              11,
-              isCompleted ? '#64748B' : typeMeta.badgeText
+            {isCompleted && <Check size={13} color="#18181B" strokeWidth={3} />}
+          </Pressable>
+
+          {/* Task Title & Details */}
+          <Pressable
+            onPress={() => setIsExpanded(!isExpanded)}
+            className="flex-1 mr-1"
+          >
+            <Text
+              className={`text-sm font-black tracking-tight leading-snug ${
+                isCompleted
+                  ? 'line-through text-neutral-400 font-medium'
+                  : 'text-neutral-900'
+              }`}
+              numberOfLines={isExpanded ? undefined : 2}
+            >
+              {task.title}
+            </Text>
+
+            {/* Expandable Description */}
+            {task.description ? (
+              <View className="mt-1">
+                {isExpanded ? (
+                  <Text className="text-xs text-neutral-600 leading-relaxed font-medium bg-neutral-50 p-2.5 rounded-xl border border-neutral-200/60 mt-1">
+                    {task.description}
+                  </Text>
+                ) : (
+                  <Text className="text-[11px] text-neutral-400 truncate font-medium">
+                    {task.description}
+                  </Text>
+                )}
+              </View>
+            ) : null}
+          </Pressable>
+
+          {/* Expand/Collapse Chevron */}
+          {task.description ? (
+            <Pressable
+              onPress={() => setIsExpanded(!isExpanded)}
+              hitSlop={8}
+              className="p-1"
+            >
+              {isExpanded ? (
+                <ChevronUp size={14} color="#A1A1AA" />
+              ) : (
+                <ChevronDown size={14} color="#A1A1AA" />
+              )}
+            </Pressable>
+          ) : null}
+        </View>
+
+        {/* 4. Footer Row: Relative Deadline Badge */}
+        <View className="flex-row items-center justify-between pt-2.5 mt-2 border-t border-neutral-100">
+          <View
+            className={`px-2.5 py-1 rounded-full border flex-row items-center space-x-1 ${
+              isCompleted
+                ? 'bg-neutral-100 border-neutral-200'
+                : deadline.isOverdue
+                ? 'bg-rose-50 border-rose-200'
+                : deadline.isUrgent
+                ? 'bg-[#FACC15]/20 border-[#FACC15]/50'
+                : 'bg-neutral-100 border-neutral-200/80'
+            }`}
+          >
+            {deadline.isOverdue ? (
+              <AlertTriangle size={11} color="#E11D48" strokeWidth={2.5} />
+            ) : (
+              <Clock
+                size={11}
+                color={
+                  isCompleted
+                    ? '#A1A1AA'
+                    : deadline.isUrgent
+                    ? '#18181B'
+                    : '#71717A'
+                }
+              />
             )}
             <Text
-              style={{
-                color: isCompleted ? '#64748B' : typeMeta.badgeText,
-              }}
-              className="text-[10px] font-black uppercase tracking-wider ml-1"
+              className={`text-[10px] font-black ml-1 ${
+                isCompleted
+                  ? 'text-neutral-500'
+                  : deadline.isOverdue
+                  ? 'text-rose-700'
+                  : deadline.isUrgent
+                  ? 'text-neutral-950'
+                  : 'text-neutral-700'
+              }`}
             >
-              {typeMeta.label}
+              {isCompleted ? 'Completed' : deadline.text}
             </Text>
           </View>
 
-          {/* Course Affiliation Pill */}
-          {task.course ? (
-            <View className="px-2.5 py-0.5 rounded-full bg-neutral-100 border border-neutral-200/60 flex-row items-center">
-              <View
-                className="w-2 h-2 rounded-full mr-1.5"
-                style={{
-                  backgroundColor: task.course.color_hex || '#3B82F6',
-                }}
-              />
-              <Text
-                className="text-[10px] font-bold text-neutral-700"
-                numberOfLines={1}
-              >
-                {task.course.code || task.course.name}
-              </Text>
-            </View>
-          ) : (
-            <View className="px-2.5 py-0.5 rounded-full bg-neutral-100 border border-neutral-200/60 flex-row items-center">
-              <Text className="text-[10px] font-bold text-neutral-600">
-                General
-              </Text>
-            </View>
-          )}
-
-          {/* Scope Badge (Cohort vs Personal) */}
-          {!task.is_personal ? (
-            <View className="px-2 py-0.5 rounded-full bg-blue-50 border border-blue-200 flex-row items-center">
-              <Users size={10} color="#2563EB" />
-              <Text className="text-[9px] font-black text-blue-700 uppercase tracking-wider ml-1">
-                Cohort
-              </Text>
-            </View>
-          ) : (
-            <View className="px-2 py-0.5 rounded-full bg-neutral-100 border border-neutral-200/50 flex-row items-center">
-              <Lock size={10} color="#64748B" />
-              <Text className="text-[9px] font-bold text-neutral-500 ml-1">
-                Personal
-              </Text>
-            </View>
-          )}
-        </View>
-
-        {/* Action Buttons (Strictly Guarded) */}
-        {canManage && (
-          <View className="flex-row items-center space-x-1">
-            {onEdit && (
-              <Pressable
-                onPress={() => onEdit(task)}
-                hitSlop={8}
-                className="w-7 h-7 rounded-full bg-neutral-100 items-center justify-center active:bg-neutral-200"
-              >
-                <Pencil size={12} color="#475569" />
-              </Pressable>
-            )}
-
-            {onDelete && (
-              <Pressable
-                onPress={handleDeletePress}
-                hitSlop={8}
-                className="w-7 h-7 rounded-full bg-rose-50 items-center justify-center active:bg-rose-100 ml-1"
-              >
-                <Trash2 size={12} color="#E11D48" />
-              </Pressable>
-            )}
-          </View>
-        )}
-      </View>
-
-      {/* Main Task Title & Checkbox Row */}
-      <View className="flex-row items-start justify-between mt-1">
-        {/* Title and details */}
-        <Pressable
-          onPress={() => setIsExpanded(!isExpanded)}
-          className="flex-1 pr-3"
-        >
-          <Text
-            className={`text-sm font-bold leading-snug ${
-              isCompleted
-                ? 'line-through text-neutral-400 font-medium'
-                : 'text-neutral-900'
-            }`}
-          >
-            {task.title}
-          </Text>
-
-          {/* Due date relative badge */}
-          <View className="flex-row items-center mt-2">
-            <View
-              className={`px-2 py-0.5 rounded-full border flex-row items-center ${
-                isCompleted
-                  ? 'bg-neutral-100 border-neutral-200'
-                  : deadline.isOverdue
-                  ? 'bg-rose-50 border-rose-200'
-                  : deadline.isUrgent
-                  ? 'bg-amber-50 border-amber-200'
-                  : 'bg-blue-50 border-blue-200'
-              }`}
-            >
-              <Clock
-                size={10}
-                color={
-                  isCompleted
-                    ? '#94A3B8'
-                    : deadline.isOverdue
-                    ? '#E11D48'
-                    : deadline.isUrgent
-                    ? '#D97706'
-                    : '#2563EB'
-                }
-              />
-              <Text
-                className={`text-[10px] font-bold ml-1 ${
-                  isCompleted
-                    ? 'text-neutral-500'
-                    : deadline.isOverdue
-                    ? 'text-rose-700'
-                    : deadline.isUrgent
-                    ? 'text-amber-700'
-                    : 'text-blue-700'
-                }`}
-              >
-                {isCompleted ? 'Completed' : deadline.text}
-              </Text>
-            </View>
-
-            {task.description && (
-              <Pressable
-                onPress={() => setIsExpanded(!isExpanded)}
-                className="flex-row items-center ml-2 py-0.5 px-1.5"
-              >
-                <Text className="text-[10px] font-semibold text-neutral-500">
-                  {isExpanded ? 'Hide details' : 'Details'}
-                </Text>
-                {isExpanded ? (
-                  <ChevronUp size={10} color="#64748B" className="ml-0.5" />
-                ) : (
-                  <ChevronDown size={10} color="#64748B" className="ml-0.5" />
-                )}
-              </Pressable>
-            )}
-          </View>
-        </Pressable>
-
-        {/* Checkbox (Stitch Squircle) */}
-        <Pressable
-          onPress={() => onToggleComplete(task.id)}
-          accessibilityRole="checkbox"
-          aria-label="Toggle task completion"
-          aria-checked={isCompleted}
-          hitSlop={12}
-          className={`w-6 h-6 rounded-lg items-center justify-center transition-all ${
-            isCompleted
-              ? 'bg-[#FACC15] border-2 border-[#EAB308] shadow-2xs'
-              : 'bg-white border-2 border-neutral-300 active:border-neutral-500'
-          }`}
-        >
-          {isCompleted && <Check size={14} color="#18181B" strokeWidth={3} />}
-        </Pressable>
-      </View>
-
-      {/* Expandable Description Details */}
-      {isExpanded && task.description && (
-        <View className="mt-3 pt-3 border-t border-neutral-100">
-          <Text className="text-xs text-neutral-700 leading-relaxed font-normal">
-            {task.description}
+          <Text className="text-[10px] font-semibold text-neutral-400 font-mono">
+            {new Date(task.due_datetime).toLocaleDateString('en-US', {
+              month: 'short',
+              day: 'numeric',
+            })}
           </Text>
         </View>
-      )}
+      </View>
     </View>
   );
 }

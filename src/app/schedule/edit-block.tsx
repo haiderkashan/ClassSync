@@ -8,6 +8,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -21,7 +22,6 @@ import {
   GraduationCap,
   Calendar,
   Check,
-  ChevronDown,
   Clock,
   ArrowRight,
   MapPin,
@@ -49,17 +49,27 @@ import {
 import type { CourseRow } from '@/store/useAppStore';
 
 const SESSION_TYPES = [
-  { id: 'lecture', label: 'Lecture', icon: BookOpen, color: '#4f46e5' },
-  { id: 'lab', label: 'Lab', icon: FlaskConical, color: '#059669' },
-  { id: 'break', label: 'Break', icon: Coffee, color: '#d97706' },
-  { id: 'prayer', label: 'Prayer', icon: Heart, color: '#0d9488' },
-  { id: 'meeting', label: 'Meeting', icon: Users, color: '#475569' },
-  { id: 'tutorial', label: 'Tutorial', icon: GraduationCap, color: '#9333ea' },
-  { id: 'seminar', label: 'Seminar', icon: GraduationCap, color: '#e11d48' },
+  { id: 'lecture', label: 'Lecture', icon: BookOpen },
+  { id: 'lab', label: 'Practical Lab', icon: FlaskConical },
+  { id: 'tutorial', label: 'Tutorial', icon: GraduationCap },
+  { id: 'seminar', label: 'Seminar', icon: GraduationCap },
+  { id: 'break', label: 'Break', icon: Coffee },
+  { id: 'prayer', label: 'Prayer', icon: Heart },
+  { id: 'meeting', label: 'Meeting', icon: Users },
+];
+
+const DAYS_GRID = [
+  { id: 1, label: 'MON' },
+  { id: 2, label: 'TUE' },
+  { id: 3, label: 'WED' },
+  { id: 4, label: 'THU' },
+  { id: 5, label: 'FRI' },
+  { id: 6, label: 'SAT' },
+  { id: 7, label: 'SUN' },
 ];
 
 const FREQUENCIES = [
-  { id: 'weekly', label: 'Weekly' },
+  { id: 'weekly', label: 'Weekly (All)' },
   { id: 'biweekly_week_a', label: 'Week A Only' },
   { id: 'biweekly_week_b', label: 'Week B Only' },
 ];
@@ -70,7 +80,6 @@ const DURATION_PRESETS = [
   { label: '+90m', minutes: 90 },
   { label: '+120m', minutes: 120 },
   { label: '+180m', minutes: 180 },
-  { label: 'Custom', minutes: null },
 ];
 
 export default function EditBlockModal() {
@@ -101,7 +110,7 @@ export default function EditBlockModal() {
     existingBlock?.course_id ?? (courses.length > 0 ? courses[0].id : null)
   );
 
-  // Time and dynamic duration presets
+  // Time inputs and presets
   const [startTime, setStartTime] = useState<string>(
     existingBlock ? existingBlock.start_time.slice(0, 5) : '09:00'
   );
@@ -127,20 +136,21 @@ export default function EditBlockModal() {
   );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Determine if this session type requires a course association
-  const isGeneralSession = sessionType === 'break' || sessionType === 'prayer' || sessionType === 'meeting';
+  // Determine if general session
+  const isGeneralSession =
+    sessionType === 'break' || sessionType === 'prayer' || sessionType === 'meeting';
 
   // Calculate duration dynamically
   const durationMinutes = calculateDurationMinutes(startTime, endTime);
   const durationLabel = formatDuration(durationMinutes);
 
-  // Derive unique historical room & instructor suggestions from Zustand store
+  // Historical suggestions
   const roomSuggestions = useMemo(() => {
     const set = new Set<string>();
     baseSchedules.forEach((b) => {
       if (b.room?.trim()) set.add(b.room.trim());
     });
-    return Array.from(set).slice(0, 5);
+    return Array.from(set).slice(0, 4);
   }, [baseSchedules]);
 
   const instructorSuggestions = useMemo(() => {
@@ -148,16 +158,18 @@ export default function EditBlockModal() {
     baseSchedules.forEach((b) => {
       if (b.instructor?.trim()) set.add(b.instructor.trim());
     });
-    return Array.from(set).slice(0, 5);
+    return Array.from(set).slice(0, 4);
   }, [baseSchedules]);
 
-  // Real-time conflict detection against local Zustand store
+  // Real-time conflict detection
   const conflictResult = useMemo(() => {
     const selectedCourse = courses.find((c) => c.id === selectedCourseId);
     const candidate: ScheduleBlockInterval = {
       id: params.id,
       courseId: selectedCourseId || undefined,
-      courseTitle: selectedCourse?.name || (isGeneralSession ? sessionType.toUpperCase() : 'New Session'),
+      courseTitle:
+        selectedCourse?.name ||
+        (isGeneralSession ? sessionType.toUpperCase() : 'New Session'),
       courseCode: selectedCourse?.code || undefined,
       dayOfWeek,
       startTime,
@@ -219,13 +231,11 @@ export default function EditBlockModal() {
   const handleSave = async () => {
     setErrorMessage(null);
 
-    // Validate times
     if (!isValidTimeRange(startTime, endTime)) {
       setErrorMessage('End time must be strictly after start time.');
       return;
     }
 
-    // Determine target courseId
     let targetCourseId = selectedCourseId;
     if (isGeneralSession && !targetCourseId) {
       if (courses.length > 0) {
@@ -265,50 +275,59 @@ export default function EditBlockModal() {
     }
   };
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     if (!params.id) return;
-    try {
-      await deleteBlock(params.id);
-      router.back();
-    } catch (err: any) {
-      console.error('[EditBlockModal] Failed to delete block:', err);
-      setErrorMessage(err?.message || 'Failed to delete block.');
-    }
+    Alert.alert(
+      'Delete Schedule Block',
+      'Are you sure you want to delete this schedule block? This will permanently remove it from the cohort timetable.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteBlock(params.id!);
+              router.back();
+            } catch (err: any) {
+              console.error('[EditBlockModal] Failed to delete block:', err);
+              setErrorMessage(err?.message || 'Failed to delete block.');
+            }
+          },
+        },
+      ]
+    );
   };
 
+  const activeCourse = courses.find((c) => c.id === selectedCourseId);
+
   return (
-    <SafeAreaView className="flex-1 bg-[#F8F9FA]" edges={['top', 'bottom', 'left', 'right']}>
-      {/* Modal Header */}
-      <View className="px-5 py-3.5 border-b border-neutral-200/60 flex-row items-center justify-between bg-white">
-        <View>
-          <Text className="text-lg font-black text-neutral-900 tracking-tight">
-            {params.id ? 'Edit Timetable Block' : 'New Timetable Block'}
-          </Text>
-          <Text className="text-xs text-neutral-500 font-medium">
-            {activeSection?.name || 'Cohort'} • {getDayName(dayOfWeek)}
-          </Text>
-        </View>
-        <View className="flex-row items-center space-x-2">
-          {params.id && (
-            <Pressable
-              onPress={handleDelete}
-              disabled={isDeleting}
-              className="w-9 h-9 rounded-full bg-rose-50 items-center justify-center active:bg-rose-100"
-              accessibilityLabel="Delete Block"
-            >
-              {isDeleting ? (
-                <ActivityIndicator size="small" color="#e11d48" />
-              ) : (
-                <Trash2 size={16} color="#e11d48" />
-              )}
-            </Pressable>
-          )}
+    <SafeAreaView className="flex-1 bg-[#FAFAF9]" edges={['top', 'bottom', 'left', 'right']}>
+      {/* 1. Modal Top Header & Grab Handle */}
+      <View className="px-5 pt-2 pb-3 bg-white border-b border-neutral-200/80">
+        <View className="w-12 h-1.5 bg-neutral-200 rounded-full mx-auto mb-3" />
+        <View className="flex-row items-center justify-between">
+          <View className="flex-1 mr-2">
+            <Text className="text-lg font-black text-neutral-900 tracking-tight">
+              {params.id ? 'Edit Schedule Block' : 'New Schedule Block'}
+            </Text>
+            <View className="flex-row items-center space-x-1.5 mt-0.5">
+              <Text className="text-xs font-bold text-neutral-900 font-mono">
+                {activeCourse?.code || (isGeneralSession ? 'COHORT' : 'COURSE')}
+              </Text>
+              <Text className="text-xs text-neutral-400">•</Text>
+              <Text className="text-xs text-neutral-500 font-semibold" numberOfLines={1}>
+                {activeSection?.name || 'Cohort'} • {getDayName(dayOfWeek)}
+              </Text>
+            </View>
+          </View>
+
           <Pressable
             onPress={() => router.back()}
-            className="w-9 h-9 rounded-full bg-neutral-100 items-center justify-center active:bg-neutral-200"
-            accessibilityLabel="Close"
+            className="w-9 h-9 rounded-full bg-neutral-100 border border-neutral-200/80 items-center justify-center active:bg-neutral-200"
+            accessibilityLabel="Close modal"
           >
-            <X size={18} color="#18181b" />
+            <X size={18} color="#18181B" />
           </Pressable>
         </View>
       </View>
@@ -317,13 +336,273 @@ export default function EditBlockModal() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         className="flex-1"
       >
-        <ScrollView className="flex-1 px-5 pt-4" contentContainerStyle={{ paddingBottom: 80 }}>
-          {/* 1. Session Type Selector */}
+        <ScrollView
+          className="flex-1 px-4 pt-4"
+          contentContainerStyle={{ paddingBottom: 130 }}
+        >
+          {/* Error Message Alert */}
+          {errorMessage && (
+            <View className="mb-4 p-3.5 bg-rose-50 border border-rose-200 rounded-2xl flex-row items-center space-x-2">
+              <AlertCircle size={16} color="#E11D48" />
+              <Text className="text-xs text-rose-700 font-bold flex-1 ml-1.5">
+                {errorMessage}
+              </Text>
+            </View>
+          )}
+
+          {/* 2. Course Selection Section */}
           <View className="mb-5">
-            <Text className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider mb-2.5">
-              Session Type
+            <View className="flex-row items-center justify-between px-1 mb-2">
+              <Text className="text-[11px] font-black tracking-wider text-neutral-400 uppercase">
+                Course Selection
+              </Text>
+            </View>
+
+            {isGeneralSession ? (
+              <View className="p-3.5 rounded-2xl bg-amber-50/80 border border-amber-200 flex-row items-center space-x-2.5">
+                <Coffee size={18} color="#D97706" />
+                <View className="flex-1 ml-1.5">
+                  <Text className="text-xs font-black text-amber-950">
+                    Cohort-Wide Event
+                  </Text>
+                  <Text className="text-[11px] text-amber-800 mt-0.5 font-medium leading-relaxed">
+                    Breaks, prayers, and common meetings automatically apply to all students.
+                  </Text>
+                </View>
+              </View>
+            ) : courses.length === 0 ? (
+              <View className="p-4 rounded-2xl bg-neutral-100 border border-neutral-200">
+                <Text className="text-xs text-neutral-600 font-medium">
+                  No courses found in this section. Please register courses in Settings first.
+                </Text>
+              </View>
+            ) : (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} className="-mx-4 px-4 flex-row py-1">
+                {courses.map((course: CourseRow) => {
+                  const isSelected = selectedCourseId === course.id;
+                  const color = course.color_hex || '#FACC15';
+
+                  return (
+                    <Pressable
+                      key={course.id}
+                      onPress={() => setSelectedCourseId(course.id)}
+                      className={`mr-2.5 px-4 py-3 rounded-2xl border min-w-[200px] flex-col justify-between transition-all ${
+                        isSelected
+                          ? 'bg-[#FACC15]/10 border-[#EAB308] shadow-xs'
+                          : 'bg-white border-neutral-200/80 active:bg-neutral-50'
+                      }`}
+                    >
+                      <View className="flex-row items-center justify-between mb-2">
+                        <View className="px-2 py-0.5 rounded-full bg-neutral-100 border border-neutral-200">
+                          <Text className="text-[10px] font-black font-mono text-neutral-800">
+                            {course.code || 'COURSE'}
+                          </Text>
+                        </View>
+                        {isSelected ? (
+                          <View className="w-5 h-5 rounded-full bg-[#FACC15] items-center justify-center">
+                            <Check size={12} color="#18181B" strokeWidth={3} />
+                          </View>
+                        ) : (
+                          <View
+                            className="w-3.5 h-3.5 rounded-full"
+                            style={{ backgroundColor: color }}
+                          />
+                        )}
+                      </View>
+
+                      <View>
+                        <Text className="text-xs font-black text-neutral-900" numberOfLines={1}>
+                          {course.name}
+                        </Text>
+                        <View className="flex-row items-center space-x-1 mt-1">
+                          <View
+                            className="w-1.5 h-1.5 rounded-full"
+                            style={{ backgroundColor: isSelected ? '#18181B' : '#A1A1AA' }}
+                          />
+                          <Text className="text-[10px] font-semibold text-neutral-500">
+                            {isSelected ? 'Selected Course' : 'Tap to Select'}
+                          </Text>
+                        </View>
+                      </View>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            )}
+          </View>
+
+          {/* 3. Day of Week & Time Slot Configuration */}
+          <View className="mb-5 bg-white p-4 rounded-3xl border border-neutral-200/80 shadow-2xs">
+            <View className="flex-row items-center justify-between mb-2.5">
+              <Text className="text-[11px] font-black tracking-wider text-neutral-400 uppercase">
+                Day of Week
+              </Text>
+              <Text className="text-[11px] font-black text-neutral-900">
+                {getDayName(dayOfWeek)}
+              </Text>
+            </View>
+
+            {/* Day Selector Buttons Grid */}
+            <View className="flex-row justify-between mb-4">
+              {DAYS_GRID.map((d) => {
+                const isSelected = dayOfWeek === d.id;
+                return (
+                  <Pressable
+                    key={d.id}
+                    onPress={() => setDayOfWeek(d.id)}
+                    className={`flex-1 mx-0.5 py-2.5 rounded-xl items-center justify-center border transition-all ${
+                      isSelected
+                        ? 'bg-[#FACC15] border-[#EAB308] shadow-2xs'
+                        : 'bg-neutral-50 border-neutral-200/80 active:bg-neutral-100'
+                    }`}
+                  >
+                    <Text
+                      className={`text-[11px] font-black ${
+                        isSelected ? 'text-neutral-950' : 'text-neutral-600'
+                      }`}
+                    >
+                      {d.label}
+                    </Text>
+                    {isSelected && (
+                      <View className="w-1 h-1 rounded-full bg-neutral-950 mt-1" />
+                    )}
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            {/* Time Slot Picker */}
+            <View className="pt-2 border-t border-neutral-100">
+              <View className="flex-row items-center justify-between mb-2">
+                <Text className="text-[11px] font-black tracking-wider text-neutral-400 uppercase">
+                  Time Slot Window
+                </Text>
+                {durationMinutes > 0 && (
+                  <View className="bg-neutral-100 px-2.5 py-0.5 rounded-full border border-neutral-200 flex-row items-center space-x-1">
+                    <Clock size={11} color="#18181B" />
+                    <Text className="text-[10px] font-black text-neutral-900 ml-1">
+                      {durationLabel} Duration
+                    </Text>
+                  </View>
+                )}
+              </View>
+
+              {/* Start Time & End Time Dual Cards */}
+              <View className="flex-row items-center space-x-2">
+                {/* Start Time */}
+                <View className="flex-1 p-3 rounded-2xl bg-neutral-50 border border-neutral-200/90">
+                  <Text className="text-[10px] font-extrabold text-neutral-400 uppercase mb-1">
+                    START TIME
+                  </Text>
+                  <View className="flex-row items-center justify-between">
+                    <TextInput
+                      value={startTime}
+                      onChangeText={handleStartTimeChange}
+                      placeholder="09:00"
+                      placeholderTextColor="#A1A1AA"
+                      className="text-base font-black font-mono text-neutral-900 p-0 flex-1"
+                      maxLength={5}
+                    />
+                    <Text className="text-[11px] font-bold text-neutral-400">
+                      {formatTime12Hour(startTime)}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Arrow Divider */}
+                <View className="w-7 h-7 rounded-full bg-neutral-100 items-center justify-center">
+                  <ArrowRight size={14} color="#71717A" />
+                </View>
+
+                {/* End Time */}
+                <View className="flex-1 p-3 rounded-2xl bg-neutral-50 border border-neutral-200/90">
+                  <Text className="text-[10px] font-extrabold text-neutral-400 uppercase mb-1">
+                    END TIME
+                  </Text>
+                  <View className="flex-row items-center justify-between">
+                    <TextInput
+                      value={endTime}
+                      onChangeText={handleEndTimeChange}
+                      placeholder="10:30"
+                      placeholderTextColor="#A1A1AA"
+                      className="text-base font-black font-mono text-neutral-900 p-0 flex-1"
+                      maxLength={5}
+                    />
+                    <Text className="text-[11px] font-bold text-neutral-400">
+                      {formatTime12Hour(endTime)}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* Duration Presets */}
+              <View className="flex-row flex-wrap gap-1.5 mt-3">
+                {DURATION_PRESETS.map((preset) => {
+                  const isSelected = selectedPreset === preset.minutes;
+                  return (
+                    <Pressable
+                      key={preset.label}
+                      onPress={() => handleSelectPreset(preset.minutes)}
+                      className={`px-3 py-1.5 rounded-xl border transition-all ${
+                        isSelected
+                          ? 'bg-neutral-900 border-neutral-900 shadow-2xs'
+                          : 'bg-white border-neutral-200/80 active:bg-neutral-100'
+                      }`}
+                    >
+                      <Text
+                        className={`text-xs font-bold ${
+                          isSelected ? 'text-white' : 'text-neutral-700'
+                        }`}
+                      >
+                        {preset.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+          </View>
+
+          {/* 4. Recurrence Frequency */}
+          <View className="mb-5">
+            <Text className="text-[11px] font-black tracking-wider text-neutral-400 uppercase px-1 mb-2">
+              Recurrence Frequency
             </Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} className="-mx-1 flex-row">
+            <View className="p-1 rounded-2xl bg-neutral-200/60 flex-row">
+              {FREQUENCIES.map((freq) => {
+                const isSelected = frequency === freq.id;
+                return (
+                  <Pressable
+                    key={freq.id}
+                    onPress={() => setFrequency(freq.id)}
+                    className={`flex-1 py-2.5 rounded-xl items-center justify-center flex-row space-x-1.5 transition-all ${
+                      isSelected
+                        ? 'bg-white shadow-2xs border border-neutral-200/60'
+                        : 'active:bg-neutral-200'
+                    }`}
+                  >
+                    {isSelected && (
+                      <View className="w-1.5 h-1.5 rounded-full bg-[#FACC15] mr-1" />
+                    )}
+                    <Text
+                      className={`text-xs font-black ${
+                        isSelected ? 'text-neutral-950' : 'text-neutral-600'
+                      }`}
+                    >
+                      {freq.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+
+          {/* 5. Session Type / Category */}
+          <View className="mb-5">
+            <Text className="text-[11px] font-black tracking-wider text-neutral-400 uppercase px-1 mb-2">
+              Session Category
+            </Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} className="-mx-4 px-4 flex-row py-1">
               {SESSION_TYPES.map((type) => {
                 const isSelected = sessionType === type.id;
                 const IconComponent = type.icon;
@@ -339,7 +618,7 @@ export default function EditBlockModal() {
                         setSelectedCourseId(courses[0].id);
                       }
                     }}
-                    className={`mx-1 px-3.5 py-2 rounded-full flex-row items-center space-x-1.5 border transition-all ${
+                    className={`mr-2 px-3.5 py-2.5 rounded-2xl flex-row items-center space-x-1.5 border transition-all ${
                       isSelected
                         ? 'bg-neutral-900 border-neutral-900 shadow-2xs'
                         : 'bg-white border-neutral-200/80 active:bg-neutral-100'
@@ -347,11 +626,11 @@ export default function EditBlockModal() {
                   >
                     <IconComponent
                       size={14}
-                      color={isSelected ? '#ffffff' : type.color}
+                      color={isSelected ? '#FACC15' : '#71717A'}
                       strokeWidth={2}
                     />
                     <Text
-                      className={`text-xs font-bold ${
+                      className={`text-xs font-bold ml-1 ${
                         isSelected ? 'text-white' : 'text-neutral-800'
                       }`}
                     >
@@ -363,217 +642,25 @@ export default function EditBlockModal() {
             </ScrollView>
           </View>
 
-          {/* 2. Frequency Segmented Control */}
-          <View className="mb-5">
-            <Text className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider mb-2">
-              Recurrence Frequency
-            </Text>
-            <View className="flex-row p-1 bg-neutral-200/60 rounded-full">
-              {FREQUENCIES.map((freq) => {
-                const isSelected = frequency === freq.id;
-                return (
-                  <Pressable
-                    key={freq.id}
-                    onPress={() => setFrequency(freq.id)}
-                    className={`flex-1 py-2 rounded-full items-center justify-center transition-all ${
-                      isSelected ? 'bg-white shadow-2xs' : 'active:bg-neutral-200'
-                    }`}
-                  >
-                    <Text
-                      className={`text-xs font-bold ${
-                        isSelected ? 'text-brand-700' : 'text-gray-600'
-                      }`}
-                    >
-                      {freq.label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </View>
-
-          {/* 3. Conditional Course Selection Field */}
-          <View className="mb-5">
-            <Text className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
-              Course / Subject
+          {/* 6. Location & Faculty Details */}
+          <View className="mb-5 bg-white p-4 rounded-3xl border border-neutral-200/80 shadow-2xs space-y-4">
+            <Text className="text-[11px] font-black tracking-wider text-neutral-400 uppercase">
+              Location & Faculty Details
             </Text>
 
-            {isGeneralSession ? (
-              /* Informative Banner when Course is Not Applicable */
-              <View className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 flex-row items-center space-x-2.5">
-                <Coffee size={18} color="#d97706" />
-                <View className="flex-1">
-                  <Text className="text-xs font-bold text-amber-900">
-                    Cohort-Wide Activity
-                  </Text>
-                  <Text className="text-[11px] text-amber-700 mt-0.5">
-                    Breaks, prayers, and meetings apply to all students without course binding.
-                  </Text>
-                </View>
-              </View>
-            ) : courses.length === 0 ? (
-              /* No Courses Warning */
-              <View className="p-3.5 rounded-2xl bg-gray-50 border border-gray-200">
-                <Text className="text-xs text-gray-600">
-                  No courses found in this section. Please add a course first before scheduling lectures or labs.
-                </Text>
-              </View>
-            ) : (
-              /* Course Picker Radio List */
-              <View className="space-y-2">
-                {courses.map((course: CourseRow) => {
-                  const isSelected = selectedCourseId === course.id;
-                  const color = course.color_hex || '#4F46E5';
-
-                  return (
-                    <Pressable
-                      key={course.id}
-                      onPress={() => setSelectedCourseId(course.id)}
-                      className={`p-3 rounded-2xl border flex-row items-center justify-between transition-all ${
-                        isSelected
-                          ? 'bg-brand-50/50 border-brand-500'
-                          : 'bg-white border-gray-200 active:bg-gray-50'
-                      }`}
-                    >
-                      <View className="flex-row items-center space-x-3 flex-1 mr-2">
-                        <View
-                          className="w-3.5 h-3.5 rounded-full"
-                          style={{ backgroundColor: color }}
-                        />
-                        <View className="flex-1">
-                          <Text className="text-sm font-bold text-gray-900" numberOfLines={1}>
-                            {course.name}
-                          </Text>
-                          {course.code && (
-                            <Text className="text-[11px] text-gray-500 font-semibold mt-0.5 uppercase tracking-wide">
-                              {course.code}
-                            </Text>
-                          )}
-                        </View>
-                      </View>
-
-                      {isSelected && (
-                        <View className="w-5 h-5 rounded-full bg-brand-600 items-center justify-center">
-                          <Check size={12} color="#ffffff" strokeWidth={3} />
-                        </View>
-                      )}
-                    </Pressable>
-                  );
-                })}
-              </View>
-            )}
-          </View>
-
-          {/* 4. Smart Time Picker & Dynamic Duration Presets */}
-          <View className="mb-5">
-            <View className="flex-row items-center justify-between mb-2">
-              <Text className="text-xs font-bold text-gray-500 uppercase tracking-wider">
-                Session Time Window
+            {/* Room / Hall */}
+            <View>
+              <Text className="text-[10px] font-extrabold text-neutral-400 uppercase mb-1.5">
+                ROOM / HALL (OPTIONAL)
               </Text>
-              {durationMinutes > 0 && (
-                <View className="bg-brand-50 px-2 py-0.5 rounded-full border border-brand-100">
-                  <Text className="text-[11px] font-bold text-brand-700">
-                    Duration: {durationLabel}
-                  </Text>
-                </View>
-              )}
-            </View>
-
-            {/* Start and End Time Inputs */}
-            <View className="flex-row items-center space-x-3">
-              {/* Start Time Input */}
-              <View className="flex-1">
-                <Text className="text-[11px] font-semibold text-gray-400 mb-1">
-                  START TIME
-                </Text>
-                <View className="flex-row items-center bg-gray-50 border border-gray-200 rounded-2xl px-3 py-2.5">
-                  <Clock size={16} color="#6b7280" className="mr-2" />
-                  <TextInput
-                    value={startTime}
-                    onChangeText={handleStartTimeChange}
-                    placeholder="09:00"
-                    placeholderTextColor="#9ca3af"
-                    className="flex-1 text-sm font-bold text-gray-900 font-mono"
-                    maxLength={5}
-                  />
-                  <Text className="text-xs font-semibold text-gray-400 ml-1">
-                    {formatTime12Hour(startTime)}
-                  </Text>
-                </View>
-              </View>
-
-              <ArrowRight size={16} color="#9ca3af" className="mt-5" />
-
-              {/* End Time Input */}
-              <View className="flex-1">
-                <Text className="text-[11px] font-semibold text-gray-400 mb-1">
-                  END TIME
-                </Text>
-                <View className="flex-row items-center bg-gray-50 border border-gray-200 rounded-2xl px-3 py-2.5">
-                  <Clock size={16} color="#6b7280" className="mr-2" />
-                  <TextInput
-                    value={endTime}
-                    onChangeText={handleEndTimeChange}
-                    placeholder="10:30"
-                    placeholderTextColor="#9ca3af"
-                    className="flex-1 text-sm font-bold text-gray-900 font-mono"
-                    maxLength={5}
-                  />
-                  <Text className="text-xs font-semibold text-gray-400 ml-1">
-                    {formatTime12Hour(endTime)}
-                  </Text>
-                </View>
-              </View>
-            </View>
-
-            {/* Quick-Duration Presets Row */}
-            <View className="mt-3">
-              <Text className="text-[11px] font-semibold text-gray-400 mb-1.5">
-                QUICK DURATION PRESETS
-              </Text>
-              <View className="flex-row flex-wrap gap-2">
-                {DURATION_PRESETS.map((preset) => {
-                  const isSelected = selectedPreset === preset.minutes;
-
-                  return (
-                    <Pressable
-                      key={preset.label}
-                      onPress={() => handleSelectPreset(preset.minutes)}
-                      className={`px-3 py-1.5 rounded-xl border transition-all ${
-                        isSelected
-                          ? 'bg-brand-600 border-brand-700 shadow-xs'
-                          : 'bg-white border-gray-200 active:bg-gray-100'
-                      }`}
-                    >
-                      <Text
-                        className={`text-xs font-bold ${
-                          isSelected ? 'text-white' : 'text-gray-700'
-                        }`}
-                      >
-                        {preset.label}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </View>
-          </View>
-
-          {/* 5. Room & Instructor Text Inputs with Autocomplete */}
-          <View className="mb-5">
-            {/* Room / Location */}
-            <View className="mb-4">
-              <Text className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">
-                Room / Venue (Optional)
-              </Text>
-              <View className="flex-row items-center bg-gray-50 border border-gray-200 rounded-2xl px-3.5 py-2.5">
-                <MapPin size={16} color="#6b7280" className="mr-2" />
+              <View className="flex-row items-center bg-neutral-50 border border-neutral-200/90 rounded-2xl px-3.5 py-2.5">
+                <MapPin size={16} color="#71717A" />
                 <TextInput
                   value={room}
                   onChangeText={setRoom}
-                  placeholder="e.g. Room 302, CS Lab 1"
-                  placeholderTextColor="#9ca3af"
-                  className="flex-1 text-sm font-medium text-gray-900"
+                  placeholder="e.g. LH-102 (Lecture Hall 1)"
+                  placeholderTextColor="#A1A1AA"
+                  className="flex-1 text-sm font-bold text-neutral-900 ml-2"
                 />
               </View>
               {roomSuggestions.length > 0 && (
@@ -582,9 +669,9 @@ export default function EditBlockModal() {
                     <Pressable
                       key={s}
                       onPress={() => setRoom(s)}
-                      className="bg-gray-100 px-2.5 py-1 rounded-lg border border-gray-200 active:bg-gray-200"
+                      className="bg-neutral-100 px-2.5 py-1 rounded-lg border border-neutral-200 active:bg-neutral-200"
                     >
-                      <Text className="text-[11px] font-medium text-gray-600">
+                      <Text className="text-[10px] font-bold text-neutral-600">
                         {s}
                       </Text>
                     </Pressable>
@@ -593,19 +680,19 @@ export default function EditBlockModal() {
               )}
             </View>
 
-            {/* Instructor Name */}
-            <View>
-              <Text className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">
-                Instructor / Teacher (Optional)
+            {/* Instructor */}
+            <View className="pt-2 border-t border-neutral-100">
+              <Text className="text-[10px] font-extrabold text-neutral-400 uppercase mb-1.5">
+                INSTRUCTOR / FACULTY (OPTIONAL)
               </Text>
-              <View className="flex-row items-center bg-gray-50 border border-gray-200 rounded-2xl px-3.5 py-2.5">
-                <User size={16} color="#6b7280" className="mr-2" />
+              <View className="flex-row items-center bg-neutral-50 border border-neutral-200/90 rounded-2xl px-3.5 py-2.5">
+                <User size={16} color="#71717A" />
                 <TextInput
                   value={instructor}
                   onChangeText={setInstructor}
                   placeholder="e.g. Dr. Jane Smith"
-                  placeholderTextColor="#9ca3af"
-                  className="flex-1 text-sm font-medium text-gray-900"
+                  placeholderTextColor="#A1A1AA"
+                  className="flex-1 text-sm font-bold text-neutral-900 ml-2"
                 />
               </View>
               {instructorSuggestions.length > 0 && (
@@ -614,9 +701,9 @@ export default function EditBlockModal() {
                     <Pressable
                       key={s}
                       onPress={() => setInstructor(s)}
-                      className="bg-gray-100 px-2.5 py-1 rounded-lg border border-gray-200 active:bg-gray-200"
+                      className="bg-neutral-100 px-2.5 py-1 rounded-lg border border-neutral-200 active:bg-neutral-200"
                     >
-                      <Text className="text-[11px] font-medium text-gray-600">
+                      <Text className="text-[10px] font-bold text-neutral-600">
                         {s}
                       </Text>
                     </Pressable>
@@ -626,58 +713,68 @@ export default function EditBlockModal() {
             </View>
           </View>
 
-          {/* 6. Real-Time Soft Clash Warning Banner */}
+          {/* 7. Real-Time Soft Clash Warning */}
           {conflictResult.hasConflict && (
-            <View className="p-4 rounded-3xl bg-amber-50/80 border border-amber-200/70 mb-6 shadow-2xs">
+            <View className="p-4 rounded-3xl bg-amber-50/90 border border-amber-300 mb-6 shadow-2xs">
               <View className="flex-row items-center space-x-2 mb-1.5">
-                <AlertTriangle size={16} color="#d97706" />
-                <Text className="text-xs font-bold text-amber-900 uppercase tracking-wider ml-1.5">
+                <AlertTriangle size={16} color="#B45309" strokeWidth={2.5} />
+                <Text className="text-xs font-black text-amber-950 uppercase tracking-tight ml-1">
                   Soft Clash Detected (Override Allowed)
                 </Text>
               </View>
               {conflictResult.conflicts.map((conflict, idx) => (
-                <Text key={idx} className="text-xs text-amber-800 leading-relaxed font-medium">
+                <Text key={idx} className="text-xs text-amber-900 leading-relaxed font-semibold">
                   • {conflict.message}
                 </Text>
               ))}
-              <Text className="text-[11px] text-amber-700 mt-1.5">
-                You can still save this session if your cohort runs parallel electives or split lab groups.
+              <Text className="text-[10px] text-amber-800 mt-1.5 font-medium">
+                You can still save this session if your section runs parallel lab groups or electives.
               </Text>
             </View>
           )}
         </ScrollView>
 
-        {/* Bottom Save Bar */}
-        <View className="px-5 py-3.5 border-t border-neutral-200/60 bg-white">
-          {errorMessage && (
-            <View className="mb-3 p-3 bg-rose-50 border border-rose-200/70 rounded-2xl flex-row items-center space-x-2">
-              <AlertCircle size={16} color="#e11d48" />
-              <Text className="text-xs text-rose-700 font-semibold flex-1 ml-1.5">
-                {errorMessage}
-              </Text>
-            </View>
-          )}
-
+        {/* 8. Bottom Action Footer */}
+        <View className="absolute bottom-0 inset-x-0 bg-white/95 border-t border-neutral-200/80 px-4 pt-3 pb-6 shadow-lg">
           <Pressable
             onPress={handleSave}
             disabled={isUpserting}
-            className={`w-full py-4 rounded-full items-center justify-center flex-row space-x-2 shadow-md ${
+            className={`w-full py-4 rounded-2xl items-center justify-center flex-row space-x-2 shadow-sm ${
               isUpserting
-                ? 'bg-neutral-400'
-                : 'bg-neutral-900 active:bg-neutral-800 shadow-neutral-900/15'
+                ? 'bg-neutral-300'
+                : 'bg-[#FACC15] active:bg-yellow-400'
             }`}
           >
             {isUpserting ? (
-              <ActivityIndicator size="small" color="#ffffff" />
+              <ActivityIndicator size="small" color="#18181B" />
             ) : (
               <>
-                <Check size={18} color="#ffffff" strokeWidth={2.5} />
-                <Text className="text-white text-sm font-bold tracking-wide ml-1.5">
-                  {params.id ? 'Save Changes' : 'Add to Schedule'}
+                <Check size={18} color="#18181B" strokeWidth={2.5} />
+                <Text className="text-neutral-950 text-sm font-black tracking-wide ml-1.5">
+                  {params.id ? 'Save Schedule Block' : 'Add to Timetable'}
                 </Text>
               </>
             )}
           </Pressable>
+
+          {params.id && (
+            <Pressable
+              onPress={handleDelete}
+              disabled={isDeleting}
+              className="w-full py-2.5 mt-1.5 items-center justify-center flex-row space-x-1.5 active:bg-rose-50 rounded-xl"
+            >
+              {isDeleting ? (
+                <ActivityIndicator size="small" color="#E11D48" />
+              ) : (
+                <>
+                  <Trash2 size={15} color="#E11D48" />
+                  <Text className="text-xs font-bold text-rose-600 ml-1">
+                    Delete Class Block
+                  </Text>
+                </>
+              )}
+            </Pressable>
+          )}
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>

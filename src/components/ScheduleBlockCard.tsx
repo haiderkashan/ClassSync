@@ -1,9 +1,8 @@
 import React, { useMemo } from 'react';
-import { View, Text, Pressable, StyleSheet, Platform } from 'react-native';
+import { View, Text, Pressable } from 'react-native';
 import {
   Clock,
   MapPin,
-  User,
   Coffee,
   Heart,
   Users,
@@ -12,10 +11,10 @@ import {
   GraduationCap,
   AlertTriangle,
   Sparkles,
-  Radio,
   Check,
   X,
   ShieldAlert,
+  Lock,
 } from 'lucide-react-native';
 import type { BaseScheduleRow } from '@/store/useAppStore';
 import type { CompiledScheduleItem } from '@/lib/schedule/scheduleCompiler';
@@ -45,89 +44,6 @@ export interface ScheduleBlockCardProps {
   onPeerVotePress?: (block: any) => void;
 }
 
-/**
- * Returns pastel theme colors, session icon, and typography styles for a given session type.
- * Inspired by premium soft UI design language (mint, lavender, peach, teal, sky).
- */
-function getSessionPalette(sessionType: string) {
-  switch (sessionType?.toLowerCase()) {
-    case 'lab':
-      return {
-        label: 'LAB',
-        icon: FlaskConical,
-        bgColor: '#EDFAF3', // soft mint
-        borderColor: '#C7F0DB',
-        badgeBg: '#D1F4E2',
-        textColor: '#064E3B',
-        iconColor: '#059669',
-      };
-    case 'break':
-      return {
-        label: 'BREAK',
-        icon: Coffee,
-        bgColor: '#FEF7EC', // soft peach
-        borderColor: '#FCE7C5',
-        badgeBg: '#FDECD2',
-        textColor: '#78350F',
-        iconColor: '#D97706',
-      };
-    case 'prayer':
-      return {
-        label: 'PRAYER',
-        icon: Heart,
-        bgColor: '#EBF7F6', // soft teal
-        borderColor: '#C7ECE8',
-        badgeBg: '#CEEFEA',
-        textColor: '#134E4A',
-        iconColor: '#0D9488',
-      };
-    case 'meeting':
-      return {
-        label: 'MEETING',
-        icon: Users,
-        bgColor: '#F4EEFD', // soft lavender
-        borderColor: '#E5D6FA',
-        badgeBg: '#EBDCFB',
-        textColor: '#4C1D95',
-        iconColor: '#7C3AED',
-      };
-    case 'makeup':
-      return {
-        label: 'MAKEUP',
-        icon: Sparkles,
-        bgColor: '#EEF2FF', // soft indigo
-        borderColor: '#C7D2FE',
-        badgeBg: '#E0E7FF',
-        textColor: '#3730A3',
-        iconColor: '#4F46E5',
-      };
-    case 'tutorial':
-    case 'seminar':
-    case 'studio':
-    case 'workshop':
-      return {
-        label: sessionType.toUpperCase(),
-        icon: GraduationCap,
-        bgColor: '#FEF1F3', // soft rose
-        borderColor: '#FCD3D9',
-        badgeBg: '#FCE0E5',
-        textColor: '#881337',
-        iconColor: '#E11D48',
-      };
-    case 'lecture':
-    default:
-      return {
-        label: 'LECTURE',
-        icon: BookOpen,
-        bgColor: '#EEF6FF', // soft sky blue
-        borderColor: '#D8E8FC',
-        badgeBg: '#DBEBFE',
-        textColor: '#1E3A8A',
-        iconColor: '#2563EB',
-      };
-  }
-}
-
 export function ScheduleBlockCard({
   block,
   onPress,
@@ -155,8 +71,7 @@ export function ScheduleBlockCard({
 
   const targetDate = block.override_date || date;
 
-  // CRITICAL DEFICIENCY 1 FIX: Time-Guarded Attendance Logging
-  // Only enable attendance logging if class is in the past, or today after class start time has arrived
+  // Time-Guarded Attendance Logging
   const timeGuard = useMemo(() => {
     if (!targetDate || isGeneralSession) return null;
     return isAttendanceEligible(targetDate, block.start_time, timezone);
@@ -207,440 +122,316 @@ export function ScheduleBlockCard({
   const courseTitle = isGeneralSession
     ? generalTitle
     : block.course?.name || 'Academic Session';
-  const courseCode = isGeneralSession ? undefined : block.course?.code;
+  const courseCode = isGeneralSession ? 'BREAK' : (block.course?.code || 'CLASS');
 
-  const palette = getSessionPalette(block.session_type);
-  const SessionIcon = palette.icon;
-
-  const namingConvention =
-    ((activeSection as any)?.cycle_naming_convention as string) || 'week_ab';
-
-  const isBiweekly =
-    block.frequency === 'biweekly_week_a' ||
-    block.frequency === 'biweekly_week_b' ||
-    block.frequency === 'week_a' ||
-    block.frequency === 'week_b';
-
-  const biweeklyLabel = useMemo(() => {
-    const isA = block.frequency === 'biweekly_week_a' || block.frequency === 'week_a';
-    if (namingConvention === 'odd_even') {
-      return isA ? 'Odd Week Only' : 'Even Week Only';
-    }
-    if (namingConvention === 'cycle_12') {
-      return isA ? 'Cycle 1 Only' : 'Cycle 2 Only';
-    }
-    return isA ? 'Week A Only' : 'Week B Only';
-  }, [block.frequency, namingConvention]);
-
-  // Exception override properties
   const isCancelled = block.status === 'cancelled' || !!block.is_cancelled;
   const isDelayed =
     (block.status === 'delayed' || !!block.is_delayed) && (block.delay_minutes ?? 0) > 0;
   const isRoomMoved = block.status === 'room_moved' || !!block.is_room_moved;
   const isMakeup = !!block.is_makeup;
-  const customNote = block.custom_note;
+
+  // Stripe color: Yellow by default, rose if cancelled
+  const stripeColor = isCancelled ? '#E11D48' : '#FACC15';
 
   return (
     <Pressable
       disabled={!isInteractive}
       onPress={() => !readOnly && onPress?.(block)}
       onLongPress={() => onLongPress?.(block)}
-      style={[
-        styles.cardContainer,
-        {
-          backgroundColor: isCancelled ? '#FFF1F2' : palette.bgColor,
-          borderColor: isCancelled ? '#FECDD3' : palette.borderColor,
-          opacity: isCancelled ? 0.85 : 1,
-        },
-      ]}
-      className={`rounded-3xl p-4 mb-3 transition-transform ${
-        isInteractive ? 'active:scale-[0.98]' : ''
+      className={`relative bg-white rounded-2xl border border-neutral-200/80 p-3.5 mb-2.5 shadow-2xs overflow-hidden ${
+        isInteractive ? 'active:scale-[0.99] active:bg-neutral-50/50' : ''
       }`}
     >
-      {/* Top Header: Session Type Badge + Duration Pill + Live Exception Badges */}
-      <View className="flex-row items-center justify-between mb-2.5">
-        <View className="flex-row items-center flex-wrap gap-1.5 flex-1 mr-2">
-          {/* Session Type Pill */}
-          <View className="flex-row items-center bg-white/90 px-2.5 py-1 rounded-full border border-white/80 shadow-2xs">
-            <SessionIcon size={12} color={palette.iconColor} />
-            <Text
-              className="text-[10px] font-black tracking-wider ml-1"
-              style={{ color: palette.textColor }}
-            >
-              {palette.label}
-            </Text>
+      {/* 1. Leading Left Edge Solid Color Accent Stripe */}
+      <View
+        className="absolute left-0 top-0 bottom-0 w-1.5"
+        style={{ backgroundColor: stripeColor }}
+      />
+
+      <View className="pl-1.5">
+        {/* 2. Top Header Metadata Row */}
+        <View className="flex-row items-center justify-between mb-1.5">
+          <View className="flex-row items-center space-x-1.5 flex-wrap flex-1 mr-2">
+            {/* Monospace Course Code Badge */}
+            <View className="bg-neutral-100 border border-neutral-200/80 px-2 py-0.5 rounded-md">
+              <Text className="text-[10px] font-black font-mono text-neutral-800 tracking-wider">
+                {courseCode}
+              </Text>
+            </View>
+
+            {/* Session Type Pill */}
+            <View className="bg-[#FACC15]/20 border border-[#FACC15]/40 px-2 py-0.5 rounded-full">
+              <Text className="text-[10px] font-black text-neutral-900 uppercase">
+                {block.session_type}
+              </Text>
+            </View>
+
+            {/* Recurrence Pill */}
+            {block.frequency && block.frequency !== 'weekly' && (
+              <View className="bg-neutral-100 px-2 py-0.5 rounded-full">
+                <Text className="text-[10px] font-bold text-neutral-600">
+                  {block.frequency === 'biweekly_week_a' ? 'Week A' : 'Week B'}
+                </Text>
+              </View>
+            )}
+
+            {/* Exception Badges */}
+            {isCancelled && (
+              <View className="bg-rose-100 border border-rose-300 px-2 py-0.5 rounded-full flex-row items-center space-x-1">
+                <AlertTriangle size={10} color="#E11D48" />
+                <Text className="text-[10px] font-black text-rose-800 uppercase">Cancelled</Text>
+              </View>
+            )}
+            {isDelayed && (
+              <View className="bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-full flex-row items-center space-x-1">
+                <Clock size={10} color="#B45309" />
+                <Text className="text-[10px] font-black text-amber-900 uppercase">+{block.delay_minutes}m Delay</Text>
+              </View>
+            )}
+            {isRoomMoved && (
+              <View className="bg-purple-100 border border-purple-300 px-2 py-0.5 rounded-full flex-row items-center space-x-1">
+                <MapPin size={10} color="#7E22CE" />
+                <Text className="text-[10px] font-black text-purple-900 uppercase">Room Moved</Text>
+              </View>
+            )}
+            {isMakeup && (
+              <View className="bg-indigo-100 border border-indigo-300 px-2 py-0.5 rounded-full flex-row items-center space-x-1">
+                <Sparkles size={10} color="#4338CA" />
+                <Text className="text-[10px] font-black text-indigo-900 uppercase">Makeup</Text>
+              </View>
+            )}
           </View>
 
-          {/* Live Status Override Badges */}
-          {isCancelled && (
-            <View className="flex-row items-center bg-rose-500/15 border border-rose-400/30 px-2.5 py-1 rounded-full">
-              <AlertTriangle size={10} color="#e11d48" />
-              <Text className="text-[10px] font-black text-rose-700 ml-1 tracking-wider">
-                CANCELLED
-              </Text>
-            </View>
-          )}
-
-          {isDelayed && (
-            <View className="flex-row items-center bg-amber-500/15 border border-amber-400/30 px-2.5 py-1 rounded-full">
-              <Clock size={10} color="#d97706" />
-              <Text className="text-[10px] font-black text-amber-800 ml-1 tracking-wider">
-                +{block.delay_minutes}m DELAY
-              </Text>
-            </View>
-          )}
-
-          {isRoomMoved && (
-            <View className="flex-row items-center bg-purple-500/15 border border-purple-400/30 px-2.5 py-1 rounded-full">
-              <MapPin size={10} color="#7c3aed" />
-              <Text className="text-[10px] font-black text-purple-800 ml-1 tracking-wider">
-                ROOM MOVED
-              </Text>
-            </View>
-          )}
-
-          {isMakeup && (
-            <View className="flex-row items-center bg-indigo-500/15 border border-indigo-400/30 px-2.5 py-1 rounded-full">
-              <Sparkles size={10} color="#4338ca" />
-              <Text className="text-[10px] font-black text-indigo-800 ml-1 tracking-wider">
-                MAKEUP
-              </Text>
-            </View>
-          )}
+          {/* Duration Badge */}
+          <Text className="text-[10px] font-bold text-neutral-400 font-mono">
+            {durationLabel}
+          </Text>
         </View>
 
-        {/* Right Badges: Frequency, Duration, and Admin Broadcast Hint */}
-        <View className="flex-row items-center space-x-1.5">
-          {isBiweekly && (
-            <View className="bg-white/90 px-2 py-0.5 rounded-full border border-white/80 shadow-2xs">
-              <Text className="text-[10px] font-bold text-neutral-700">
-                {biweeklyLabel}
-              </Text>
-            </View>
-          )}
-
-          <View className="flex-row items-center bg-white/90 px-2.5 py-0.5 rounded-full border border-white/80 shadow-2xs">
-            <Clock size={10} color="#71717a" />
-            <Text className="text-[10px] font-bold text-neutral-700 ml-1">
-              {durationLabel}
-            </Text>
-          </View>
-
-          {isAdmin && (
-            <View className="w-5 h-5 rounded-full bg-neutral-900/10 items-center justify-center">
-              <Radio size={10} color="#18181b" />
-            </View>
-          )}
-        </View>
-      </View>
-
-      {/* Main Content: Course Title & Code */}
-      <View className="mb-2.5">
+        {/* 3. Class Title */}
         <Text
-          className={`text-base font-black tracking-tight ${
-            isCancelled ? 'line-through text-neutral-400' : 'text-neutral-900'
+          className={`text-sm font-black tracking-tight leading-snug mb-2 ${
+            isCancelled ? 'text-neutral-400 line-through' : 'text-neutral-900'
           }`}
-          numberOfLines={1}
+          numberOfLines={2}
         >
           {courseTitle}
         </Text>
-        {courseCode && (
-          <Text className="text-[11px] font-bold text-neutral-500 mt-0.5 uppercase tracking-wider">
-            {courseCode}
-          </Text>
+
+        {/* 4. Details Row: Time Window & Location */}
+        <View className="flex-row items-center space-x-2 flex-wrap">
+          <View className="flex-row items-center space-x-1 bg-neutral-100/90 px-2.5 py-1 rounded-lg">
+            <Clock size={12} color="#71717A" />
+            <Text className="text-xs font-bold text-neutral-800 font-mono">
+              {timeWindow}
+            </Text>
+          </View>
+
+          <View className="flex-row items-center space-x-1 bg-neutral-100/90 px-2.5 py-1 rounded-lg flex-1">
+            <MapPin size={12} color="#71717A" />
+            <Text className="text-xs font-semibold text-neutral-700 truncate" numberOfLines={1}>
+              {block.room || 'TBA'} • {block.instructor || 'Staff'}
+            </Text>
+          </View>
+        </View>
+
+        {/* 5. Custom Note / Live Override Explanation */}
+        {block.custom_note && (
+          <View className="mt-2 px-2.5 py-1.5 rounded-xl bg-amber-50 border border-amber-200">
+            <Text className="text-[11px] font-semibold text-amber-900">
+              Note: {block.custom_note}
+            </Text>
+          </View>
         )}
-      </View>
 
-      {/* Bottom Row: Room, Instructor, and Time Window */}
-      <View className="flex-row flex-wrap items-center justify-between pt-2 border-t border-black/5 gap-1.5">
-        <View className="flex-row items-center flex-wrap gap-1.5">
-          {/* Room Badge */}
-          {block.room && (
-            <View
-              className={`flex-row items-center px-2.5 py-1 rounded-full border shadow-2xs ${
-                isRoomMoved
-                  ? 'bg-purple-100/90 border-purple-300'
-                  : 'bg-white/90 border-white/80'
-              }`}
-            >
-              <MapPin size={11} color={isRoomMoved ? '#7c3aed' : '#71717a'} />
-              <Text
-                className={`text-[11px] font-bold ml-1 ${
-                  isRoomMoved ? 'text-purple-900' : 'text-neutral-800'
-                }`}
+        {/* 6. Crowd-Sourced Peer Verification Notice */}
+        {targetDate && !isGeneralSession && (
+          <>
+            {peerReport && peerReport.status === 'active' && (
+              <Pressable
+                onPress={(e) => {
+                  e.stopPropagation();
+                  onPeerVotePress?.(block);
+                }}
+                className="mt-2.5 p-2.5 bg-amber-50 border border-amber-200 rounded-xl flex-row items-center justify-between"
               >
-                {block.room}
-              </Text>
-            </View>
-          )}
-
-          {/* Instructor Badge */}
-          {block.instructor && (
-            <View className="flex-row items-center bg-white/90 px-2.5 py-1 rounded-full border border-white/80 shadow-2xs max-w-[130px]">
-              <User size={11} color="#71717a" />
-              <Text
-                className="text-[11px] font-semibold text-neutral-800 ml-1"
-                numberOfLines={1}
-              >
-                {block.instructor}
-              </Text>
-            </View>
-          )}
-        </View>
-
-        {/* Effective Time Window */}
-        <View className="items-end ml-auto">
-          <Text
-            className={`text-[11px] font-bold ${
-              isDelayed ? 'text-amber-700' : 'text-neutral-500'
-            }`}
-          >
-            {timeWindow}
-          </Text>
-        </View>
-      </View>
-
-      {/* Announcement Note Callout */}
-      {customNote && (
-        <View className="mt-2.5 pt-2 border-t border-black/5 flex-row items-center bg-white/40 px-2.5 py-1.5 rounded-2xl">
-          <Sparkles size={11} color="#71717a" />
-          <Text
-            className="text-[11px] font-medium text-neutral-600 ml-1.5 flex-1"
-            numberOfLines={2}
-          >
-            {customNote}
-          </Text>
-        </View>
-      )}
-
-      {/* Crowd-Sourced Peer Verification Card */}
-      {targetDate && !isGeneralSession && (
-        <>
-          {peerReport && peerReport.status === 'pending' && (
-            <Pressable
-              onPress={(e) => {
-                e.stopPropagation();
-                onPeerVotePress?.(block);
-              }}
-              className="mt-2.5 p-3 bg-amber-50 border border-amber-300/80 rounded-2xl flex-row items-center justify-between shadow-2xs active:bg-amber-100"
-            >
-              <View className="flex-row items-center flex-1 mr-2">
-                <View className="w-8 h-8 rounded-xl bg-amber-100 items-center justify-center mr-2.5">
-                  <ShieldAlert size={16} color="#d97706" />
-                </View>
-                <View className="flex-1">
-                  <View className="flex-row items-center space-x-1.5">
+                <View className="flex-row items-center flex-1 mr-2">
+                  <ShieldAlert size={14} color="#D97706" />
+                  <View className="ml-1.5 flex-1">
                     <Text className="text-xs font-black text-amber-950">
-                      Peer Cancellation Reported
+                      Unscheduled Cancellation Reported
                     </Text>
-                    <View className="bg-amber-200/80 px-1.5 py-0.2 rounded-full">
-                      <Text className="text-[9px] font-bold text-amber-900">
-                        {peerReport.affirmation_count}/3 Votes
+                    <Text className="text-[10px] text-amber-800 font-medium">
+                      {peerReport.affirmation_count}/3 Affirmations • {userVote ? `You voted: ${userVote}` : 'Tap to vote'}
+                    </Text>
+                  </View>
+                </View>
+                <View className="px-2.5 py-1 bg-[#FACC15] rounded-full">
+                  <Text className="text-[10px] font-black text-neutral-950">Vote</Text>
+                </View>
+              </Pressable>
+            )}
+
+            {peerReport && peerReport.status === 'confirmed' && (
+              <View className="mt-2.5 p-2 bg-rose-50 border border-rose-200 rounded-xl flex-row items-center justify-between">
+                <View className="flex-row items-center flex-1 mr-2">
+                  <ShieldAlert size={13} color="#E11D48" />
+                  <Text className="text-[11px] font-bold text-rose-800 ml-1.5">
+                    Peer Verified: Cancelled ({peerReport.affirmation_count} votes)
+                  </Text>
+                </View>
+                {isAdmin && (
+                  <Pressable
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      onPeerVotePress?.(block);
+                    }}
+                    className="bg-rose-100 px-2 py-0.5 rounded-full"
+                  >
+                    <Text className="text-[9px] font-black text-rose-900">Veto</Text>
+                  </Pressable>
+                )}
+              </View>
+            )}
+
+            {!isCancelled && (!peerReport || peerReport.status === 'vetoed') && (
+              (() => {
+                const windowCheck = isPeerVotingWindowOpen(
+                  targetDate,
+                  block.start_time,
+                  timezone
+                );
+                if (!windowCheck.isOpen) return null;
+                return (
+                  <Pressable
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      onPeerVotePress?.(block);
+                    }}
+                    className="mt-2 pt-2 border-t border-neutral-100 flex-row items-center justify-between"
+                  >
+                    <View className="flex-row items-center space-x-1">
+                      <ShieldAlert size={12} color="#D97706" />
+                      <Text className="text-[10px] font-bold text-amber-800 ml-1">
+                        Instructor absent? Tap to report cancellation
                       </Text>
                     </View>
-                  </View>
-                  <Text className="text-[11px] text-amber-800 mt-0.5 leading-tight">
-                    {userVote ? `You voted: ${userVote === 'affirm' ? 'Cancelled' : 'In Session'}` : 'Tap to confirm or deny class cancellation'}
-                  </Text>
-                </View>
-              </View>
+                    <View className="px-2 py-0.5 bg-amber-100 rounded-full">
+                      <Text className="text-[9px] font-black text-amber-900">Report</Text>
+                    </View>
+                  </Pressable>
+                );
+              })()
+            )}
+          </>
+        )}
 
-              <View className="px-3 py-1 bg-[#FACC15] rounded-full shadow-2xs">
-                <Text className="text-[10px] font-black text-neutral-900">Vote</Text>
-              </View>
-            </Pressable>
-          )}
-
-          {peerReport && peerReport.status === 'confirmed' && (
-            <Pressable
-              onPress={(e) => {
-                e.stopPropagation();
-                onPeerVotePress?.(block);
-              }}
-              className="mt-2.5 p-2.5 bg-rose-50 border border-rose-200 rounded-2xl flex-row items-center justify-between"
-            >
-              <View className="flex-row items-center flex-1 mr-2">
-                <ShieldAlert size={14} color="#e11d48" />
-                <Text className="text-[11px] font-black text-rose-900 ml-1.5">
-                  Peer Verified: Class Cancelled ({peerReport.affirmation_count} votes)
+        {/* 7. 1-Tap Attendance Logger (Time-Guarded) */}
+        {targetDate && !isGeneralSession && !isCancelled && (
+          <View className="mt-2.5 pt-2 border-t border-neutral-100">
+            {timeGuard?.isEligible ? (
+              <View className="flex-row items-center justify-between">
+                <Text className="text-[10px] font-black text-neutral-400 uppercase tracking-wider">
+                  Log Attendance:
                 </Text>
-              </View>
-              {isAdmin && (
-                <View className="bg-rose-100 px-2 py-0.5 rounded-full">
-                  <Text className="text-[9px] font-bold text-rose-800">CR Veto</Text>
-                </View>
-              )}
-            </Pressable>
-          )}
-
-          {!isCancelled && (!peerReport || peerReport.status === 'vetoed') && (
-            (() => {
-              const windowCheck = isPeerVotingWindowOpen(
-                targetDate,
-                block.start_time,
-                timezone
-              );
-              if (!windowCheck.isOpen) return null;
-              return (
-                <Pressable
-                  onPress={(e) => {
-                    e.stopPropagation();
-                    onPeerVotePress?.(block);
-                  }}
-                  className="mt-2 pt-2 border-t border-black/5 flex-row items-center justify-between"
-                >
-                  <View className="flex-row items-center space-x-1">
-                    <ShieldAlert size={11} color="#d97706" />
-                    <Text className="text-[10px] font-bold text-amber-800 ml-1">
-                      Instructor Absent? Tap to report cancellation
-                    </Text>
-                  </View>
-                  <View className="px-2 py-0.5 bg-amber-100/90 rounded-full">
-                    <Text className="text-[9px] font-bold text-amber-900">Live Window</Text>
-                  </View>
-                </Pressable>
-              );
-            })()
-          )}
-        </>
-      )}
-
-      {/* 1-Tap Attendance Logger (Time-Guarded) */}
-      {targetDate && !isGeneralSession && !isCancelled && (
-        <View className="mt-2.5 pt-2 border-t border-black/5">
-          {timeGuard?.isEligible ? (
-            <View className="flex-row items-center justify-between">
-              <Text className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider">
-                Log Attendance:
-              </Text>
-              <View className="flex-row items-center gap-1.5">
-                {/* Present Pill */}
-                <Pressable
-                  onPress={(e) => {
-                    e.stopPropagation();
-                    handleLogAttendance('present');
-                  }}
-                  disabled={isLogging}
-                  className={`px-2.5 py-1 rounded-full border flex-row items-center transition-all ${
-                    currentStatus === 'present'
-                      ? 'bg-emerald-600 border-emerald-600 shadow-xs'
-                      : 'bg-white/80 border-emerald-300/80 active:bg-emerald-50'
-                  }`}
-                >
-                  <Check
-                    size={11}
-                    color={currentStatus === 'present' ? '#FFFFFF' : '#059669'}
-                    strokeWidth={2.6}
-                  />
-                  <Text
-                    className={`text-[10px] ml-1 ${
+                <View className="flex-row items-center space-x-1.5">
+                  {/* Present */}
+                  <Pressable
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      handleLogAttendance('present');
+                    }}
+                    disabled={isLogging}
+                    className={`px-3 py-1 rounded-full border flex-row items-center space-x-1 ${
                       currentStatus === 'present'
-                        ? 'font-black text-white'
-                        : 'font-bold text-emerald-800'
+                        ? 'bg-emerald-600 border-emerald-600 shadow-2xs'
+                        : 'bg-emerald-50 border-emerald-200/80 active:bg-emerald-100'
                     }`}
                   >
-                    Present
-                  </Text>
-                </Pressable>
+                    <Check
+                      size={11}
+                      color={currentStatus === 'present' ? '#FFFFFF' : '#059669'}
+                      strokeWidth={2.6}
+                    />
+                    <Text
+                      className={`text-[11px] font-bold ml-0.5 ${
+                        currentStatus === 'present' ? 'text-white font-black' : 'text-emerald-800'
+                      }`}
+                    >
+                      Present
+                    </Text>
+                  </Pressable>
 
-                {/* Absent Pill */}
-                <Pressable
-                  onPress={(e) => {
-                    e.stopPropagation();
-                    handleLogAttendance('absent');
-                  }}
-                  disabled={isLogging}
-                  className={`px-2.5 py-1 rounded-full border flex-row items-center transition-all ${
-                    currentStatus === 'absent'
-                      ? 'bg-rose-600 border-rose-600 shadow-xs'
-                      : 'bg-white/80 border-rose-300/80 active:bg-rose-50'
-                  }`}
-                >
-                  <X
-                    size={11}
-                    color={currentStatus === 'absent' ? '#FFFFFF' : '#E11D48'}
-                    strokeWidth={2.6}
-                  />
-                  <Text
-                    className={`text-[10px] ml-1 ${
+                  {/* Absent */}
+                  <Pressable
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      handleLogAttendance('absent');
+                    }}
+                    disabled={isLogging}
+                    className={`px-3 py-1 rounded-full border flex-row items-center space-x-1 ${
                       currentStatus === 'absent'
-                        ? 'font-black text-white'
-                        : 'font-bold text-rose-800'
+                        ? 'bg-rose-600 border-rose-600 shadow-2xs'
+                        : 'bg-rose-50 border-rose-200/80 active:bg-rose-100'
                     }`}
                   >
-                    Absent
-                  </Text>
-                </Pressable>
+                    <X
+                      size={11}
+                      color={currentStatus === 'absent' ? '#FFFFFF' : '#E11D48'}
+                      strokeWidth={2.6}
+                    />
+                    <Text
+                      className={`text-[11px] font-bold ml-0.5 ${
+                        currentStatus === 'absent' ? 'text-white font-black' : 'text-rose-800'
+                      }`}
+                    >
+                      Absent
+                    </Text>
+                  </Pressable>
 
-                {/* Excused Pill */}
-                <Pressable
-                  onPress={(e) => {
-                    e.stopPropagation();
-                    handleLogAttendance('excused');
-                  }}
-                  disabled={isLogging}
-                  className={`px-2 py-1 rounded-full border flex-row items-center transition-all ${
-                    currentStatus === 'excused'
-                      ? 'bg-blue-600 border-blue-600 shadow-xs'
-                      : 'bg-white/80 border-blue-300/80 active:bg-blue-50'
-                  }`}
-                >
-                  <ShieldAlert
-                    size={10}
-                    color={currentStatus === 'excused' ? '#FFFFFF' : '#2563EB'}
-                  />
-                  <Text
-                    className={`text-[10px] ml-1 ${
-                      currentStatus === 'excused'
-                        ? 'font-black text-white'
-                        : 'font-bold text-blue-800'
+                  {/* Late */}
+                  <Pressable
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      handleLogAttendance('late');
+                    }}
+                    disabled={isLogging}
+                    className={`px-2.5 py-1 rounded-full border flex-row items-center space-x-1 ${
+                      currentStatus === 'late'
+                        ? 'bg-amber-500 border-amber-500 shadow-2xs'
+                        : 'bg-amber-50 border-amber-200/80 active:bg-amber-100'
                     }`}
                   >
-                    Excused
+                    <Text
+                      className={`text-[11px] font-bold ${
+                        currentStatus === 'late' ? 'text-white font-black' : 'text-amber-800'
+                      }`}
+                    >
+                      Late
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
+            ) : (
+              <View className="flex-row items-center justify-between">
+                <View className="flex-row items-center space-x-1">
+                  <Clock size={11} color="#A1A1AA" />
+                  <Text className="text-[10px] font-medium text-neutral-400 ml-1">
+                    {timeGuard?.reason === 'future_today'
+                      ? `Attendance unlocks at ${formatTime12Hour(block.start_time)}`
+                      : 'Upcoming session (future date)'}
                   </Text>
-                </Pressable>
+                </View>
+                <View className="px-2 py-0.5 rounded-full bg-neutral-100 border border-neutral-200">
+                  <Text className="text-[9px] font-black text-neutral-500 uppercase tracking-wider">
+                    Locked
+                  </Text>
+                </View>
               </View>
-            </View>
-          ) : (
-            /* Time Guard Inactive Indicator */
-            <View className="flex-row items-center justify-between">
-              <View className="flex-row items-center">
-                <Clock size={11} color="#94A3B8" />
-                <Text className="text-[10px] font-medium text-neutral-400 ml-1.5">
-                  {timeGuard?.reason === 'future_today'
-                    ? `Attendance unlocks at ${formatTime12Hour(block.start_time)}`
-                    : 'Upcoming session (future date)'}
-                </Text>
-              </View>
-              <View className="px-2 py-0.5 rounded-full bg-neutral-200/50">
-                <Text className="text-[9px] font-bold text-neutral-500 uppercase tracking-wider">
-                  Locked
-                </Text>
-              </View>
-            </View>
-          )}
-        </View>
-      )}
+            )}
+          </View>
+        )}
+      </View>
     </Pressable>
   );
 }
-
-const styles = StyleSheet.create({
-  cardContainer: {
-    borderWidth: 1,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.04,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 1,
-      },
-      default: {
-        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.03)',
-      },
-    }),
-  },
-});

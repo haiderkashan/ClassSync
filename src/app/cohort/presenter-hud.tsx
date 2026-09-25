@@ -1,3 +1,12 @@
+// ============================================================================
+// ClassSync Presenter QR HUD (Projector Mode)
+// File: src/app/cohort/presenter-hud.tsx
+// Description: Overhauled full-screen projection HUD generated via Stitch UI.
+//              Features giant scannable QR container, segmented 6-character
+//              join code cards, live student Realtime counter, and hardware
+//              display lock (brightness, keep-awake, portrait orientation).
+// ============================================================================
+
 import React, { useEffect, useState, useMemo } from 'react';
 import {
   View,
@@ -17,9 +26,10 @@ import {
   Check,
   Share2,
   Users,
-  Hash,
   Sparkles,
+  Cast,
   Maximize2,
+  ShieldCheck,
 } from 'lucide-react-native';
 import { useWorkspaces } from '@/hooks/useWorkspaces';
 import { useSupabase } from '@/hooks/useSupabase';
@@ -31,7 +41,7 @@ export default function PresenterHudModal() {
   const { sections, activeSection } = useWorkspaces();
   const { width, height } = useWindowDimensions();
 
-  // Find target section (param takes priority over active workspace)
+  // Target section (parameter takes precedence over active section)
   const section = useMemo(() => {
     if (params.sectionId) {
       return sections.find((s) => s.id === params.sectionId) || activeSection;
@@ -39,7 +49,7 @@ export default function PresenterHudModal() {
     return activeSection;
   }, [params.sectionId, sections, activeSection]);
 
-  const joinCode = section?.join_code || '------';
+  const joinCode = (section?.join_code || '------').toUpperCase();
   const joinUrl = `https://classsync.app/join?code=${joinCode}`;
 
   const supabase = useSupabase();
@@ -52,7 +62,7 @@ export default function PresenterHudModal() {
   // Dynamic QR sizing tailored for auditorium & projection visibility
   const qrSize = useMemo(() => {
     const minDim = Math.min(width, height);
-    return Math.max(220, Math.min(minDim * 0.65, 320));
+    return Math.max(220, Math.min(minDim * 0.62, 320));
   }, [width, height]);
 
   // Fetch initial student count & listen for live Supabase Realtime INSERTs
@@ -92,7 +102,6 @@ export default function PresenterHudModal() {
           filter: `section_id=eq.${section.id}`,
         },
         (payload) => {
-          console.log('🎉 [PresenterHUD] Live student onboarded via Realtime:', payload.new);
           if (isMounted) {
             setEnrolledCount((prev) => (prev !== null ? prev + 1 : 1));
             setRecentlyJoined(true);
@@ -170,22 +179,24 @@ export default function PresenterHudModal() {
     }
   };
 
+  const joinCodeChars = joinCode.split('');
+
   return (
-    <SafeAreaView className="flex-1 bg-neutral-950 justify-between">
-      {/* Top HUD Navigation Bar */}
-      <View className="px-6 py-4 flex-row items-center justify-between border-b border-neutral-800/80">
+    <SafeAreaView className="flex-1 bg-[#131315] justify-between">
+      {/* 1. Top HUD Navigation Bar */}
+      <View className="px-6 py-3.5 flex-row items-center justify-between border-b border-neutral-800/80 bg-[#131315]">
         <View className="flex-1 mr-4">
-          <View className="flex-row items-center space-x-1.5">
-            <View className="w-2 h-2 rounded-full bg-[#FACC15]" />
-            <Text className="text-[11px] font-bold uppercase tracking-widest text-[#FACC15] ml-1.5">
-              Presenter Mode
+          <View className="flex-row items-center space-x-2">
+            <View className="w-2.5 h-2.5 rounded-full bg-[#FACC15]" />
+            <Text className="text-[11px] font-black uppercase tracking-widest text-[#FACC15]">
+              Presenter Projection HUD
             </Text>
           </View>
-          <Text className="text-lg font-black text-white tracking-tight mt-0.5" numberOfLines={1}>
+          <Text className="text-xl font-black text-white tracking-tight mt-0.5" numberOfLines={1}>
             {section?.name || 'Class Cohort'}
           </Text>
           {section?.institution_tag && (
-            <Text className="text-xs text-neutral-400" numberOfLines={1}>
+            <Text className="text-xs text-neutral-400 font-medium" numberOfLines={1}>
               {section.institution_tag}
             </Text>
           )}
@@ -195,22 +206,23 @@ export default function PresenterHudModal() {
           onPress={handleClose}
           hitSlop={12}
           className="w-10 h-10 rounded-full bg-neutral-900 border border-neutral-800 items-center justify-center active:bg-neutral-800"
+          accessibilityLabel="Close Presenter HUD"
         >
           <X size={20} color="#ffffff" />
         </Pressable>
       </View>
 
-      {/* Live Realtime Enrolled Student Counter Pill */}
+      {/* 2. Live Realtime Enrolled Student Counter Pill */}
       <View className="px-6 pt-3 items-center">
         <View
           className={`px-4 py-2 rounded-full border flex-row items-center space-x-2 shadow-lg ${
             recentlyJoined
               ? 'bg-emerald-950/90 border-emerald-500/80'
-              : 'bg-neutral-900/90 border-neutral-800'
+              : 'bg-[#18181B] border-neutral-800'
           }`}
         >
           <View
-            className={`w-2.5 h-2.5 rounded-full mr-2 ${
+            className={`w-2.5 h-2.5 rounded-full ${
               recentlyJoined ? 'bg-emerald-400' : 'bg-emerald-500'
             }`}
           />
@@ -230,10 +242,10 @@ export default function PresenterHudModal() {
         </View>
       </View>
 
-      {/* Main High-Contrast Projector Canvas */}
-      <View className="flex-1 items-center justify-center px-6 py-4">
-        {/* Crisp White QR Shield */}
-        <View className="p-6 bg-white rounded-3xl shadow-2xl items-center justify-center border-4 border-[#FACC15]/30">
+      {/* 3. Main Projector Canvas */}
+      <View className="flex-1 items-center justify-center px-6 py-2">
+        {/* Scannable White QR Shield Card */}
+        <View className="p-6 bg-white rounded-3xl shadow-2xl items-center justify-center border-4 border-[#FACC15]/40">
           <QRCode
             value={joinUrl}
             size={qrSize}
@@ -242,63 +254,76 @@ export default function PresenterHudModal() {
             color="#09090b"
           />
           <View className="mt-3 flex-row items-center space-x-1">
-            <Sparkles size={12} color="#71717a" />
-            <Text className="text-[11px] font-semibold text-neutral-500">
-              Scan with mobile camera to join
+            <Sparkles size={12} color="#71717A" />
+            <Text className="text-[11px] font-bold text-neutral-500 ml-1">
+              Point phone camera to join
             </Text>
           </View>
         </View>
 
-        {/* Massive 6-Character Join Code Badge */}
-        <View className="mt-6 w-full max-w-sm items-center">
-          <Text className="text-[11px] font-bold uppercase tracking-widest text-neutral-400 mb-1.5">
-            Cohort Access Code
+        {/* 4. Giant 6-Character Join Code Display */}
+        <View className="mt-5 w-full max-w-sm items-center">
+          <Text className="text-[10px] font-black uppercase tracking-widest text-neutral-400 mb-2">
+            6-DIGIT COHORT ACCESS CODE
           </Text>
+
           <Pressable
             onPress={handleCopyCode}
-            className="w-full py-4 px-6 bg-[#18181B] border-2 border-[#FACC15]/70 rounded-3xl flex-row items-center justify-center space-x-3 active:border-[#FACC15] shadow-lg shadow-black/40"
+            className="flex-row items-center justify-center space-x-2 p-1.5 active:scale-98 transition-transform"
           >
-            <Hash size={24} color="#FACC15" />
-            <Text className="text-4xl font-black font-mono tracking-widest text-[#FACC15] ml-2">
-              {joinCode}
-            </Text>
-            <View className="ml-3 pl-3 border-l border-neutral-800">
-              {copiedCode ? (
-                <Check size={20} color="#34d399" />
-              ) : (
-                <Copy size={20} color="#a1a1aa" />
-              )}
-            </View>
+            {joinCodeChars.map((char, index) => (
+              <View
+                key={index}
+                className="w-12 h-14 rounded-2xl bg-[#18181B] border-2 border-[#FACC15]/70 items-center justify-center shadow-lg"
+              >
+                <Text className="text-2xl font-black font-mono text-[#FACC15]">
+                  {char}
+                </Text>
+              </View>
+            ))}
           </Pressable>
-          <Text className="text-[11px] text-neutral-500 mt-2 text-center">
-            {copiedCode ? 'Copied code to clipboard!' : 'Students can enter this code in ClassSync'}
-          </Text>
+
+          <Pressable
+            onPress={handleCopyCode}
+            className="flex-row items-center space-x-1.5 mt-2 bg-neutral-900 border border-neutral-800 px-3.5 py-1.5 rounded-full"
+          >
+            {copiedCode ? (
+              <Check size={14} color="#34D399" />
+            ) : (
+              <Copy size={14} color="#FACC15" />
+            )}
+            <Text className="text-xs font-bold text-neutral-300 ml-1">
+              {copiedCode ? 'Copied to Clipboard!' : 'Tap Code to Copy'}
+            </Text>
+          </Pressable>
         </View>
       </View>
 
-      {/* Bottom Action Dock */}
-      <View className="px-6 py-5 border-t border-neutral-900 bg-neutral-950/80">
+      {/* 5. Bottom Action Dock */}
+      <View className="px-6 py-4 border-t border-neutral-800/80 bg-[#131315]">
         <View className="flex-row items-center justify-center space-x-3">
           <Pressable
             onPress={handleCopyLink}
             className="flex-1 py-3.5 px-4 bg-neutral-900 border border-neutral-800 rounded-2xl flex-row items-center justify-center space-x-2 active:bg-neutral-800"
           >
             {copiedUrl ? (
-              <Check size={16} color="#34d399" />
+              <Check size={16} color="#34D399" />
             ) : (
               <Copy size={16} color="#ffffff" />
             )}
-            <Text className="text-xs font-bold text-white ml-2">
+            <Text className="text-xs font-bold text-white ml-1.5">
               {copiedUrl ? 'Link Copied' : 'Copy Join Link'}
             </Text>
           </Pressable>
 
           <Pressable
             onPress={handleNativeShare}
-            className="flex-1 py-3.5 px-4 bg-[#FACC15] rounded-2xl flex-row items-center justify-center space-x-2 active:bg-[#EAB308] shadow-md shadow-black/20"
+            className="flex-1 py-3.5 px-4 bg-[#FACC15] rounded-2xl flex-row items-center justify-center space-x-2 active:bg-yellow-400 shadow-md"
           >
             <Share2 size={16} color="#18181B" strokeWidth={2.4} />
-            <Text className="text-xs font-bold text-neutral-900 ml-2">Share Invite</Text>
+            <Text className="text-xs font-black text-neutral-950 ml-1.5">
+              Share Invite
+            </Text>
           </Pressable>
         </View>
       </View>

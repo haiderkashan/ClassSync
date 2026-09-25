@@ -25,16 +25,12 @@ import {
   BookOpen,
   Plus,
   LogIn,
-  Hash,
   Crown,
   Bell,
-  BellOff,
   Copy,
   Check,
   Users,
   Archive,
-  UserMinus,
-  Layers,
   Trash2,
   Calendar,
   Calculator,
@@ -42,12 +38,14 @@ import {
   Moon,
   Clock,
   QrCode,
+  Sparkles,
+  RefreshCw,
+  TrendingUp,
 } from 'lucide-react-native';
 import { useWorkspaces } from '@/hooks/useWorkspaces';
 import { useSupabase } from '@/hooks/useSupabase';
 import { useAppStore } from '@/store/useAppStore';
 import { useAttendance } from '@/hooks/useAttendance';
-import { getLocalDateString } from '@/lib/schedule/calendarUtils';
 import { QuietHoursModal } from '@/components/settings/QuietHoursModal';
 import { resetLocalDatabase } from '@/lib/db/localDatabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -59,7 +57,7 @@ export default function SettingsScreen() {
   const { signOut } = useAuth();
   const supabase = useSupabase();
 
-  const { sections, courses, activeSection, isLoading: isWorkspaceLoading } = useWorkspaces();
+  const { sections, courses, activeSection, isLoading: isWorkspaceLoading, refetch: refetchWorkspaces } = useWorkspaces();
   const { setActiveCourses, setActiveSectionId, reset } = useAppStore();
   const { overallMetrics, getCourseMetrics } = useAttendance();
 
@@ -67,6 +65,7 @@ export default function SettingsScreen() {
   const [togglingCourseId, setTogglingCourseId] = useState<string | null>(null);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [isPerformingAction, setIsPerformingAction] = useState(false);
+  const [isSyncingDb, setIsSyncingDb] = useState(false);
 
   // Cycle Mode & Week A Anchor Date State for Genesis CR
   const [cycleMode, setCycleMode] = useState<'standard_weekly' | 'alternating_ab'>('standard_weekly');
@@ -150,11 +149,7 @@ export default function SettingsScreen() {
   const handleSignOut = async () => {
     setIsSigningOut(true);
     try {
-      console.log('🔒 [Settings] User triggered sign out: purging local SQLite and Zustand stores...');
-      // 1. Wipe L2 local SQLite database completely (drops and recreates all tables)
       resetLocalDatabase();
-
-      // 2. Wipe L1 Zustand in-memory store and clear persisted storage
       reset();
       try {
         if (useAppStore.persist?.clearStorage) {
@@ -164,11 +159,7 @@ export default function SettingsScreen() {
       } catch (storageErr) {
         console.warn('⚠️ [Settings] Failed to clear AsyncStorage on logout:', storageErr);
       }
-
-      // 3. Clear TanStack Query cache to avoid displaying stale session queries
       queryClient.clear();
-
-      // 4. Perform Clerk sign out
       await signOut();
     } catch (error) {
       console.error('[Settings] Error signing out:', error);
@@ -191,7 +182,6 @@ export default function SettingsScreen() {
     if (!user?.id) return;
     const nextStatus = !currentStatus;
 
-    // 1. Optimistically update local Zustand store
     const previousCourses = courses;
     const updatedCourses = courses.map((course) =>
       course.id === courseId ? { ...course, is_active: nextStatus } : course
@@ -200,7 +190,6 @@ export default function SettingsScreen() {
     setTogglingCourseId(courseId);
 
     try {
-      // 2. Silently update Supabase course_enrollments
       const { error } = await supabase
         .from('course_enrollments')
         .update({ is_active: nextStatus })
@@ -208,7 +197,6 @@ export default function SettingsScreen() {
 
       if (error) {
         console.error('[Settings] Failed to toggle course enrollment:', error.message);
-        // Rollback optimistic update on error
         setActiveCourses(previousCourses);
       }
     } catch (err) {
@@ -295,34 +283,17 @@ export default function SettingsScreen() {
     );
   };
 
-  const handleDropGuestCourse = (courseId: string, courseName: string) => {
-    Alert.alert(
-      'Drop Guest Course',
-      `Are you sure you want to drop "${courseName}"? You will no longer receive timetable updates for this course.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Drop Course',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const { error } = await supabase.rpc('leave_course_guest', {
-                p_course_id: courseId,
-              });
-
-              if (error) {
-                Alert.alert('Error', error.message);
-                return;
-              }
-
-              await queryClient.invalidateQueries({ queryKey: ['workspaces'] });
-            } catch (err) {
-              console.error('[Settings] Error dropping course:', err);
-            }
-          },
-        },
-      ]
-    );
+  const handleSyncDatabase = async () => {
+    setIsSyncingDb(true);
+    try {
+      await queryClient.invalidateQueries();
+      await refetchWorkspaces();
+      Alert.alert('Database Synchronized', 'All local schedules, courses, and section profiles are up-to-date.');
+    } catch (err) {
+      console.warn('Sync warning:', err);
+    } finally {
+      setIsSyncingDb(false);
+    }
   };
 
   const displayName =
@@ -337,700 +308,414 @@ export default function SettingsScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-[#FAFAF9]" edges={['top', 'left', 'right']}>
-      <ScrollView className="flex-1 px-5 pt-3" showsVerticalScrollIndicator={false}>
-        {/* Header */}
-        <View className="mb-4">
-          <Text className="text-2xl font-black text-neutral-900 tracking-tight">
-            Account & Settings
-          </Text>
-          <Text className="text-xs font-medium text-neutral-500 mt-0.5">
-            Manage your student profile, cohort enrollments, and course alerts
-          </Text>
-        </View>
+      {/* 1. Header */}
+      <View className="px-5 pt-2 pb-3 bg-white border-b border-neutral-200/80">
+        <View className="flex-row items-center justify-between">
+          <View className="flex-1">
+            <Text className="text-xl font-black text-neutral-900 tracking-tight">
+              Settings & Profile
+            </Text>
+            <View className="flex-row items-center space-x-1.5 mt-0.5">
+              <View className="w-1.5 h-1.5 rounded-full bg-[#FACC15]" />
+              <Text className="text-xs text-neutral-500 font-semibold" numberOfLines={1}>
+                {activeSection?.name || 'Academic Cohort'} • {activeSection?.institution_tag || 'Campus'}
+              </Text>
+            </View>
+          </View>
 
-        {/* Profile Card */}
-        <View className="bg-white rounded-3xl p-5 border border-neutral-100/90 shadow-xs mb-4">
-          <View className="flex-row items-center">
-            {avatarUrl ? (
-              <Image
-                source={{ uri: avatarUrl }}
-                className="w-16 h-16 rounded-2xl bg-neutral-100 border border-neutral-200/50"
-              />
+          <Pressable
+            onPress={handleSyncDatabase}
+            disabled={isSyncingDb}
+            className="w-9 h-9 rounded-full bg-neutral-100 border border-neutral-200/80 items-center justify-center active:bg-neutral-200"
+            accessibilityLabel="Sync Database"
+          >
+            {isSyncingDb ? (
+              <ActivityIndicator size="small" color="#18181B" />
             ) : (
-              <View className="w-16 h-16 rounded-2xl bg-neutral-100 items-center justify-center border border-neutral-200/50">
-                <UserIcon size={30} color="#18181b" />
-              </View>
+              <RefreshCw size={16} color="#18181B" />
             )}
+          </Pressable>
+        </View>
+      </View>
 
-            <View className="ml-4 flex-1">
-              <Text className="text-lg font-black text-neutral-900" numberOfLines={1}>
+      <ScrollView className="flex-1 px-4 pt-4" contentContainerStyle={{ paddingBottom: 110 }} showsVerticalScrollIndicator={false}>
+        {/* 2. User Profile Hero Card */}
+        <View className="mb-4 bg-white p-4 rounded-3xl border border-neutral-200/80 shadow-2xs">
+          <View className="flex-row items-center space-x-3">
+            <View className="relative">
+              {avatarUrl ? (
+                <Image
+                  source={{ uri: avatarUrl }}
+                  className="w-14 h-14 rounded-2xl bg-neutral-100"
+                />
+              ) : (
+                <View className="w-14 h-14 rounded-2xl bg-[#FACC15] items-center justify-center shadow-xs">
+                  <UserIcon size={26} color="#18181B" strokeWidth={2.4} />
+                </View>
+              )}
+              {/* Online Synced Indicator Dot */}
+              <View className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-white items-center justify-center" />
+            </View>
+
+            <View className="flex-1 ml-1.5">
+              <Text className="text-base font-black text-neutral-900 tracking-tight" numberOfLines={1}>
                 {displayName}
               </Text>
-              <View className="flex-row items-center mt-1">
-                <Mail size={13} color="#71717a" />
-                <Text className="text-xs text-neutral-500 ml-1.5 flex-1" numberOfLines={1}>
-                  {email}
-                </Text>
-              </View>
-            </View>
-          </View>
+              <Text className="text-xs text-neutral-500 font-medium" numberOfLines={1}>
+                {email}
+              </Text>
 
-          {/* Verification Chips */}
-          <View className="flex-row items-center justify-between mt-4 pt-3.5 border-t border-neutral-100">
-            <View className="flex-row items-center bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-100/60">
-              <ShieldCheck size={14} color="#059669" />
-              <Text className="text-[11px] font-bold text-emerald-800 ml-1.5">
-                Clerk & Supabase Synced
-              </Text>
-            </View>
-            <View className="bg-neutral-100 px-2.5 py-1 rounded-full">
-              <Text className="text-[10px] font-mono font-medium text-neutral-500">
-                ID: {user?.id ? `${user.id.slice(0, 10)}...` : 'Active'}
-              </Text>
+              <View className="flex-row items-center space-x-1.5 mt-1.5">
+                {isCR ? (
+                  <View className="px-2 py-0.5 rounded-full bg-[#FACC15]/20 border border-[#FACC15]/60 flex-row items-center space-x-1">
+                    <Crown size={10} color="#854D0E" strokeWidth={2.5} />
+                    <Text className="text-[10px] font-black text-amber-950 uppercase ml-0.5">
+                      {isGenesisCR ? 'Genesis CR' : 'Co-Admin'}
+                    </Text>
+                  </View>
+                ) : (
+                  <View className="px-2 py-0.5 rounded-full bg-neutral-100 border border-neutral-200 flex-row items-center space-x-1">
+                    <ShieldCheck size={10} color="#71717A" />
+                    <Text className="text-[10px] font-bold text-neutral-600 uppercase ml-0.5">
+                      Verified Student
+                    </Text>
+                  </View>
+                )}
+              </View>
             </View>
           </View>
         </View>
 
-        {/* Attendance & Bunk Calculator Analytics Card (Deficiency 2 Fix) */}
-        <View className="bg-white rounded-3xl p-5 border border-neutral-100/90 shadow-xs mb-4">
-          <View className="flex-row items-center justify-between mb-2.5">
-            <View className="flex-row items-center">
-              <View className="w-8 h-8 rounded-full bg-blue-50 items-center justify-center mr-2.5">
-                <Calculator size={16} color="#2563EB" />
-              </View>
-              <Text className="text-sm font-bold text-neutral-900">
-                Attendance & Bunk Analytics
-              </Text>
-            </View>
+        {/* 3. Cohort & Section Management Card */}
+        <View className="mb-4 bg-white p-4 rounded-3xl border border-neutral-200/80 shadow-2xs">
+          <Text className="text-[10px] font-black text-neutral-400 uppercase tracking-wider mb-2.5">
+            COHORT & SECTION CONTROL
+          </Text>
 
-            <View
-              className={`px-2.5 py-0.5 rounded-full border ${
-                overallMetrics.isSafe
-                  ? 'bg-emerald-50 border-emerald-200'
-                  : 'bg-rose-50 border-rose-200'
-              }`}
-            >
-              <Text
-                className={`text-[10px] font-black ${
-                  overallMetrics.isSafe ? 'text-emerald-700' : 'text-rose-700'
-                }`}
+          {activeSection ? (
+            <View>
+              <View className="flex-row items-center justify-between p-3 rounded-2xl bg-neutral-50 border border-neutral-200/70 mb-3">
+                <View className="flex-1 mr-2">
+                  <Text className="text-sm font-black text-neutral-900" numberOfLines={1}>
+                    {activeSection.name}
+                  </Text>
+                  <Text className="text-[11px] text-neutral-500 font-medium">
+                    Timezone: {activeSection.timezone || 'UTC'}
+                  </Text>
+                </View>
+
+                {activeSection.join_code && (
+                  <Pressable
+                    onPress={() => handleCopyGuestCode(activeSection.join_code!)}
+                    className="flex-row items-center space-x-1 bg-[#FACC15]/20 border border-[#FACC15]/60 px-3 py-1.5 rounded-xl active:bg-[#FACC15]/30"
+                  >
+                    <Text className="text-xs font-mono font-black text-neutral-900">
+                      #{activeSection.join_code}
+                    </Text>
+                    {copiedCode === activeSection.join_code ? (
+                      <Check size={12} color="#059669" />
+                    ) : (
+                      <Copy size={12} color="#854D0E" />
+                    )}
+                  </Pressable>
+                )}
+              </View>
+
+              {/* Presenter QR HUD Primary Action Button */}
+              <Pressable
+                onPress={() => router.push('/cohort/presenter-hud')}
+                className="w-full py-3.5 px-4 rounded-2xl bg-[#FACC15] items-center justify-center flex-row space-x-2 shadow-sm active:bg-yellow-400 mb-3"
               >
+                <QrCode size={18} color="#18181B" strokeWidth={2.5} />
+                <Text className="text-sm font-black text-neutral-950 tracking-wide ml-1.5">
+                  Launch Presenter QR HUD
+                </Text>
+              </Pressable>
+
+              {/* Section Sub-actions */}
+              <View className="flex-row items-center space-x-2">
+                {isCR && (
+                  <Pressable
+                    onPress={() => router.push('/cohort/roster')}
+                    className="flex-1 py-2.5 px-3 rounded-xl bg-neutral-100 border border-neutral-200/80 items-center justify-center active:bg-neutral-200"
+                  >
+                    <Text className="text-xs font-bold text-neutral-800">
+                      Manage Roster
+                    </Text>
+                  </Pressable>
+                )}
+                <Pressable
+                  onPress={() => router.push('/join-section')}
+                  className="flex-1 py-2.5 px-3 rounded-xl bg-neutral-100 border border-neutral-200/80 items-center justify-center active:bg-neutral-200"
+                >
+                  <Text className="text-xs font-bold text-neutral-800">
+                    Switch Section
+                  </Text>
+                </Pressable>
+              </View>
+
+              {/* Leave Section */}
+              <Pressable
+                onPress={handleLeaveSection}
+                disabled={isPerformingAction}
+                className="mt-2.5 py-2 items-center justify-center"
+              >
+                <Text className="text-xs font-bold text-rose-600">
+                  Leave This Section
+                </Text>
+              </Pressable>
+            </View>
+          ) : (
+            <View className="py-4 items-center justify-center">
+              <Text className="text-xs text-neutral-500 font-medium mb-3">
+                You are not currently enrolled in any class section.
+              </Text>
+              <View className="flex-row items-center space-x-2">
+                <Pressable
+                  onPress={() => router.push('/join-section')}
+                  className="px-4 py-2.5 bg-[#FACC15] rounded-xl active:bg-yellow-400"
+                >
+                  <Text className="text-xs font-black text-neutral-950">Join Section</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => router.push('/create-section')}
+                  className="px-4 py-2.5 bg-neutral-900 rounded-xl active:bg-neutral-800"
+                >
+                  <Text className="text-xs font-bold text-white">Create Section</Text>
+                </Pressable>
+              </View>
+            </View>
+          )}
+        </View>
+
+        {/* 4. Academic Attendance & Analytics Quick Card */}
+        <View className="mb-4 bg-white p-4 rounded-3xl border border-neutral-200/80 shadow-2xs">
+          <View className="flex-row items-center justify-between mb-2">
+            <Text className="text-[10px] font-black text-neutral-400 uppercase tracking-wider">
+              ATTENDANCE & BUNK ANALYTICS
+            </Text>
+            <View className="px-2 py-0.5 rounded-full bg-emerald-100 border border-emerald-200 flex-row items-center space-x-1">
+              <TrendingUp size={10} color="#059669" />
+              <Text className="text-[10px] font-black text-emerald-800 ml-0.5">
                 {overallMetrics.percentage}% Overall
               </Text>
             </View>
           </View>
 
-          <Text className="text-xs text-neutral-500 mb-3.5 leading-relaxed">
-            Track individual course attendance, 75% thresholds, and allowable bunks.
-          </Text>
-
-          {/* Enrolled Courses Quick Gauges */}
-          {courses.length > 0 ? (
-            <View className="space-y-2 mb-3">
-              {courses.map((course) => {
-                const courseMetrics = getCourseMetrics(course.id);
-                return (
-                  <Pressable
-                    key={course.id}
-                    onPress={() =>
-                      router.push({
-                        pathname: '/attendance/course-metrics',
-                        params: { course_id: course.id },
-                      })
-                    }
-                    className="p-3 bg-neutral-50 rounded-2xl border border-neutral-200/60 flex-row items-center justify-between active:bg-neutral-100 transition-all mb-2"
-                  >
-                    <View className="flex-row items-center flex-1 mr-2">
-                      <View
-                        className="w-2.5 h-2.5 rounded-full mr-2.5"
-                        style={{ backgroundColor: course.color_hex || '#3B82F6' }}
-                      />
-                      <View className="flex-1">
-                        <Text className="text-xs font-bold text-neutral-800" numberOfLines={1}>
-                          {course.name}
-                        </Text>
-                        <Text className="text-[10px] text-neutral-400 font-medium">
-                          {courseMetrics.isSafe
-                            ? `${courseMetrics.skipsAllowed} skips allowed`
-                            : `Need ${courseMetrics.recoveryNeeded} recovery classes`}
-                        </Text>
-                      </View>
-                    </View>
-
-                    <View className="flex-row items-center">
-                      <View
-                        className={`px-2 py-0.5 rounded-full mr-1.5 ${
-                          courseMetrics.isSafe ? 'bg-emerald-100' : 'bg-rose-100'
-                        }`}
-                      >
-                        <Text
-                          className={`text-[10px] font-black ${
-                            courseMetrics.isSafe ? 'text-emerald-800' : 'text-rose-800'
-                          }`}
-                        >
-                          {courseMetrics.percentage}%
-                        </Text>
-                      </View>
-                      <ChevronRight size={14} color="#94A3B8" />
-                    </View>
-                  </Pressable>
-                );
-              })}
-            </View>
-          ) : (
-            <Text className="text-xs text-neutral-400 mb-3 italic">
-              Enroll in courses to start tracking attendance and bunk capacity.
-            </Text>
-          )}
-
-          {/* Direct CTA Button */}
-          <Pressable
-            onPress={() => router.push('/attendance/course-metrics')}
-            className="w-full py-2.5 bg-neutral-900 rounded-2xl flex-row items-center justify-center active:bg-neutral-800"
-          >
-            <Text className="text-xs font-bold text-white mr-1.5">
-              Open Full Bunk Calculator
-            </Text>
-            <ChevronRight size={14} color="#FFFFFF" />
-          </Pressable>
-        </View>
-
-        {/* Smart Quiet Hours & Notifications Card */}
-        <View className="bg-white rounded-3xl p-5 border border-neutral-100/90 shadow-xs mb-4">
-          <View className="flex-row items-center justify-between mb-2.5">
-            <View className="flex-row items-center">
-              <View className="w-8 h-8 rounded-full bg-indigo-50 items-center justify-center mr-2.5">
-                <Moon size={16} color="#4F46E5" />
-              </View>
-              <Text className="text-sm font-bold text-neutral-900">
-                Smart Quiet Hours & Alerts
+          <View className="flex-row items-center justify-between py-2">
+            <View>
+              <Text className="text-xs font-black text-neutral-900">
+                {overallMetrics.skipsAllowed > 0
+                  ? `${overallMetrics.skipsAllowed} safe skip(s) available`
+                  : overallMetrics.recoveryNeeded > 0
+                  ? `${overallMetrics.recoveryNeeded} recovery classes needed`
+                  : 'Target 75% threshold maintained'}
+              </Text>
+              <Text className="text-[11px] text-neutral-500 font-medium mt-0.5">
+                {overallMetrics.attended} of {overallMetrics.totalHeld} held sessions attended
               </Text>
             </View>
-
-            <View
-              className={`px-2.5 py-0.5 rounded-full border ${
-                quietHoursSettings?.enabled !== false
-                  ? 'bg-[#FEF08A]/70 border-[#FACC15]'
-                  : 'bg-neutral-100 border-neutral-200'
-              }`}
-            >
-              <Text
-                className={`text-[10px] font-black ${
-                  quietHoursSettings?.enabled !== false ? 'text-[#854D0E]' : 'text-neutral-500'
-                }`}
-              >
-                {quietHoursSettings?.enabled !== false ? 'Active' : 'Disabled'}
-              </Text>
-            </View>
-          </View>
-
-          <Text className="text-xs text-neutral-500 mb-3.5 leading-relaxed">
-            {quietHoursSettings?.enabled !== false
-              ? `Silencing non-urgent alerts between ${quietHoursSettings?.start ?? '22:00'} and ${quietHoursSettings?.end ?? '07:00'}. Urgent cancellations still bypass.`
-              : 'Quiet hours are turned off. You will receive all cohort alerts immediately.'}
-          </Text>
-
-          <Pressable
-            onPress={() => setIsQuietHoursModalOpen(true)}
-            className="w-full py-2.5 bg-indigo-50/80 border border-indigo-100 rounded-2xl flex-row items-center justify-center active:bg-indigo-100/80 transition-colors"
-          >
-            <Clock size={14} color="#4F46E5" />
-            <Text className="text-xs font-bold text-indigo-700 mx-1.5">
-              Configure Quiet Hours & Overrides
-            </Text>
-            <ChevronRight size={14} color="#4F46E5" />
-          </Pressable>
-        </View>
-
-        {/* Section / Cohort Workspace Card */}
-        <View className="bg-white rounded-3xl p-5 border border-neutral-100/90 shadow-xs mb-4">
-          <View className="flex-row items-center justify-between mb-3">
-            <View className="flex-row items-center">
-              <View className="w-8 h-8 rounded-full bg-neutral-100 items-center justify-center mr-2.5">
-                <School size={16} color="#18181b" />
-              </View>
-              <Text className="text-sm font-bold text-neutral-900">
-                Enrolled Section
-              </Text>
-            </View>
-
-            {activeSection?.role === 'genesis_cr' && (
-              <View className="flex-row items-center bg-[#FEF08A]/80 border border-[#FACC15] px-2.5 py-0.5 rounded-full shadow-2xs">
-                <Crown size={12} color="#854D0E" />
-                <Text className="text-[10px] font-bold text-neutral-900 ml-1">
-                  Genesis CR
-                </Text>
-              </View>
-            )}
-
-            {activeSection?.role === 'co_admin' && (
-              <View className="flex-row items-center bg-purple-50 border border-purple-200/70 px-2.5 py-0.5 rounded-full">
-                <ShieldCheck size={12} color="#7c3aed" />
-                <Text className="text-[10px] font-bold text-purple-800 ml-1">
-                  Co-Admin
-                </Text>
-              </View>
-            )}
-          </View>
-
-          {/* Multi-Section Workspace Selector */}
-          {sections.length > 1 && (
-            <View className="mb-3 p-2.5 bg-gray-50 rounded-2xl border border-gray-200">
-              <Text className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">
-                Switch Active Workspace
-              </Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row">
-                {sections.map((sec) => {
-                  const isSelected = sec.id === activeSection?.id;
-                  return (
-                    <Pressable
-                      key={sec.id}
-                      onPress={() => setActiveSectionId(sec.id)}
-                      className={`mr-2 px-3 py-1.5 rounded-xl border flex-row items-center ${
-                        isSelected
-                          ? 'bg-brand-600 border-brand-600'
-                          : 'bg-white border-gray-200 active:bg-gray-100'
-                      }`}
-                    >
-                      <Layers
-                        size={12}
-                        color={isSelected ? '#ffffff' : '#6b7280'}
-                        className="mr-1.5"
-                      />
-                      <Text
-                        className={`text-xs font-bold ${
-                          isSelected ? 'text-white' : 'text-gray-700'
-                        }`}
-                      >
-                        {sec.name}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </ScrollView>
-            </View>
-          )}
-
-          {activeSection ? (
-            <View className="p-4 bg-neutral-50/70 rounded-2xl border border-neutral-100">
-              <Text className="text-base font-black text-neutral-900">
-                {activeSection.name}
-              </Text>
-              {activeSection.institution_tag && (
-                <Text className="text-xs text-neutral-500 mt-0.5">
-                  {activeSection.institution_tag}
-                </Text>
-              )}
-
-              <View className="flex-row items-center justify-between mt-3 pt-2.5 border-t border-neutral-200/60">
-                <View className="flex-row items-center bg-[#FEF08A]/70 border border-[#FACC15] px-2.5 py-1 rounded-full shadow-2xs">
-                  <Hash size={12} color="#854D0E" />
-                  <Text className="text-xs font-mono font-bold text-neutral-900 ml-1">
-                    {activeSection.join_code}
-                  </Text>
-                </View>
-                <View className="bg-neutral-100 px-2 py-0.5 rounded-full">
-                  <Text className="text-[10px] text-neutral-500 font-medium">
-                    {activeSection.timezone}
-                  </Text>
-                </View>
-              </View>
-
-              {/* Roster and Section Management Actions */}
-              <View className="mt-3 pt-3 border-t border-neutral-200/60 flex-row flex-wrap gap-2">
-                <Pressable
-                  onPress={() => router.push('/cohort/presenter-hud')}
-                  className="bg-[#FACC15] px-3.5 py-2 rounded-full flex-row items-center active:bg-[#EAB308] shadow-xs"
-                >
-                  <QrCode size={13} color="#18181B" strokeWidth={2.4} />
-                  <Text className="text-xs font-bold text-neutral-900 ml-1.5">
-                    Project Join QR
-                  </Text>
-                </Pressable>
-
-                {isCR && (
-                  <>
-                    <Pressable
-                      onPress={() => router.push('/schedule/builder')}
-                      className="bg-neutral-900 px-3.5 py-2 rounded-full flex-row items-center active:bg-neutral-800 shadow-xs"
-                    >
-                      <Calendar size={13} color="#ffffff" strokeWidth={2.2} />
-                      <Text className="text-xs font-bold text-white ml-1.5">
-                        Manage Timetable
-                      </Text>
-                    </Pressable>
-
-                    <Pressable
-                      onPress={() => router.push('/section-members')}
-                      className="bg-white border border-neutral-200 px-3.5 py-2 rounded-full flex-row items-center active:bg-neutral-50 shadow-xs"
-                    >
-                      <Users size={13} color="#18181b" strokeWidth={2.2} />
-                      <Text className="text-xs font-bold text-neutral-800 ml-1.5">
-                        Manage Roster
-                      </Text>
-                    </Pressable>
-                  </>
-                )}
-
-                {isGenesisCR ? (
-                  <Pressable
-                    onPress={handleArchiveSection}
-                    disabled={isPerformingAction}
-                    className="bg-rose-50 border border-rose-100 px-3.5 py-2 rounded-full flex-row items-center active:bg-rose-100"
-                  >
-                    <Archive size={13} color="#e11d48" strokeWidth={2.2} />
-                    <Text className="text-xs font-bold text-rose-700 ml-1.5">
-                      Archive
-                    </Text>
-                  </Pressable>
-                ) : (
-                  <Pressable
-                    onPress={handleLeaveSection}
-                    disabled={isPerformingAction}
-                    className="bg-neutral-100 px-3.5 py-2 rounded-full flex-row items-center active:bg-neutral-200"
-                  >
-                    <UserMinus size={13} color="#71717a" strokeWidth={2.2} />
-                    <Text className="text-xs font-bold text-neutral-700 ml-1.5">
-                      Leave
-                    </Text>
-                  </Pressable>
-                )}
-              </View>
-
-              {/* Genesis CR Cycle Mode & Semester Anchor Date Settings */}
-              {isGenesisCR && (
-                <View className="mt-4 pt-3.5 border-t border-neutral-200/60">
-                  <View className="flex-row items-center justify-between mb-1.5">
-                    <View className="flex-row items-center">
-                      <Calendar size={13} color="#18181b" />
-                      <Text className="text-xs font-black text-neutral-900 ml-1.5">
-                        Semester Cycle Mode
-                      </Text>
-                    </View>
-                    <View className="bg-neutral-100 px-2.5 py-0.5 rounded-full">
-                      <Text className="text-[10px] font-bold text-neutral-600">
-                        {cycleMode === 'alternating_ab' ? 'Alternating A / B' : 'Standard Weekly'}
-                      </Text>
-                    </View>
-                  </View>
-                  <Text className="text-[11px] font-medium text-neutral-500 mb-3 leading-relaxed">
-                    Choose whether cohort classes repeat weekly or alternate between Week A and Week B.
-                  </Text>
-
-                  {/* Academic Calendar & Break Settings Modal Link */}
-                  <Pressable
-                    onPress={() => router.push('/schedule/calendar-settings')}
-                    className="w-full py-2.5 bg-indigo-50 border border-indigo-100 rounded-2xl flex-row items-center justify-center active:bg-indigo-100/80 mb-3"
-                  >
-                    <Calendar size={14} color="#4F46E5" />
-                    <Text className="text-xs font-bold text-indigo-700 mx-1.5">
-                      Academic Calendar & Break Settings
-                    </Text>
-                    <ChevronRight size={14} color="#4F46E5" />
-                  </Pressable>
-
-                  {/* Segmented Mode Selector */}
-                  <View className="flex-row p-1 bg-neutral-100/90 rounded-full mb-3">
-                    <Pressable
-                      onPress={() => setCycleMode('standard_weekly')}
-                      className={`flex-1 py-1.5 rounded-full items-center justify-center transition-all ${
-                        cycleMode === 'standard_weekly' ? 'bg-white shadow-2xs' : ''
-                      }`}
-                    >
-                      <Text
-                        className={`text-[11px] font-bold ${
-                          cycleMode === 'standard_weekly' ? 'text-neutral-900' : 'text-neutral-500'
-                        }`}
-                      >
-                        Standard Weekly
-                      </Text>
-                    </Pressable>
-
-                    <Pressable
-                      onPress={() => setCycleMode('alternating_ab')}
-                      className={`flex-1 py-1.5 rounded-full items-center justify-center transition-all ${
-                        cycleMode === 'alternating_ab' ? 'bg-white shadow-2xs' : ''
-                      }`}
-                    >
-                      <Text
-                        className={`text-[11px] font-bold ${
-                          cycleMode === 'alternating_ab' ? 'text-neutral-900' : 'text-neutral-500'
-                        }`}
-                      >
-                        Alternating A / B
-                      </Text>
-                    </Pressable>
-                  </View>
-
-                  {/* Anchor Date Field when Alternating A/B is selected */}
-                  {cycleMode === 'alternating_ab' && (
-                    <View className="bg-white p-3 rounded-2xl border border-neutral-200/70 mb-3 shadow-2xs">
-                      <Text className="text-xs font-black text-neutral-900 mb-0.5">
-                        Week A Anchor Date (YYYY-MM-DD)
-                      </Text>
-                      <Text className="text-[10px] text-neutral-400 mb-2">
-                        Sets Week 1 of the semester to Week A. Parity alternates automatically every week.
-                      </Text>
-
-                      <View className="flex-row items-center gap-2">
-                        <TextInput
-                          value={weekAAnchorDate}
-                          onChangeText={setWeekAAnchorDate}
-                          placeholder="e.g. 2026-08-24"
-                          placeholderTextColor="#a1a1aa"
-                          className="flex-1 bg-neutral-50 border border-neutral-200/80 rounded-xl px-3 py-2 text-xs font-bold text-neutral-900"
-                        />
-                        <Pressable
-                          onPress={() => {
-                            const todayStr = getLocalDateString(new Date(), activeSection?.timezone || 'UTC');
-                            setWeekAAnchorDate(todayStr);
-                          }}
-                          className="bg-neutral-100 border border-neutral-200/80 px-3 py-2 rounded-xl active:bg-neutral-200"
-                        >
-                          <Text className="text-[11px] font-bold text-neutral-700">Set Today</Text>
-                        </Pressable>
-                      </View>
-                    </View>
-                  )}
-
-                  {/* Save Changes CTA Button */}
-                  {(cycleMode !== activeSection.cycle_mode ||
-                    (cycleMode === 'alternating_ab' &&
-                      weekAAnchorDate !== (activeSection.week_a_anchor_date || ''))) && (
-                    <Pressable
-                      onPress={handleSaveCycleSettings}
-                      disabled={isSavingCycleSettings}
-                      className="w-full py-2.5 bg-neutral-900 rounded-full items-center justify-center active:bg-neutral-800 shadow-2xs mb-1"
-                    >
-                      {isSavingCycleSettings ? (
-                        <ActivityIndicator size="small" color="#ffffff" />
-                      ) : (
-                        <Text className="text-xs font-bold text-white">Save Cycle Settings</Text>
-                      )}
-                    </Pressable>
-                  )}
-                </View>
-              )}
-            </View>
-          ) : (
-            <Text className="text-xs text-neutral-500 leading-relaxed mb-3">
-              You are not enrolled in an active section. Join or create a section to access timetables and course alerts.
-            </Text>
-          )}
-
-          {/* Quick Workspace Switcher / Join Actions */}
-          <View className="flex-row space-x-2.5 mt-3 pt-3 border-t border-neutral-100">
-            <Pressable
-              onPress={() => router.push('/join-section')}
-              className="flex-1 bg-neutral-50 border border-neutral-200/70 py-3 px-3 rounded-full flex-row items-center justify-center active:bg-neutral-100"
-            >
-              <LogIn size={14} color="#18181b" />
-              <Text className="text-xs font-bold text-neutral-800 ml-1.5">
-                Join Code
-              </Text>
-            </Pressable>
 
             <Pressable
-              onPress={() => router.push('/create-section')}
-              className="flex-1 bg-neutral-900 py-3 px-3 rounded-full flex-row items-center justify-center active:bg-neutral-800 shadow-xs"
+              onPress={() => router.push('/attendance/course-analytics')}
+              className="px-3 py-2 bg-neutral-100 rounded-xl active:bg-neutral-200 flex-row items-center space-x-1"
             >
-              <Plus size={14} color="#ffffff" strokeWidth={2.5} />
-              <Text className="text-xs font-bold text-white ml-1.5">
-                Create Section
-              </Text>
+              <Text className="text-xs font-bold text-neutral-800">Simulator</Text>
+              <ChevronRight size={13} color="#18181B" />
             </Pressable>
           </View>
         </View>
 
-        {/* Course Subscriptions & CR Course Management Card */}
-        <View className="bg-white rounded-3xl p-5 border border-neutral-100/90 shadow-xs mb-5">
-          <View className="flex-row items-center justify-between mb-1.5">
-            <View className="flex-row items-center">
-              <View className="w-8 h-8 rounded-full bg-neutral-100 items-center justify-center mr-2.5">
-                <BookOpen size={16} color="#18181b" />
-              </View>
-              <Text className="text-sm font-bold text-neutral-900">
-                Course Subscriptions
+        {/* 5. Semester Configuration (CR Only) */}
+        {isCR && activeSection && (
+          <View className="mb-4 bg-white p-4 rounded-3xl border border-neutral-200/80 shadow-2xs">
+            <View className="flex-row items-center space-x-1.5 mb-2.5">
+              <Crown size={12} color="#B45309" />
+              <Text className="text-[10px] font-black text-amber-950 uppercase tracking-wider">
+                CR ADMIN PANEL • SEMESTER CONFIG
               </Text>
             </View>
 
-            {/* CR Add Course Button */}
-            {isCR ? (
-              <Pressable
-                onPress={() => router.push('/add-course')}
-                className="bg-neutral-900 px-3.5 py-1.5 rounded-full flex-row items-center active:bg-neutral-800 shadow-xs"
-              >
-                <Plus size={12} color="#ffffff" strokeWidth={2.5} />
-                <Text className="text-xs font-bold text-white ml-1">
-                  Add Course
+            {/* Alternating Week Mode Switch */}
+            <View className="flex-row items-center justify-between py-2 border-b border-neutral-100">
+              <View className="flex-1 mr-3">
+                <Text className="text-xs font-bold text-neutral-900">
+                  Alternating Week Parity (Week A / B)
                 </Text>
-              </Pressable>
-            ) : (
-              <Text className="text-xs font-bold text-neutral-400">
-                {courses.filter((c) => c.is_active !== false).length}/{courses.length} Active
-              </Text>
-            )}
-          </View>
-
-          <Text className="text-xs text-neutral-500 mb-4 leading-relaxed">
-            Toggle off courses you do not attend. Share Guest Codes with irregular or retake students.
-          </Text>
-
-          {isWorkspaceLoading && courses.length === 0 ? (
-            <View className="py-6 items-center">
-              <ActivityIndicator size="small" color="#18181b" />
-              <Text className="text-xs text-neutral-400 mt-2">Loading courses...</Text>
+                <Text className="text-[11px] text-neutral-500 font-medium">
+                  {cycleMode === 'alternating_ab'
+                    ? 'Active: Alternating fortnightly timetable'
+                    : 'Standard single-week recurring timetable'}
+                </Text>
+              </View>
+              <Switch
+                value={cycleMode === 'alternating_ab'}
+                onValueChange={(val) =>
+                  setCycleMode(val ? 'alternating_ab' : 'standard_weekly')
+                }
+                trackColor={{ false: '#e4e4e7', true: '#FACC15' }}
+                thumbColor="#ffffff"
+              />
             </View>
-          ) : courses.length === 0 ? (
-            <View className="py-6 px-4 bg-neutral-50 rounded-2xl border border-dashed border-neutral-200 items-center">
-              <Text className="text-xs font-semibold text-neutral-500 text-center">
-                No courses added to this section yet.
-              </Text>
-              {isCR ? (
-                <Pressable
-                  onPress={() => router.push('/add-course')}
-                  className="mt-3 bg-neutral-900 px-4 py-2 rounded-full flex-row items-center active:bg-neutral-800"
-                >
-                  <Plus size={14} color="#ffffff" strokeWidth={2.5} />
-                  <Text className="text-xs font-bold text-white ml-1.5">
-                    Add First Course
-                  </Text>
-                </Pressable>
+
+            {/* Week A Anchor Date Input */}
+            {cycleMode === 'alternating_ab' && (
+              <View className="py-2.5">
+                <Text className="text-[10px] font-black text-neutral-400 uppercase tracking-wider mb-1">
+                  WEEK A ANCHOR DATE (YYYY-MM-DD)
+                </Text>
+                <TextInput
+                  value={weekAAnchorDate}
+                  onChangeText={setWeekAAnchorDate}
+                  placeholder="2026-08-24"
+                  placeholderTextColor="#A1A1AA"
+                  className="bg-neutral-50 border border-neutral-200 rounded-xl p-2.5 text-xs font-mono font-bold text-neutral-900"
+                />
+              </View>
+            )}
+
+            <Pressable
+              onPress={handleSaveCycleSettings}
+              disabled={isSavingCycleSettings}
+              className="mt-2.5 py-2.5 bg-neutral-900 rounded-xl items-center justify-center active:bg-neutral-800"
+            >
+              {isSavingCycleSettings ? (
+                <ActivityIndicator size="small" color="#ffffff" />
               ) : (
-                <Text className="text-[11px] text-neutral-400 text-center mt-1">
-                  Your Class Representative can add courses for your timetable.
+                <Text className="text-xs font-bold text-white">
+                  Save Semester Settings
                 </Text>
               )}
+            </Pressable>
+          </View>
+        )}
+
+        {/* 6. Alerts & Quiet Hours */}
+        <View className="mb-4 bg-white p-4 rounded-3xl border border-neutral-200/80 shadow-2xs">
+          <Text className="text-[10px] font-black text-neutral-400 uppercase tracking-wider mb-2.5">
+            ALERTS & QUIET HOURS
+          </Text>
+
+          <View className="flex-row items-center justify-between py-2 border-b border-neutral-100">
+            <View className="flex-row items-center space-x-2.5 flex-1 mr-2">
+              <Moon size={16} color="#71717A" />
+              <View className="flex-1">
+                <Text className="text-xs font-bold text-neutral-900">
+                  Quiet Hours
+                </Text>
+                <Text className="text-[11px] text-neutral-500 font-medium">
+                  {quietHoursSettings?.enabled
+                    ? `Active (${quietHoursSettings.start} - ${quietHoursSettings.end})`
+                    : 'Disabled (All alerts permitted)'}
+                </Text>
+              </View>
             </View>
-          ) : (
-            <View className="space-y-2.5">
-              {courses.map((course) => {
-                const isActive = course.is_active !== false;
-                const isToggling = togglingCourseId === course.id;
-                const isThisCopied = copiedCode === course.join_code;
 
-                return (
-                  <View
-                    key={course.id}
-                    className={`p-3.5 rounded-2xl border flex-row items-center justify-between transition-all ${
-                      isActive
-                        ? 'bg-neutral-50/50 border-neutral-200/60 shadow-2xs'
-                        : 'bg-neutral-100/40 border-neutral-100 opacity-60'
-                    }`}
-                  >
-                    <View className="flex-row items-center flex-1 mr-3">
-                      {/* Color Accent Indicator */}
-                      <View
-                        style={{ backgroundColor: course.color_hex || '#18181B' }}
-                        className="w-3 h-11 rounded-full mr-3"
-                      />
+            <Pressable
+              onPress={() => setIsQuietHoursModalOpen(true)}
+              className="px-3 py-1.5 bg-neutral-100 border border-neutral-200 rounded-xl active:bg-neutral-200"
+            >
+              <Text className="text-xs font-bold text-neutral-800">Configure</Text>
+            </Pressable>
+          </View>
 
-                      <View className="flex-1">
-                        <View className="flex-row items-center">
-                          <Text
-                            className="text-sm font-bold text-neutral-900"
-                            numberOfLines={1}
-                          >
-                            {course.name}
-                          </Text>
-                          {course.is_guest && (
-                            <View className="ml-2 flex-row items-center">
-                              <View className="px-2 py-0.5 rounded-full bg-amber-50 border border-amber-200/70">
-                                <Text className="text-[9px] font-bold text-amber-800">
-                                  Guest
-                                </Text>
-                              </View>
-                              <Pressable
-                                onPress={() => handleDropGuestCourse(course.id, course.name)}
-                                hitSlop={8}
-                                className="ml-1.5 px-2 py-0.5 rounded-full bg-rose-50 border border-rose-200/70 active:bg-rose-100"
-                              >
-                                <Text className="text-[9px] font-bold text-rose-700">Drop</Text>
-                              </Pressable>
-                            </View>
-                          )}
-                        </View>
-
-                        {/* Guest Code Copy Badge */}
-                        {course.join_code && (
-                          <Pressable
-                            onPress={() => handleCopyGuestCode(course.join_code!)}
-                            hitSlop={8}
-                            className="mt-1.5 flex-row items-center bg-white border border-neutral-200 px-2.5 py-0.5 rounded-full self-start active:bg-neutral-100 shadow-2xs"
-                          >
-                            {isThisCopied ? (
-                              <>
-                                <Check size={11} color="#059669" />
-                                <Text className="text-[10px] font-bold text-emerald-700 ml-1">
-                                  Copied!
-                                </Text>
-                              </>
-                            ) : (
-                              <>
-                                <Copy size={10} color="#71717a" />
-                                <Text className="text-[10px] font-mono font-medium text-neutral-600 ml-1">
-                                  Guest Code: <Text className="font-bold text-neutral-900">{course.join_code}</Text>
-                                </Text>
-                              </>
-                            )}
-                          </Pressable>
-                        )}
-                      </View>
-                    </View>
-
-                    {/* Native Toggle Switch */}
-                    <View className="flex-row items-center">
-                      {isActive ? (
-                        <Bell size={14} color="#18181b" className="mr-2" />
-                      ) : (
-                        <BellOff size={14} color="#a1a1aa" className="mr-2" />
-                      )}
-                      <Switch
-                        value={isActive}
-                        onValueChange={() => handleToggleCourse(course.id, isActive)}
-                        disabled={isToggling}
-                        trackColor={{ false: '#e4e4e7', true: '#18181b' }}
-                        thumbColor={
-                          Platform.OS === 'android'
-                            ? isActive
-                              ? '#ffffff'
-                              : '#f4f3f4'
-                            : undefined
-                        }
-                      />
-                    </View>
-                  </View>
-                );
-              })}
+          <View className="flex-row items-center justify-between pt-2.5">
+            <View className="flex-1 mr-2">
+              <Text className="text-xs font-bold text-neutral-900">
+                Urgent Cancellation Bypass
+              </Text>
+              <Text className="text-[11px] text-neutral-500 font-medium">
+                Always allow notifications for urgent cancellations & room changes
+              </Text>
             </View>
-          )}
+            <Switch
+              value={quietHoursSettings?.bypass ?? true}
+              disabled
+              trackColor={{ false: '#e4e4e7', true: '#FACC15' }}
+              thumbColor="#ffffff"
+            />
+          </View>
         </View>
 
-        {/* Sign Out Button */}
-        <Pressable
-          onPress={handleSignOut}
-          disabled={isSigningOut || !isLoaded}
-          className="w-full flex-row items-center justify-center py-4 px-5 bg-rose-50 border border-rose-100 rounded-full active:bg-rose-100 mb-6 shadow-2xs"
-        >
-          {isSigningOut ? (
-            <ActivityIndicator size="small" color="#e11d48" />
-          ) : (
-            <>
-              <LogOut size={16} color="#e11d48" />
-              <Text className="text-sm font-bold text-rose-600 ml-2">
-                Sign Out of ClassSync
-              </Text>
-            </>
-          )}
-        </Pressable>
+        {/* 7. Course Subscriptions */}
+        <View className="mb-5 bg-white p-4 rounded-3xl border border-neutral-200/80 shadow-2xs">
+          <View className="flex-row items-center justify-between mb-2.5">
+            <Text className="text-[10px] font-black text-neutral-400 uppercase tracking-wider">
+              COURSE SUBSCRIPTIONS ({courses.length})
+            </Text>
+            <Pressable
+              onPress={() => router.push('/add-course')}
+              className="flex-row items-center space-x-1"
+            >
+              <Plus size={13} color="#18181B" strokeWidth={2.5} />
+              <Text className="text-xs font-black text-neutral-950 ml-0.5">Add Course</Text>
+            </Pressable>
+          </View>
 
-        {/* Build Metadata */}
-        <Text className="text-[11px] text-gray-400 text-center mb-8">
-          ClassSync v1.0.0 • Mobile Architecture Phase 2
-        </Text>
+          {courses.map((course) => (
+            <View
+              key={course.id}
+              className="py-2.5 border-b border-neutral-100 flex-row items-center justify-between"
+            >
+              <View className="flex-1 mr-3">
+                <View className="flex-row items-center space-x-1.5">
+                  <View
+                    className="w-2 h-2 rounded-full"
+                    style={{ backgroundColor: course.color_hex || '#FACC15' }}
+                  />
+                  <Text className="text-xs font-black text-neutral-900 font-mono">
+                    {course.code || 'COURSE'}
+                  </Text>
+                  {course.guest_invite_token && (
+                    <Pressable
+                      onPress={() => handleCopyGuestCode(course.guest_invite_token!)}
+                      className="px-2 py-0.5 rounded bg-neutral-100 border border-neutral-200 flex-row items-center space-x-1"
+                    >
+                      <Text className="text-[9px] font-mono text-neutral-600">
+                        #{course.guest_invite_token.slice(0, 6)}
+                      </Text>
+                      <Copy size={9} color="#71717A" />
+                    </Pressable>
+                  )}
+                </View>
+                <Text className="text-xs font-medium text-neutral-700 mt-0.5" numberOfLines={1}>
+                  {course.name}
+                </Text>
+              </View>
+
+              <Switch
+                value={course.is_active !== false}
+                onValueChange={() => handleToggleCourse(course.id, course.is_active !== false)}
+                disabled={togglingCourseId === course.id}
+                trackColor={{ false: '#e4e4e7', true: '#FACC15' }}
+                thumbColor="#ffffff"
+              />
+            </View>
+          ))}
+        </View>
+
+        {/* 8. Destructive Actions / Sign Out */}
+        <View className="mb-8 space-y-2">
+          <Pressable
+            onPress={handleSignOut}
+            disabled={isSigningOut}
+            className="w-full py-3.5 bg-rose-50 border border-rose-200/80 rounded-2xl items-center justify-center flex-row space-x-2 active:bg-rose-100"
+          >
+            {isSigningOut ? (
+              <ActivityIndicator size="small" color="#E11D48" />
+            ) : (
+              <>
+                <LogOut size={16} color="#E11D48" />
+                <Text className="text-xs font-bold text-rose-700 ml-1.5">
+                  Sign Out of ClassSync
+                </Text>
+              </>
+            )}
+          </Pressable>
+        </View>
       </ScrollView>
 
-      {/* Quiet Hours Settings Modal */}
+      {/* Quiet Hours Configuration Modal */}
       <QuietHoursModal
         visible={isQuietHoursModalOpen}
         onClose={() => setIsQuietHoursModalOpen(false)}
@@ -1041,6 +726,7 @@ export default function SettingsScreen() {
             .select('*')
             .eq('user_id', user.id)
             .maybeSingle();
+
           if (data) {
             setQuietHoursSettings({
               enabled: data.quiet_hours_enabled,

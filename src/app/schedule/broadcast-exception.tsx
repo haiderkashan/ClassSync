@@ -41,6 +41,7 @@ import {
 import {
   getLocalDateString,
   getTomorrowDateString,
+  addDaysToDateString,
 } from '@/lib/schedule/calendarUtils';
 import type { ScheduleOverrideStatus } from '@/lib/schedule/scheduleCompiler';
 
@@ -98,6 +99,8 @@ export default function BroadcastExceptionModal() {
   // Resolve target calendar date (defaults to param or today)
   const defaultToday = useMemo(() => getLocalDateString(new Date(), timezone), [timezone]);
   const defaultTomorrow = useMemo(() => getTomorrowDateString(timezone), [timezone]);
+  const nextWeekDate = useMemo(() => addDaysToDateString(defaultToday, 7), [defaultToday]);
+  const inTwoWeeksDate = useMemo(() => addDaysToDateString(defaultToday, 14), [defaultToday]);
 
   const [selectedDate, setSelectedDate] = useState<string>(
     paramOverrideDate || defaultToday
@@ -347,10 +350,10 @@ export default function BroadcastExceptionModal() {
             </View>
 
             {/* Quick Date Pills */}
-            <View className="flex-row items-center gap-2">
+            <View className="flex-row items-center flex-wrap gap-1.5">
               <Pressable
                 onPress={() => setSelectedDate(defaultToday)}
-                className={`flex-1 py-2 rounded-full items-center justify-center border transition-all ${
+                className={`px-3 py-1.5 rounded-full border transition-all ${
                   selectedDate === defaultToday
                     ? 'bg-neutral-900 border-neutral-900 shadow-2xs'
                     : 'bg-neutral-50 border-neutral-200/80 active:bg-neutral-100'
@@ -367,7 +370,7 @@ export default function BroadcastExceptionModal() {
 
               <Pressable
                 onPress={() => setSelectedDate(defaultTomorrow)}
-                className={`flex-1 py-2 rounded-full items-center justify-center border transition-all ${
+                className={`px-3 py-1.5 rounded-full border transition-all ${
                   selectedDate === defaultTomorrow
                     ? 'bg-neutral-900 border-neutral-900 shadow-2xs'
                     : 'bg-neutral-50 border-neutral-200/80 active:bg-neutral-100'
@@ -383,8 +386,42 @@ export default function BroadcastExceptionModal() {
               </Pressable>
 
               <Pressable
+                onPress={() => setSelectedDate(nextWeekDate)}
+                className={`px-3 py-1.5 rounded-full border transition-all ${
+                  selectedDate === nextWeekDate
+                    ? 'bg-neutral-900 border-neutral-900 shadow-2xs'
+                    : 'bg-neutral-50 border-neutral-200/80 active:bg-neutral-100'
+                }`}
+              >
+                <Text
+                  className={`text-xs font-bold ${
+                    selectedDate === nextWeekDate ? 'text-white' : 'text-neutral-700'
+                  }`}
+                >
+                  +7d (Next Wk)
+                </Text>
+              </Pressable>
+
+              <Pressable
+                onPress={() => setSelectedDate(inTwoWeeksDate)}
+                className={`px-3 py-1.5 rounded-full border transition-all ${
+                  selectedDate === inTwoWeeksDate
+                    ? 'bg-neutral-900 border-neutral-900 shadow-2xs'
+                    : 'bg-neutral-50 border-neutral-200/80 active:bg-neutral-100'
+                }`}
+              >
+                <Text
+                  className={`text-xs font-bold ${
+                    selectedDate === inTwoWeeksDate ? 'text-white' : 'text-neutral-700'
+                  }`}
+                >
+                  +14d (2 Wks)
+                </Text>
+              </Pressable>
+
+              <Pressable
                 onPress={() => setShowDatePicker(true)}
-                className="px-3.5 py-2 rounded-full bg-neutral-100 border border-neutral-200/80 items-center justify-center active:bg-neutral-200"
+                className="px-3 py-1.5 rounded-full bg-neutral-100 border border-neutral-200/80 items-center justify-center active:bg-neutral-200"
               >
                 <Text className="text-xs font-bold text-neutral-800">Pick Date</Text>
               </Pressable>

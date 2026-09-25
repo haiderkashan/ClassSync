@@ -420,7 +420,14 @@ export default function ScheduleBuilderScreen() {
 
                       {isSectionAdmin && (
                         <Pressable
-                          onPress={() => router.push(`/schedule/edit-block?day=${selectedDay}`)}
+                          onPress={() =>
+                            router.push(
+                              `/schedule/edit-block?day=${selectedDay}&start=${prevBlock.end_time.slice(
+                                0,
+                                5
+                              )}&end=${block.start_time.slice(0, 5)}`
+                            )
+                          }
                           className="px-2.5 py-1 rounded-lg bg-white border border-neutral-200/90 active:bg-neutral-100 flex-row items-center space-x-1"
                         >
                           <Plus size={11} color="#18181B" strokeWidth={2.5} />

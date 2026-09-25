@@ -84,7 +84,12 @@ const DURATION_PRESETS = [
 
 export default function EditBlockModal() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ day?: string; id?: string }>();
+  const params = useLocalSearchParams<{
+    day?: string;
+    id?: string;
+    start?: string;
+    end?: string;
+  }>();
   const { courses, activeSection } = useWorkspaces();
   const { baseSchedules } = useAppStore();
   const { upsertBlock, isUpserting, deleteBlock, isDeleting } = useBaseSchedule();
@@ -112,10 +117,14 @@ export default function EditBlockModal() {
 
   // Time inputs and presets
   const [startTime, setStartTime] = useState<string>(
-    existingBlock ? existingBlock.start_time.slice(0, 5) : '09:00'
+    existingBlock
+      ? existingBlock.start_time.slice(0, 5)
+      : params.start || '09:00'
   );
   const [endTime, setEndTime] = useState<string>(
-    existingBlock ? existingBlock.end_time.slice(0, 5) : '10:30'
+    existingBlock
+      ? existingBlock.end_time.slice(0, 5)
+      : params.end || '10:30'
   );
   const [selectedPreset, setSelectedPreset] = useState<number | null>(() => {
     if (existingBlock) {
@@ -123,6 +132,11 @@ export default function EditBlockModal() {
         existingBlock.start_time.slice(0, 5),
         existingBlock.end_time.slice(0, 5)
       );
+      const match = DURATION_PRESETS.find((p) => p.minutes === dur);
+      return match ? match.minutes : null;
+    }
+    if (params.start && params.end) {
+      const dur = calculateDurationMinutes(params.start, params.end);
       const match = DURATION_PRESETS.find((p) => p.minutes === dur);
       return match ? match.minutes : null;
     }

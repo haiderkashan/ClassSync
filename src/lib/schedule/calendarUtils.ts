@@ -58,6 +58,16 @@ export function getLocalDateString(
   }
 }
 
+export function addDaysToDateString(dateStr: string, days: number): string {
+  const [y, m, d] = parseDateParts(dateStr);
+  const targetUtc = Date.UTC(y, m, d + days);
+  const targetDate = new Date(targetUtc);
+  const year = targetDate.getUTCFullYear();
+  const month = String(targetDate.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(targetDate.getUTCDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 /**
  * Returns the 'YYYY-MM-DD' date string for Tomorrow in the specified IANA timezone.
  */
@@ -66,13 +76,7 @@ export function getTomorrowDateString(
   fromDate: Date = new Date()
 ): string {
   const todayStr = getLocalDateString(fromDate, timezone);
-  const [y, m, d] = parseDateParts(todayStr);
-  const tomorrowUtc = Date.UTC(y, m, d + 1);
-  const tom = new Date(tomorrowUtc);
-  const year = tom.getUTCFullYear();
-  const month = String(tom.getUTCMonth() + 1).padStart(2, '0');
-  const day = String(tom.getUTCDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  return addDaysToDateString(todayStr, 1);
 }
 
 /**

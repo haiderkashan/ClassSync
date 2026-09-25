@@ -14,6 +14,7 @@ import {
   Hash,
   Layers,
   Coffee,
+  ChevronLeft,
   ChevronRight,
   Radio,
   Moon,
@@ -62,6 +63,7 @@ const DAYS_OF_WEEK = [
   { id: 4, name: 'Thursday', short: 'Thu' },
   { id: 5, name: 'Friday', short: 'Fri' },
   { id: 6, name: 'Saturday', short: 'Sat' },
+  { id: 7, name: 'Sunday', short: 'Sun' },
 ];
 
 /**
@@ -127,15 +129,17 @@ export default function AgendaScreen() {
     return jsDay === 0 ? 7 : jsDay;
   }, []);
 
-  const [selectedDay, setSelectedDay] = useState<number>(
-    todayDayOfWeek > 6 ? 1 : todayDayOfWeek
-  );
-  const isToday = selectedDay === todayDayOfWeek;
+  const [selectedDay, setSelectedDay] = useState<number>(todayDayOfWeek);
+  const [weekOffset, setWeekOffset] = useState<number>(0);
+  const isToday = weekOffset === 0 && selectedDay === todayDayOfWeek;
 
-  // Compute exact dates for the current week (Monday through Saturday)
+  // Compute exact dates for the active week (Monday through Sunday)
   const weekDates = useMemo(() => {
     const now = new Date();
     now.setHours(12, 0, 0, 0);
+    if (weekOffset !== 0) {
+      now.setDate(now.getDate() + weekOffset * 7);
+    }
     const currentJsDay = now.getDay() === 0 ? 7 : now.getDay();
     const monday = new Date(now);
     monday.setDate(now.getDate() - (currentJsDay - 1));
@@ -147,10 +151,29 @@ export default function AgendaScreen() {
         ...day,
         dateNumber: d.getDate(),
         fullDate: d,
-        isDeviceToday: todayDayOfWeek === day.id,
+        isDeviceToday: weekOffset === 0 && todayDayOfWeek === day.id,
       };
     });
-  }, [todayDayOfWeek]);
+  }, [todayDayOfWeek, weekOffset]);
+
+  const weekDateRangeFormatted = useMemo(() => {
+    if (weekDates.length === 0) return '';
+    const first = weekDates[0].fullDate;
+    const last = weekDates[weekDates.length - 1].fullDate;
+    const m1 = first.toLocaleDateString('en-US', { month: 'short' });
+    const d1 = first.getDate();
+    const m2 = last.toLocaleDateString('en-US', { month: 'short' });
+    const d2 = last.getDate();
+    return m1 === m2 ? `${m1} ${d1} – ${d2}` : `${m1} ${d1} – ${m2} ${d2}`;
+  }, [weekDates]);
+
+  const weekLabelText = useMemo(() => {
+    if (weekOffset === 0) return 'This Week';
+    if (weekOffset === 1) return 'Next Week';
+    if (weekOffset === 2) return 'In 2 Weeks';
+    if (weekOffset === -1) return 'Last Week';
+    return weekOffset > 0 ? `+${weekOffset} Weeks` : `${weekOffset} Weeks`;
+  }, [weekOffset]);
 
   // Derived calendar date string (YYYY-MM-DD) for currently selected day
   const selectedDateString = useMemo(() => {
@@ -427,7 +450,49 @@ export default function AgendaScreen() {
           </View>
         </View>
 
-        {/* Horizontal Weekday Strip (Stitch 6-Day Rail) */}
+        {/* Week Navigator Strip (Previous, Current/Next Week with Date Range, Next) */}
+        <View className="flex-row items-center justify-between mt-3 px-1 py-1.5 bg-neutral-100/90 rounded-2xl border border-neutral-200/60">
+          <Pressable
+            onPress={() => setWeekOffset((prev) => prev - 1)}
+            className="w-8 h-8 rounded-xl bg-white border border-neutral-200/80 items-center justify-center active:bg-neutral-50 shadow-2xs"
+            accessibilityLabel="Previous Week"
+          >
+            <ChevronLeft size={16} color="#18181B" strokeWidth={2.2} />
+          </Pressable>
+
+          <View className="flex-row items-center">
+            <Calendar size={13} color="#854D0E" strokeWidth={2.2} />
+            <Text className="text-xs font-black text-neutral-900 ml-1.5 tracking-tight">
+              {weekLabelText}
+            </Text>
+            <Text className="text-[11px] font-semibold text-neutral-500 ml-1.5">
+              ({weekDateRangeFormatted})
+            </Text>
+            {weekOffset !== 0 && (
+              <Pressable
+                onPress={() => {
+                  setWeekOffset(0);
+                  setSelectedDay(todayDayOfWeek);
+                }}
+                className="px-2 py-0.5 rounded-full bg-[#FACC15] ml-2"
+              >
+                <Text className="text-[10px] font-bold text-neutral-900">
+                  Today
+                </Text>
+              </Pressable>
+            )}
+          </View>
+
+          <Pressable
+            onPress={() => setWeekOffset((prev) => prev + 1)}
+            className="w-8 h-8 rounded-xl bg-white border border-neutral-200/80 items-center justify-center active:bg-neutral-50 shadow-2xs"
+            accessibilityLabel="Next Week"
+          >
+            <ChevronRight size={16} color="#18181B" strokeWidth={2.2} />
+          </Pressable>
+        </View>
+
+        {/* Horizontal Weekday Strip (Stitch 7-Day Rail) */}
         <View className="flex-row justify-between items-center mt-3 pt-1">
           {weekDates.map((day) => {
             const isSelected = selectedDay === day.id;
@@ -550,6 +615,22 @@ export default function AgendaScreen() {
                 ? 'Enjoy your free day! There are no classes or makeup sessions scheduled on your calendar today.'
                 : `There are no recurring classes or makeup sessions scheduled on ${getDayName(selectedDay)}.`}
             </Text>
+            {isSectionAdmin && (
+              <Pressable
+                onPress={() =>
+                  router.push({
+                    pathname: '/schedule/edit-block',
+                    params: { day: selectedDay.toString() },
+                  })
+                }
+                className="mt-4 px-4 py-2 rounded-full bg-neutral-900 flex-row items-center active:bg-neutral-800"
+              >
+                <Plus size={14} color="#FACC15" strokeWidth={2.5} />
+                <Text className="text-xs font-bold text-white ml-1.5">
+                  Schedule Class
+                </Text>
+              </Pressable>
+            )}
           </View>
         ) : (
           <View className="px-5 pt-3.5">

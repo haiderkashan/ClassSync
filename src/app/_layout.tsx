@@ -147,7 +147,7 @@ function SplashOverlay({ isDbHydrated }: { isDbHydrated: boolean }) {
   if (isLoaded && isDbHydrated) return null;
 
   return (
-    <View pointerEvents="none" className="absolute inset-0 items-center justify-center bg-white z-50">
+    <View style={{ pointerEvents: 'none' }} className="absolute inset-0 items-center justify-center bg-white z-50">
       <View className="w-20 h-20 rounded-3xl bg-brand-600 items-center justify-center mb-6 shadow-xl shadow-brand-600/30">
         <Calendar size={40} color="#ffffff" strokeWidth={2.2} />
       </View>

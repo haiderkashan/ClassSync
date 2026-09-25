@@ -34,7 +34,19 @@ export const clerkSupabaseClient = createClient<Database>(
         if (clerkToken) {
           headers.set('Authorization', `Bearer ${clerkToken}`);
         }
-        return fetch(url, { ...options, headers });
+        let res = await fetch(url, { ...options, headers });
+        if (res.status === 401) {
+          try {
+            const clone = res.clone();
+            const text = await clone.text();
+            if (text && text.includes('not yet valid')) {
+              // Wait 1000ms for client/server clock skew to align and retry
+              await new Promise((resolve) => setTimeout(resolve, 1000));
+              return fetch(url, { ...options, headers });
+            }
+          } catch {}
+        }
+        return res;
       },
     },
   }

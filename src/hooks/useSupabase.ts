@@ -13,18 +13,6 @@ export function useSupabase() {
     setClerkTokenGetter(async () => {
       try {
         const token = await getToken({ template: 'supabase' });
-        if (token) {
-          try {
-            const [headerB64, payloadB64] = token.split('.');
-            const header = typeof atob !== 'undefined' ? JSON.parse(atob(headerB64)) : {};
-            const payload = typeof atob !== 'undefined' ? JSON.parse(atob(payloadB64)) : {};
-            console.log('🔍 [Clerk JWT Diagnostic] alg:', header.alg, '| aud:', payload.aud, '| role:', payload.role, '| sub:', payload.sub);
-          } catch (e) {
-            console.log('🔍 [Clerk JWT Diagnostic] could not parse token header/payload');
-          }
-        } else {
-          console.warn('⚠️ [Clerk JWT Diagnostic] getToken returned null or empty');
-        }
         return token;
       } catch (error) {
         console.error('[useSupabase] Failed to fetch Clerk Supabase JWT:', error);

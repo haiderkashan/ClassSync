@@ -436,7 +436,7 @@ export default function SettingsScreen() {
               <View className="flex-row items-center space-x-2">
                 {isCR && (
                   <Pressable
-                    onPress={() => router.push('/cohort/roster')}
+                    onPress={() => router.push('/section-members')}
                     className="flex-1 py-2.5 px-3 rounded-xl bg-neutral-100 border border-neutral-200/80 items-center justify-center active:bg-neutral-200"
                   >
                     <Text className="text-xs font-bold text-neutral-800">
@@ -517,7 +517,7 @@ export default function SettingsScreen() {
             </View>
 
             <Pressable
-              onPress={() => router.push('/attendance/course-analytics')}
+              onPress={() => router.push('/attendance/course-metrics')}
               className="px-3 py-2 bg-neutral-100 rounded-xl active:bg-neutral-200 flex-row items-center space-x-1"
             >
               <Text className="text-xs font-bold text-neutral-800">Simulator</Text>
@@ -586,6 +586,15 @@ export default function SettingsScreen() {
                   Save Semester Settings
                 </Text>
               )}
+            </Pressable>
+
+            <Pressable
+              onPress={() => router.push('/schedule/calendar-settings')}
+              className="mt-2 py-2.5 bg-neutral-100 border border-neutral-200/80 rounded-xl items-center justify-center active:bg-neutral-200"
+            >
+              <Text className="text-xs font-bold text-neutral-800">
+                Manage Term Breaks & Calendar
+              </Text>
             </Pressable>
           </View>
         )}

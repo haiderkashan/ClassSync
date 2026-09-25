@@ -687,6 +687,17 @@ export default function AgendaScreen() {
                         });
                       }
                     }}
+                    onBroadcastPress={(b) => {
+                      if (isSectionAdmin) {
+                        router.push({
+                          pathname: '/schedule/broadcast-exception',
+                          params: {
+                            base_schedule_id: b.id,
+                            override_date: selectedDateString,
+                          },
+                        });
+                      }
+                    }}
                   />
                 </View>
               );

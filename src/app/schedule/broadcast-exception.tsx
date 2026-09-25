@@ -88,13 +88,8 @@ export default function BroadcastExceptionModal() {
   const { upsertOverride, deleteOverride, isUpserting, isDeleting } =
     useScheduleOverrides({ enableRealtime: false });
 
-  // Lookup the recurring base block from store (if editing an existing recurring block)
-  const baseBlock = useMemo(() => {
-    if (!base_schedule_id) return null;
-    return baseSchedules.find((b) => b.id === base_schedule_id) ?? null;
-  }, [base_schedule_id, baseSchedules]);
-
-  const isMakeup = !base_schedule_id;
+  // Selected target block ID (passed via params or selected dynamically on selectedDate)
+  const [targetBlockId, setTargetBlockId] = useState<string | null>(base_schedule_id || null);
 
   // Resolve target calendar date (defaults to param or today)
   const defaultToday = useMemo(() => getLocalDateString(new Date(), timezone), [timezone]);
@@ -105,6 +100,28 @@ export default function BroadcastExceptionModal() {
   const [selectedDate, setSelectedDate] = useState<string>(
     paramOverrideDate || defaultToday
   );
+
+  // Derive day of week for selectedDate (1=Mon ... 7=Sun)
+  const selectedDayOfWeek = useMemo(() => {
+    if (!selectedDate || !/^\d{4}-\d{2}-\d{2}$/.test(selectedDate)) return 1;
+    const [y, m, d] = selectedDate.split('-').map(Number);
+    const jsDay = new Date(y, m - 1, d).getDay();
+    return jsDay === 0 ? 7 : jsDay;
+  }, [selectedDate]);
+
+  // Scheduled blocks on this day of week
+  const dayClasses = useMemo(() => {
+    return baseSchedules.filter((b) => b.day_of_week === selectedDayOfWeek);
+  }, [baseSchedules, selectedDayOfWeek]);
+
+  // Lookup the recurring base block from store
+  const baseBlock = useMemo(() => {
+    if (!targetBlockId) return null;
+    return baseSchedules.find((b) => b.id === targetBlockId) ?? null;
+  }, [targetBlockId, baseSchedules]);
+
+  const isMakeup = !baseBlock;
+
   const [showDatePicker, setShowDatePicker] = useState<boolean>(false);
   const [datePickerValue, setDatePickerValue] = useState<Date>(() => {
     if (paramOverrideDate && /^\d{4}-\d{2}-\d{2}$/.test(paramOverrideDate)) {
@@ -121,11 +138,11 @@ export default function BroadcastExceptionModal() {
       overrides.find(
         (o) =>
           o.override_date === selectedDate &&
-          ((base_schedule_id && o.base_schedule_id === base_schedule_id) ||
+          ((targetBlockId && o.base_schedule_id === targetBlockId) ||
             (isMakeup && paramCourseId && o.course_id === paramCourseId))
       ) ?? null
     );
-  }, [overrides, selectedDate, base_schedule_id, isMakeup, paramCourseId]);
+  }, [overrides, selectedDate, targetBlockId, isMakeup, paramCourseId]);
 
   // Form states
   const [status, setStatus] = useState<ScheduleOverrideStatus>(() => {
@@ -472,6 +489,78 @@ export default function BroadcastExceptionModal() {
               </View>
             )}
           </View>
+
+          {/* Target Class Selection on Selected Date (when no base_schedule_id was pinned via route params) */}
+          {!base_schedule_id && (
+            <View className="bg-white rounded-3xl p-4 mb-4 border border-neutral-100/90 shadow-2xs">
+              <View className="flex-row items-center justify-between mb-2.5">
+                <Text className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider">
+                  Target Class on {selectedDate}
+                </Text>
+                <Text className="text-[10px] font-mono font-bold text-neutral-500">
+                  {dayClasses.length} Scheduled
+                </Text>
+              </View>
+
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row -mx-1">
+                {dayClasses.map((cls) => {
+                  const isSelected = targetBlockId === cls.id;
+                  const cName =
+                    cls.course?.name ||
+                    courses.find((c) => c.id === cls.course_id)?.name ||
+                    'Class';
+                  return (
+                    <Pressable
+                      key={cls.id}
+                      onPress={() => {
+                        setTargetBlockId(cls.id);
+                        setStatus('cancelled');
+                      }}
+                      className={`mx-1 px-3.5 py-2.5 rounded-2xl border transition-all ${
+                        isSelected
+                          ? 'bg-neutral-900 border-neutral-900 shadow-2xs'
+                          : 'bg-neutral-50 border-neutral-200/80 active:bg-neutral-100'
+                      }`}
+                    >
+                      <Text
+                        className={`text-xs font-bold ${
+                          isSelected ? 'text-white' : 'text-neutral-800'
+                        }`}
+                      >
+                        {cName}
+                      </Text>
+                      <Text
+                        className={`text-[10px] font-mono mt-0.5 ${
+                          isSelected ? 'text-[#FACC15]' : 'text-neutral-500'
+                        }`}
+                      >
+                        {formatTime12Hour(cls.start_time)} - {formatTime12Hour(cls.end_time)}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+
+                <Pressable
+                  onPress={() => {
+                    setTargetBlockId(null);
+                    setStatus('scheduled');
+                  }}
+                  className={`mx-1 px-3.5 py-2.5 rounded-2xl border transition-all items-center justify-center ${
+                    targetBlockId === null
+                      ? 'bg-[#FACC15] border-[#FACC15] shadow-2xs'
+                      : 'bg-amber-50/60 border-amber-200/80 active:bg-amber-100'
+                  }`}
+                >
+                  <Text className="text-xs font-bold text-neutral-900">
+                    + Makeup Class
+                  </Text>
+                  <Text className="text-[10px] font-medium text-neutral-700 mt-0.5">
+                    Ad-hoc session
+                  </Text>
+                </Pressable>
+              </ScrollView>
+            </View>
+          )}
 
           {/* Session Overview Card */}
           {baseBlock && (

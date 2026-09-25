@@ -15,6 +15,7 @@ import {
   X,
   ShieldAlert,
   Lock,
+  Radio,
 } from 'lucide-react-native';
 import type { BaseScheduleRow } from '@/store/useAppStore';
 import type { CompiledScheduleItem } from '@/lib/schedule/scheduleCompiler';
@@ -36,6 +37,7 @@ export interface ScheduleBlockCardProps {
   block: BaseScheduleRow | CompiledScheduleItem | any;
   onPress?: (block: any) => void;
   onLongPress?: (block: any) => void;
+  onBroadcastPress?: (block: any) => void;
   readOnly?: boolean;
   isAdmin?: boolean;
   date?: string; // Target calendar date 'YYYY-MM-DD'
@@ -48,6 +50,7 @@ export function ScheduleBlockCard({
   block,
   onPress,
   onLongPress,
+  onBroadcastPress,
   readOnly = false,
   isAdmin = false,
   date,
@@ -429,6 +432,44 @@ export function ScheduleBlockCard({
                 </View>
               </View>
             )}
+          </View>
+        )}
+
+        {/* 8. CR Controls Quick Actions Toolbar */}
+        {isAdmin && !readOnly && (
+          <View className="mt-2.5 pt-2 border-t border-neutral-100 flex-row items-center justify-between">
+            <View className="flex-row items-center">
+              <View className="w-1.5 h-1.5 rounded-full bg-[#FACC15] mr-1.5" />
+              <Text className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">
+                CR Controls
+              </Text>
+            </View>
+            <View className="flex-row items-center space-x-1.5">
+              <Pressable
+                onPress={(e) => {
+                  e.stopPropagation();
+                  (onBroadcastPress || onLongPress)?.(block);
+                }}
+                className="px-2.5 py-1 rounded-full bg-[#FEF08A] border border-[#FACC15] flex-row items-center active:bg-[#FACC15]"
+              >
+                <Radio size={11} color="#854D0E" />
+                <Text className="text-[10px] font-black text-neutral-900 ml-1">
+                  {isCancelled ? 'Update Alert' : 'Alert / Cancel'}
+                </Text>
+              </Pressable>
+
+              <Pressable
+                onPress={(e) => {
+                  e.stopPropagation();
+                  onPress?.(block);
+                }}
+                className="px-2.5 py-1 rounded-full bg-neutral-100 border border-neutral-200/80 flex-row items-center active:bg-neutral-200 ml-1.5"
+              >
+                <Text className="text-[10px] font-bold text-neutral-700">
+                  Edit Slot
+                </Text>
+              </Pressable>
+            </View>
           </View>
         )}
       </View>

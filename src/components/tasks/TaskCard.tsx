@@ -283,6 +283,9 @@ export function TaskCard({
         {/* Checkbox (Stitch Squircle) */}
         <Pressable
           onPress={() => onToggleComplete(task.id)}
+          accessibilityRole="checkbox"
+          aria-label="Toggle task completion"
+          aria-checked={isCompleted}
           hitSlop={12}
           className={`w-6 h-6 rounded-lg items-center justify-center transition-all ${
             isCompleted

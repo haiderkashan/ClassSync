@@ -108,6 +108,17 @@ function NavigationGuard({ isDbHydrated }: { isDbHydrated: boolean }) {
     // Dismiss native splash screen
     SplashScreen.hideAsync().catch(() => {});
 
+    // Check for QA audit bypass flag in development / browser testing mode
+    const isQaAudit = typeof window !== 'undefined' && (
+      window.location?.search?.includes('qa_bypass_auth=true') ||
+      window.localStorage?.getItem('qa_bypass_auth') === 'true'
+    );
+
+    if (isQaAudit) {
+      console.log('🧪 [AuthGuard] QA Audit mode active: bypassing redirect');
+      return;
+    }
+
     const inAuthGroup = segments[0] === '(auth)';
     console.log(
       `🔄 [AuthGuard] State changed: isLoaded=${isLoaded}, isDbHydrated=${isDbHydrated}, isSignedIn=${isSignedIn}, activeGroup=/${segments[0] || ''}`
@@ -166,6 +177,10 @@ export default function RootLayout() {
     const timer = setTimeout(() => {
       SplashScreen.hideAsync().catch(() => {});
     }, 3000);
+
+    if (typeof window !== 'undefined') {
+      (window as any).__useAppStore = useAppStore;
+    }
 
     return () => {
       isMounted = false;

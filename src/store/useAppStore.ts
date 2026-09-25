@@ -240,7 +240,12 @@ export const useAppStore = create<AppState>()(
         activeSectionId: state.activeSectionId,
         activeSections: state.activeSections,
         activeCourses: state.activeCourses,
+        baseSchedules: state.baseSchedules,
+        overrides: state.overrides,
         currentParity: state.currentParity,
+        tasks: state.tasks,
+        taskCompletions: state.taskCompletions,
+        attendanceLogs: state.attendanceLogs,
         pushToken: state.pushToken,
         notificationSettings: state.notificationSettings,
         pendingJoinCode: state.pendingJoinCode,
@@ -252,7 +257,7 @@ export const useAppStore = create<AppState>()(
             console.error('❌ [Zustand] Failed to rehydrate offline storage:', error);
           } else {
             console.log(
-              `💾 [Zustand] Offline session hydration completed: ${state?.activeSections.length ?? 0} section(s), ${state?.activeCourses.length ?? 0} course(s), activeSectionId=${state?.activeSectionId ?? 'none'}, pushToken=${state?.pushToken ? 'configured' : 'none'}`
+              `💾 [Zustand] Offline session hydration completed: ${state?.activeSections.length ?? 0} section(s), ${state?.activeCourses.length ?? 0} course(s), ${state?.baseSchedules.length ?? 0} schedule(s), activeSectionId=${state?.activeSectionId ?? 'none'}, pushToken=${state?.pushToken ? 'configured' : 'none'}`
             );
             state?.setHydrated(true);
           }

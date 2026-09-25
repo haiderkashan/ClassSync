@@ -338,8 +338,10 @@ export default function EditBlockModal() {
 
           <Pressable
             onPress={() => router.back()}
-            className="w-9 h-9 rounded-full bg-neutral-100 border border-neutral-200/80 items-center justify-center active:bg-neutral-200"
+            accessibilityRole="button"
             accessibilityLabel="Close modal"
+            testID="btn-close-edit-block"
+            className="w-9 h-9 rounded-full bg-neutral-100 border border-neutral-200/80 items-center justify-center active:bg-neutral-200"
           >
             <X size={18} color="#18181B" />
           </Pressable>
@@ -400,6 +402,9 @@ export default function EditBlockModal() {
                     <Pressable
                       key={course.id}
                       onPress={() => setSelectedCourseId(course.id)}
+                      accessibilityRole="button"
+                      accessibilityLabel={course.name}
+                      testID={`course-item-${course.id}`}
                       className={`mr-2.5 px-4 py-3 rounded-2xl border min-w-[200px] flex-col justify-between transition-all ${
                         isSelected
                           ? 'bg-[#FACC15]/10 border-[#EAB308] shadow-xs'
@@ -464,6 +469,9 @@ export default function EditBlockModal() {
                   <Pressable
                     key={d.id}
                     onPress={() => setDayOfWeek(d.id)}
+                    accessibilityRole="button"
+                    accessibilityLabel={d.label}
+                    testID={`edit-day-${d.label.toLowerCase()}`}
                     className={`flex-1 mx-0.5 py-2.5 rounded-xl items-center justify-center border transition-all ${
                       isSelected
                         ? 'bg-[#FACC15] border-[#EAB308] shadow-2xs'
@@ -753,6 +761,9 @@ export default function EditBlockModal() {
           <Pressable
             onPress={handleSave}
             disabled={isUpserting}
+            accessibilityRole="button"
+            accessibilityLabel={params.id ? 'Save Schedule Block' : 'Add to Timetable'}
+            testID="btn-submit-schedule-block"
             className={`w-full py-4 rounded-2xl items-center justify-center flex-row space-x-2 shadow-sm ${
               isUpserting
                 ? 'bg-neutral-300'

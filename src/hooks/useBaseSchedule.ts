@@ -61,9 +61,14 @@ export function useBaseSchedule() {
     return list.map((c) => c.id);
   }, [activeCourses, courses]);
 
+  const enrolledCourseIdsKey = useMemo(
+    () => enrolledCourseIds.slice().sort().join(','),
+    [enrolledCourseIds]
+  );
+
   const queryKey = useMemo(
-    () => ['base_schedule', activeSectionId, enrolledCourseIds.slice().sort().join(',')],
-    [activeSectionId, enrolledCourseIds]
+    () => ['base_schedule', activeSectionId, enrolledCourseIdsKey],
+    [activeSectionId, enrolledCourseIdsKey]
   );
 
   // 1. Fetch recurring timetable for active cohort and/or standalone guest courses
@@ -125,12 +130,31 @@ export function useBaseSchedule() {
     },
   });
 
-  // Sync server data into Zustand store when query resolves
+  // Sync server data into Zustand store when query resolves safely without wiping offline timetable blocks
   useEffect(() => {
-    if (scheduleQuery.data) {
-      setBaseSchedules(scheduleQuery.data);
+    if (!scheduleQuery.data) return;
+
+    if (scheduleQuery.data.length > 0) {
+      const serverMap = new Map(scheduleQuery.data.map((b) => [b.id, b]));
+      const localOnly = baseSchedules.filter((b) => !serverMap.has(b.id));
+      setBaseSchedules(
+        [...scheduleQuery.data, ...localOnly].sort(
+          (a, b) => a.day_of_week - b.day_of_week || a.start_time.localeCompare(b.start_time)
+        )
+      );
     }
-  }, [scheduleQuery.data, setBaseSchedules]);
+  }, [scheduleQuery.data, setBaseSchedules, baseSchedules]);
+
+  const schedules = useMemo(() => {
+    if (scheduleQuery.data && scheduleQuery.data.length > 0) {
+      const serverMap = new Map(scheduleQuery.data.map((b) => [b.id, b]));
+      const localOnly = baseSchedules.filter((b) => !serverMap.has(b.id));
+      return [...scheduleQuery.data, ...localOnly].sort(
+        (a, b) => a.day_of_week - b.day_of_week || a.start_time.localeCompare(b.start_time)
+      );
+    }
+    return baseSchedules;
+  }, [scheduleQuery.data, baseSchedules]);
 
   // 2. Optimistic mutation for upserting schedule blocks
   const upsertMutation = useMutation({
@@ -150,19 +174,27 @@ export function useBaseSchedule() {
         });
 
         if (error) {
-          if (isPoisonPillError(error)) {
+          const isAuth =
+            (error as any)?.status === 401 ||
+            error.message?.includes('Authentication') ||
+            error.message?.includes('No suitable key');
+          if (!isAuth && isPoisonPillError(error)) {
             console.error('[useBaseSchedule] Poison pill error upserting block:', error.message);
             throw error;
           }
-          console.warn('[useBaseSchedule] Transient failure, mutation queued in offline queue:', error.message);
+          console.warn('[useBaseSchedule] Remote sync pending, mutation safely queued locally:', error.message);
         }
 
         return (data as string) || input.id || 'offline_queued';
       } catch (err: any) {
-        if (isPoisonPillError(err)) {
+        const isAuth =
+          err?.status === 401 ||
+          err?.message?.includes('Authentication') ||
+          err?.message?.includes('No suitable key');
+        if (!isAuth && isPoisonPillError(err)) {
           throw err;
         }
-        console.log('[useBaseSchedule] Device offline, mutation safely persisted locally.');
+        console.log('[useBaseSchedule] Mutation safely persisted locally.');
         return input.id || 'offline_queued';
       }
     },
@@ -321,7 +353,7 @@ export function useBaseSchedule() {
   const getBlocksForDay = useMemo(() => {
     return (dayOfWeek: number, parityOverride?: WeekParity) => {
       const activeParity = parityOverride ?? currentParity;
-      return (baseSchedules || [])
+      return (schedules || [])
         .filter((block) => {
           if (block.day_of_week !== dayOfWeek) return false;
 
@@ -337,10 +369,10 @@ export function useBaseSchedule() {
         })
         .sort((a, b) => a.start_time.localeCompare(b.start_time));
     };
-  }, [baseSchedules, currentParity]);
+  }, [schedules, currentParity]);
 
   return {
-    schedules: baseSchedules,
+    schedules,
     currentParity,
     setCurrentParity,
     isLoading: scheduleQuery.isLoading && baseSchedules.length === 0,

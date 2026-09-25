@@ -322,20 +322,22 @@ export default function BroadcastExceptionModal() {
       <View className="px-5 py-3.5 flex-row items-center justify-between border-b border-neutral-200/60 bg-white">
         <View className="flex-row items-center space-x-2.5">
           <View className="w-9 h-9 rounded-2xl bg-amber-500/10 items-center justify-center border border-amber-500/20">
-            <Radio size={18} color="#d97706" />
+            {isMakeup ? <Sparkles size={18} color="#d97706" /> : <Radio size={18} color="#d97706" />}
           </View>
           <View className="ml-2">
             <Text className="text-base font-black text-neutral-900 tracking-tight">
-              {isMakeup ? 'Broadcast Makeup Class' : 'Live Status Broadcast'}
+              {isMakeup ? 'Schedule Makeup Class' : 'Broadcast Class Exception'}
             </Text>
             <Text className="text-[11px] font-bold text-neutral-400">
-              {courseDetails?.name || 'Class Exception Alert'}
+              {courseDetails?.name || (isMakeup ? 'Extra Academic Session' : 'Class Exception Alert')}
             </Text>
           </View>
         </View>
 
         <Pressable
           onPress={() => router.back()}
+          accessibilityRole="button"
+          testID="btn-close-broadcast-modal"
           className="w-9 h-9 rounded-full bg-neutral-100 items-center justify-center active:bg-neutral-200"
           accessibilityLabel="Close"
         >
@@ -738,6 +740,8 @@ export default function BroadcastExceptionModal() {
               {/* Cancelled */}
               <Pressable
                 onPress={() => setStatus('cancelled')}
+                accessibilityRole="button"
+                testID="option-status-cancelled"
                 className={`p-3.5 rounded-2xl border flex-row items-center justify-between transition-all ${
                   status === 'cancelled'
                     ? 'bg-rose-50/80 border-rose-300 shadow-2xs'
@@ -953,6 +957,8 @@ export default function BroadcastExceptionModal() {
           <Pressable
             onPress={handleBroadcast}
             disabled={isUpserting}
+            accessibilityRole="button"
+            testID="btn-broadcast-submit"
             className={`w-full py-4 rounded-full items-center justify-center flex-row space-x-2 shadow-md ${
               isUpserting
                 ? 'bg-neutral-400'

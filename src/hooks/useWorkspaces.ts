@@ -87,25 +87,30 @@ export function useWorkspaces() {
     },
   });
 
-  // Sync server data into Zustand store
+  // Sync server data into Zustand store safely without wiping offline creations
   useEffect(() => {
     if (!data) return;
 
-    setActiveSections(data.sections);
-    setActiveCourses(data.courses);
+    if (data.sections && data.sections.length > 0) {
+      setActiveSections(data.sections);
+    }
+
+    if (data.courses) {
+      const serverMap = new Map(data.courses.map((c) => [c.id, c]));
+      const localOnly = activeCourses.filter((c) => !serverMap.has(c.id));
+      setActiveCourses([...data.courses, ...localOnly]);
+    }
 
     if (data.sections.length > 0) {
       const exists = data.sections.some((s) => s.id === activeSectionId);
       if (!activeSectionId || !exists) {
         setActiveSectionId(data.sections[0].id);
       }
-    } else {
-      setActiveSectionId(null);
     }
-  }, [data, activeSectionId, setActiveSectionId, setActiveSections, setActiveCourses]);
+  }, [data, activeSectionId, setActiveSectionId, setActiveSections, setActiveCourses, activeCourses]);
 
-  const sections = data?.sections ?? activeSections;
-  const courses = data?.courses ?? activeCourses;
+  const sections = (data?.sections && data.sections.length > 0) ? data.sections : activeSections;
+  const courses = (data?.courses && data.courses.length > 0) ? data.courses : activeCourses;
   const activeSection =
     sections.find((s) => s.id === activeSectionId) ?? (sections.length > 0 ? sections[0] : null);
 

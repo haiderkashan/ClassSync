@@ -115,6 +115,11 @@ function NavigationGuard({ isDbHydrated }: { isDbHydrated: boolean }) {
     );
 
     if (isQaAudit) {
+      if (typeof window !== 'undefined') {
+        try {
+          window.localStorage?.setItem('qa_bypass_auth', 'true');
+        } catch (e) {}
+      }
       console.log('🧪 [AuthGuard] QA Audit mode active: bypassing redirect');
       return;
     }

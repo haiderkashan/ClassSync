@@ -158,8 +158,10 @@ export default function ScheduleBuilderScreen() {
           <View className="flex-row items-center space-x-2.5 flex-1 mr-2">
             <Pressable
               onPress={() => router.back()}
-              className="w-9 h-9 rounded-full bg-neutral-100 items-center justify-center active:bg-neutral-200"
+              accessibilityRole="button"
               accessibilityLabel="Back"
+              testID="btn-builder-back"
+              className="w-9 h-9 rounded-full bg-neutral-100 items-center justify-center active:bg-neutral-200"
             >
               <ArrowLeft size={18} color="#18181B" />
             </Pressable>
@@ -182,7 +184,9 @@ export default function ScheduleBuilderScreen() {
               <Pressable
                 onPress={() => setIsCloneModalVisible(true)}
                 className="flex-row items-center space-x-1 bg-neutral-100 border border-neutral-200/80 px-2.5 py-1.5 rounded-xl active:bg-neutral-200"
+                accessibilityRole="button"
                 accessibilityLabel="Clone Day"
+                testID="btn-header-clone"
               >
                 <Copy size={13} color="#18181B" strokeWidth={2} />
                 <Text className="text-xs font-bold text-neutral-800 ml-1">Clone</Text>
@@ -193,7 +197,9 @@ export default function ScheduleBuilderScreen() {
               <Pressable
                 onPress={() => router.push(`/schedule/edit-block?day=${selectedDay}`)}
                 className="flex-row items-center space-x-1 bg-[#FACC15] px-3 py-1.5 rounded-xl active:bg-yellow-400 shadow-2xs"
+                accessibilityRole="button"
                 accessibilityLabel="Add Class"
+                testID="btn-header-add-class"
               >
                 <Plus size={14} color="#18181B" strokeWidth={2.5} />
                 <Text className="text-xs font-black text-neutral-950 ml-0.5">Add</Text>
@@ -216,6 +222,8 @@ export default function ScheduleBuilderScreen() {
               <Pressable
                 key={day.id}
                 onPress={() => setSelectedDay(day.id)}
+                accessibilityRole="button"
+                testID={`builder-day-${day.short.toLowerCase()}`}
                 className={`mr-2 min-w-[54px] py-2 px-2.5 rounded-xl flex-col items-center justify-center border transition-all ${
                   isSelected
                     ? 'bg-[#FACC15] border-[#EAB308] shadow-sm'
@@ -366,6 +374,8 @@ export default function ScheduleBuilderScreen() {
             {isSectionAdmin && (
               <Pressable
                 onPress={() => router.push(`/schedule/edit-block?day=${selectedDay}`)}
+                accessibilityRole="button"
+                testID="btn-add-first-class"
                 className="flex-row items-center space-x-1.5 bg-[#FACC15] px-4 py-2.5 rounded-full active:bg-yellow-400 shadow-sm"
               >
                 <Plus size={15} color="#18181B" strokeWidth={2.5} />
@@ -548,8 +558,10 @@ export default function ScheduleBuilderScreen() {
           <View className="flex-row items-center space-x-2">
             <Pressable
               onPress={() => router.push(`/schedule/edit-block?day=${selectedDay}`)}
-              className="flex-1 h-12 rounded-2xl bg-[#FACC15] items-center justify-center flex-row space-x-2 shadow-sm active:bg-yellow-400"
+              accessibilityRole="button"
               accessibilityLabel="Add Time Slot"
+              testID="btn-add-time-slot"
+              className="flex-1 h-12 rounded-2xl bg-[#FACC15] items-center justify-center flex-row space-x-2 shadow-sm active:bg-yellow-400"
             >
               <PlusCircle size={18} color="#18181B" strokeWidth={2.5} />
               <Text className="text-sm font-black text-neutral-950 tracking-wide ml-1">

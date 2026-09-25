@@ -354,6 +354,9 @@ export default function AgendaScreen() {
           <View className="flex-row items-center space-x-2">
             {isSectionAdmin && (
               <Pressable
+                testID="btn-makeup"
+                accessibilityRole="button"
+                accessibilityLabel="Schedule Makeup Class"
                 onPress={() =>
                   router.push({
                     pathname: '/schedule/broadcast-exception',
@@ -362,9 +365,9 @@ export default function AgendaScreen() {
                 }
                 className="px-2.5 py-1.5 rounded-full bg-[#FEF08A] border border-[#FACC15] flex-row items-center active:bg-[#FACC15] transition-all"
               >
-                <Radio size={12} color="#854D0E" />
+                <Sparkles size={12} color="#854D0E" />
                 <Text className="text-[11px] font-bold text-neutral-900 ml-1">
-                  + Alert
+                  + Makeup
                 </Text>
               </Pressable>
             )}
@@ -454,8 +457,10 @@ export default function AgendaScreen() {
         <View className="flex-row items-center justify-between mt-3 px-1 py-1.5 bg-neutral-100/90 rounded-2xl border border-neutral-200/60">
           <Pressable
             onPress={() => setWeekOffset((prev) => prev - 1)}
-            className="w-8 h-8 rounded-xl bg-white border border-neutral-200/80 items-center justify-center active:bg-neutral-50 shadow-2xs"
+            accessibilityRole="button"
+            testID="btn-prev-week"
             accessibilityLabel="Previous Week"
+            className="w-8 h-8 rounded-xl bg-white border border-neutral-200/80 items-center justify-center active:bg-neutral-50 shadow-2xs"
           >
             <ChevronLeft size={16} color="#18181B" strokeWidth={2.2} />
           </Pressable>
@@ -474,6 +479,8 @@ export default function AgendaScreen() {
                   setWeekOffset(0);
                   setSelectedDay(todayDayOfWeek);
                 }}
+                accessibilityRole="button"
+                testID="btn-week-today"
                 className="px-2 py-0.5 rounded-full bg-[#FACC15] ml-2"
               >
                 <Text className="text-[10px] font-bold text-neutral-900">
@@ -485,8 +492,10 @@ export default function AgendaScreen() {
 
           <Pressable
             onPress={() => setWeekOffset((prev) => prev + 1)}
-            className="w-8 h-8 rounded-xl bg-white border border-neutral-200/80 items-center justify-center active:bg-neutral-50 shadow-2xs"
+            accessibilityRole="button"
+            testID="btn-next-week"
             accessibilityLabel="Next Week"
+            className="w-8 h-8 rounded-xl bg-white border border-neutral-200/80 items-center justify-center active:bg-neutral-50 shadow-2xs"
           >
             <ChevronRight size={16} color="#18181B" strokeWidth={2.2} />
           </Pressable>
@@ -499,6 +508,9 @@ export default function AgendaScreen() {
             return (
               <Pressable
                 key={day.id}
+                testID={`day-pill-${day.id}`}
+                accessibilityRole="button"
+                accessibilityLabel={`${day.short} ${day.dateNumber}`}
                 onPress={() => setSelectedDay(day.id)}
                 className={`flex-1 mx-0.5 py-2 rounded-2xl items-center justify-center transition-all ${
                   isSelected
@@ -593,6 +605,9 @@ export default function AgendaScreen() {
 
             <Pressable
               onPress={() => router.push('/schedule/builder')}
+              accessibilityRole="button"
+              accessibilityLabel="Open Timetable Builder"
+              testID="btn-builder"
               className="bg-[#18181B] px-3 py-1.5 rounded-full flex-row items-center active:bg-neutral-800"
             >
               <Text className="text-xs font-bold text-white">Builder</Text>
@@ -623,6 +638,9 @@ export default function AgendaScreen() {
                     params: { day: selectedDay.toString() },
                   })
                 }
+                accessibilityRole="button"
+                accessibilityLabel="Schedule Class"
+                testID="btn-schedule-class"
                 className="mt-4 px-4 py-2 rounded-full bg-neutral-900 flex-row items-center active:bg-neutral-800"
               >
                 <Plus size={14} color="#FACC15" strokeWidth={2.5} />

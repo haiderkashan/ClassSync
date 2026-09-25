@@ -71,13 +71,18 @@ function FloatingTabBar({ state, descriptors, navigation }: CustomTabBarProps) {
             return null;
           };
 
+          const tabA11yLabel =
+            options.tabBarAccessibilityLabel ||
+            (typeof label === 'string' ? label : route.name);
+
           if (isFocused) {
             return (
               <Pressable
                 key={route.key}
+                testID={`tab-${route.name}`}
                 accessibilityRole="button"
                 accessibilityState={{ selected: true }}
-                accessibilityLabel={options.tabBarAccessibilityLabel}
+                accessibilityLabel={tabA11yLabel}
                 onPress={onPress}
                 onLongPress={onLongPress}
                 style={styles.activePill}
@@ -93,9 +98,10 @@ function FloatingTabBar({ state, descriptors, navigation }: CustomTabBarProps) {
           return (
             <Pressable
               key={route.key}
+              testID={`tab-${route.name}`}
               accessibilityRole="button"
               accessibilityState={{ selected: false }}
-              accessibilityLabel={options.tabBarAccessibilityLabel}
+              accessibilityLabel={tabA11yLabel}
               onPress={onPress}
               onLongPress={onLongPress}
               style={styles.inactiveTarget}

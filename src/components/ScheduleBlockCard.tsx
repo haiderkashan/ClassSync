@@ -450,6 +450,8 @@ export function ScheduleBlockCard({
                   e.stopPropagation();
                   (onBroadcastPress || onLongPress)?.(block);
                 }}
+                accessibilityRole="button"
+                testID="btn-card-alert-cancel"
                 className="px-2.5 py-1 rounded-full bg-[#FEF08A] border border-[#FACC15] flex-row items-center active:bg-[#FACC15]"
               >
                 <Radio size={11} color="#854D0E" />

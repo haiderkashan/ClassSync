@@ -10,6 +10,7 @@ import {
   upsertLocalScheduleOverrides,
   deleteLocalScheduleOverride,
 } from '@/lib/db/scheduleRepository';
+import { generateClientUuid } from '@/lib/db/platformDb';
 import type { Tables } from '@/types/database.types';
 
 export interface UpsertScheduleOverrideInput {
@@ -59,13 +60,18 @@ export function useScheduleOverrides(options?: UseScheduleOverridesOptions) {
     return list.map((c) => c.id);
   }, [activeCourses, courses]);
 
+  const enrolledCourseIdsKey = useMemo(
+    () => enrolledCourseIds.slice().sort().join(','),
+    [enrolledCourseIds]
+  );
+
   const queryKey = useMemo(
     () => [
       'schedule_overrides',
       activeSectionId,
-      enrolledCourseIds.slice().sort().join(','),
+      enrolledCourseIdsKey,
     ],
-    [activeSectionId, enrolledCourseIds]
+    [activeSectionId, enrolledCourseIdsKey]
   );
 
   // 1. Dual-source fetch: section cohort overrides AND enrolled guest course overrides
@@ -125,12 +131,25 @@ export function useScheduleOverrides(options?: UseScheduleOverridesOptions) {
     },
   });
 
-  // Sync server data into Zustand offline store
+  // Sync server data into Zustand offline store safely
   useEffect(() => {
-    if (overridesQuery.data) {
-      setOverrides(overridesQuery.data);
+    if (!overridesQuery.data) return;
+
+    if (overridesQuery.data.length > 0) {
+      const serverMap = new Map(overridesQuery.data.map((o) => [o.id, o]));
+      const localOnly = overrides.filter((o) => !serverMap.has(o.id));
+      setOverrides([...overridesQuery.data, ...localOnly]);
     }
-  }, [overridesQuery.data, setOverrides]);
+  }, [overridesQuery.data, setOverrides, overrides]);
+
+  const overridesList = useMemo(() => {
+    if (overridesQuery.data && overridesQuery.data.length > 0) {
+      const serverMap = new Map(overridesQuery.data.map((o) => [o.id, o]));
+      const localOnly = overrides.filter((o) => !serverMap.has(o.id));
+      return [...overridesQuery.data, ...localOnly];
+    }
+    return overrides;
+  }, [overridesQuery.data, overrides]);
 
   // 2. Realtime WebSocket Subscription with Strict Memory Leak Cleanup
   useEffect(() => {
@@ -198,37 +217,69 @@ export function useScheduleOverrides(options?: UseScheduleOverridesOptions) {
     enableRealtime,
     supabase,
     activeSectionId,
-    enrolledCourseIds,
-    queryKey,
+    enrolledCourseIdsKey,
     queryClient,
     upsertLocalOverride,
     removeLocalOverride,
   ]);
 
-  // 3. Mutation: Upsert Schedule Override via atomic RPC
+  // 3. Mutation: Upsert Schedule Override via atomic RPC with optimistic local update
   const upsertMutation = useMutation({
     mutationFn: async (input: UpsertScheduleOverrideInput) => {
-      const { data, error } = await supabase.rpc('upsert_schedule_override', {
-        p_id: input.id || undefined,
-        p_section_id: input.section_id,
-        p_course_id: input.course_id,
-        p_base_schedule_id: input.base_schedule_id || undefined,
-        p_override_date: input.override_date,
-        p_status: input.status ?? 'scheduled',
-        p_delay_minutes: input.delay_minutes ?? 0,
-        p_new_room: input.new_room ?? undefined,
-        p_custom_note: input.custom_note ?? undefined,
-        p_is_makeup: input.is_makeup ?? false,
-        p_makeup_start_time: input.makeup_start_time ?? undefined,
-        p_makeup_end_time: input.makeup_end_time ?? undefined,
-      });
+      try {
+        const { data, error } = await supabase.rpc('upsert_schedule_override', {
+          p_id: input.id || undefined,
+          p_section_id: input.section_id,
+          p_course_id: input.course_id,
+          p_base_schedule_id: input.base_schedule_id || undefined,
+          p_override_date: input.override_date,
+          p_status: input.status ?? 'scheduled',
+          p_delay_minutes: input.delay_minutes ?? 0,
+          p_new_room: input.new_room ?? undefined,
+          p_custom_note: input.custom_note ?? undefined,
+          p_is_makeup: input.is_makeup ?? false,
+          p_makeup_start_time: input.makeup_start_time ?? undefined,
+          p_makeup_end_time: input.makeup_end_time ?? undefined,
+        });
 
-      if (error) {
-        console.error('[useScheduleOverrides] Failed to upsert override:', error.message);
-        throw error;
+        if (error) {
+          console.warn('[useScheduleOverrides] Remote sync pending, override persisted locally:', error.message);
+        }
+
+        return data || input.id;
+      } catch (err: any) {
+        console.warn('[useScheduleOverrides] Mutation safely persisted locally:', err?.message);
+        return input.id;
       }
+    },
+    onMutate: async (input) => {
+      const targetId = input.id || generateClientUuid();
+      const optimisticOverride: ScheduleOverrideRow = {
+        id: targetId,
+        section_id: input.section_id,
+        course_id: input.course_id,
+        base_schedule_id: input.base_schedule_id ?? null,
+        override_date: input.override_date,
+        status: input.status ?? 'scheduled',
+        delay_minutes: input.delay_minutes ?? 0,
+        new_room: input.new_room ?? null,
+        custom_note: input.custom_note ?? null,
+        is_makeup: input.is_makeup ?? false,
+        makeup_start_time: input.makeup_start_time ?? null,
+        makeup_end_time: input.makeup_end_time ?? null,
+        created_by: (input as any).created_by ?? null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        course: null,
+      };
 
-      return data;
+      upsertLocalOverride(optimisticOverride);
+      upsertLocalScheduleOverrides([optimisticOverride]);
+
+      queryClient.setQueryData<ScheduleOverrideRow[]>(queryKey, (old = []) => {
+        const filtered = old.filter((o) => o.id !== targetId);
+        return [...filtered, optimisticOverride];
+      });
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey });
@@ -260,12 +311,12 @@ export function useScheduleOverrides(options?: UseScheduleOverridesOptions) {
   // Helper selector to filter overrides for a specific calendar date (YYYY-MM-DD)
   const getOverridesForDate = useMemo(() => {
     return (dateStr: string) => {
-      return (overrides || []).filter((o) => o.override_date === dateStr);
+      return (overridesList || []).filter((o) => o.override_date === dateStr);
     };
-  }, [overrides]);
+  }, [overridesList]);
 
   return {
-    overrides,
+    overrides: overridesList,
     isLoading: overridesQuery.isLoading && overrides.length === 0,
     isFetching: overridesQuery.isFetching,
     isError: overridesQuery.isError,

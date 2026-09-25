@@ -13,7 +13,17 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { X, KeyRound, ArrowRight, AlertCircle, CheckCircle2, BookOpen, Users, QrCode } from 'lucide-react-native';
+import {
+  X,
+  KeyRound,
+  ArrowRight,
+  AlertCircle,
+  CheckCircle2,
+  BookOpen,
+  Users,
+  QrCode,
+  Sparkles,
+} from 'lucide-react-native';
 import { useSupabase } from '@/hooks/useSupabase';
 import { useAppStore } from '@/store/useAppStore';
 import { normalizeJoinCode } from '@/lib/utils/codeGenerator';
@@ -79,7 +89,6 @@ export default function JoinSectionModal() {
 
       if (!sectionError && sectionId) {
         console.log(`✅ [UnifiedJoin] Section join RPC succeeded: sectionId=${sectionId}`);
-        // Successfully joined Section cohort
         const { data: sectionData } = await supabase
           .from('sections')
           .select('name')
@@ -103,7 +112,9 @@ export default function JoinSectionModal() {
         return;
       }
 
-      console.log(`ℹ️ [UnifiedJoin] Section RPC failed/unmatched (${sectionError?.message ?? 'no match'}), attempting guest course RPC...`);
+      console.log(
+        `ℹ️ [UnifiedJoin] Section RPC failed/unmatched (${sectionError?.message ?? 'no match'}), attempting guest course RPC...`
+      );
 
       // 2. Fallback: Attempt Guest Course Join
       const { data: courseId, error: courseError } = await supabase.rpc(
@@ -113,7 +124,6 @@ export default function JoinSectionModal() {
 
       if (!courseError && courseId) {
         console.log(`✅ [UnifiedJoin] Guest course join RPC succeeded: courseId=${courseId}`);
-        // Successfully joined course as guest
         const { data: courseData } = await supabase
           .from('courses')
           .select('name, section_id')
@@ -140,7 +150,9 @@ export default function JoinSectionModal() {
       }
 
       // 3. Both attempts failed: Code not found
-      console.warn(`❌ [UnifiedJoin] Both join RPCs failed for code "${trimmed}". SectionErr: ${sectionError?.message}, CourseErr: ${courseError?.message}`);
+      console.warn(
+        `❌ [UnifiedJoin] Both join RPCs failed for code "${trimmed}". SectionErr: ${sectionError?.message}, CourseErr: ${courseError?.message}`
+      );
       setErrorMessage('Invalid code. No active section or course matches this 6-character code.');
       setIsLoading(false);
     } catch (err) {
@@ -152,164 +164,213 @@ export default function JoinSectionModal() {
 
   const isButtonDisabled = code.length !== 6 || isLoading || !!successMessage;
 
+  // Render 6 segmented boxes for code input
+  const codeSlots = Array.from({ length: 6 }).map((_, i) => {
+    const char = code[i] || '';
+    const isCurrent = i === code.length;
+    return (
+      <View
+        key={i}
+        className={`w-12 h-14 rounded-2xl items-center justify-center border-2 ${
+          char
+            ? 'bg-white border-[#FACC15] shadow-xs'
+            : isCurrent
+            ? 'bg-white border-neutral-900 shadow-xs'
+            : 'bg-neutral-100 border-neutral-200'
+        }`}
+      >
+        <Text className="text-2xl font-black font-mono text-neutral-900">
+          {char}
+        </Text>
+      </View>
+    );
+  });
+
   return (
-    <SafeAreaView className="flex-1 bg-[#F8F9FA]" edges={['top', 'bottom', 'left', 'right']}>
+    <SafeAreaView className="flex-1 bg-[#FAFAF9]" edges={['top', 'bottom', 'left', 'right']}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         className="flex-1"
       >
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-          <View className="flex-1 px-6 pt-3 pb-6 justify-between">
-            {/* Top Navigation Bar */}
+          <View className="flex-1 px-6 pt-3 pb-6 justify-between max-w-md mx-auto w-full">
             <View>
-              <View className="flex-row items-center justify-between pb-3 border-b border-neutral-200/60">
-                <View className="flex-row items-center">
-                  <View className="w-9 h-9 rounded-full bg-neutral-100 items-center justify-center mr-3">
-                    <KeyRound size={18} color="#18181b" strokeWidth={2.2} />
+              {/* Top Header */}
+              <View className="flex-row items-center justify-between pb-4 border-b border-neutral-200/60">
+                <View className="flex-row items-center gap-2.5">
+                  <View className="w-10 h-10 rounded-2xl bg-[#FACC15] items-center justify-center shadow-xs">
+                    <KeyRound size={20} color="#18181B" strokeWidth={2.4} />
                   </View>
-                  <Text className="text-xl font-black text-neutral-900">Join with Code</Text>
+                  <View>
+                    <Text className="text-xl font-black text-neutral-900 tracking-tight">
+                      Join a Section
+                    </Text>
+                    <Text className="text-[11px] font-semibold text-neutral-500">
+                      Cohort & Course Enrollment
+                    </Text>
+                  </View>
                 </View>
 
                 <Pressable
                   onPress={() => router.back()}
                   hitSlop={12}
-                  className="w-9 h-9 rounded-full bg-neutral-100 items-center justify-center active:bg-neutral-200"
+                  className="w-9 h-9 rounded-full bg-neutral-200/70 items-center justify-center active:bg-neutral-300"
                 >
-                  <X size={18} color="#18181b" />
+                  <X size={18} color="#18181B" strokeWidth={2.4} />
                 </Pressable>
               </View>
 
-              {/* Instructional Context */}
-              <View className="mt-5">
-                <Text className="text-sm text-neutral-500 leading-relaxed">
-                  Enter any 6-character code to join your entire cohort section or enroll in an individual course as a Guest student.
-                </Text>
-              </View>
+              {/* Subtitle / Context */}
+              <Text className="text-sm text-neutral-600 mt-4 leading-relaxed">
+                Enter the 6-character code from your Class Representative or scan the classroom projector QR code.
+              </Text>
 
-              {/* Quick Scan Action */}
-              <View className="mt-5">
-                <Pressable
-                  onPress={() => router.push('/cohort/scan-qr')}
-                  className="w-full py-3.5 px-4 bg-indigo-50 border border-indigo-200/80 rounded-2xl flex-row items-center justify-center space-x-2 active:bg-indigo-100/90 shadow-2xs"
-                >
-                  <QrCode size={18} color="#4f46e5" />
-                  <Text className="text-xs font-bold text-indigo-700 ml-2">
-                    Scan Presenter QR Code
-                  </Text>
-                </Pressable>
-              </View>
+              {/* Quick Scan Presenter QR Action */}
+              <Pressable
+                onPress={() => router.push('/cohort/scan-qr')}
+                className="w-full mt-4 p-3.5 bg-amber-50/80 border border-amber-200 rounded-2xl flex-row items-center justify-between active:bg-amber-100/90 shadow-2xs"
+              >
+                <View className="flex-row items-center gap-3">
+                  <View className="w-9 h-9 rounded-xl bg-[#FACC15] items-center justify-center">
+                    <QrCode size={18} color="#18181B" strokeWidth={2.4} />
+                  </View>
+                  <View>
+                    <Text className="text-xs font-bold text-neutral-900">
+                      Scan Presenter QR Code
+                    </Text>
+                    <Text className="text-[11px] text-neutral-600">
+                      Instantly sync via classroom screen
+                    </Text>
+                  </View>
+                </View>
+                <ArrowRight size={16} color="#18181B" strokeWidth={2.4} />
+              </Pressable>
 
-              {/* Join Code Input Form */}
+              {/* 6-Character Segmented Display Form */}
               <View className="mt-6">
-                <Text className="text-[11px] font-bold uppercase tracking-wider text-neutral-400 mb-2">
-                  6-Character Join Code
-                </Text>
+                <View className="flex-row items-center justify-between mb-2">
+                  <Text className="text-[11px] font-bold uppercase tracking-wider text-neutral-500">
+                    6-Character Code
+                  </Text>
+                  <Text className="text-[11px] font-mono font-bold text-neutral-500">
+                    {code.length}/6
+                  </Text>
+                </View>
 
-                <View className="border border-neutral-200/90 rounded-3xl bg-white px-4 py-4 shadow-xs">
+                {/* Segmented Boxes container */}
+                <View className="relative">
+                  <View className="flex-row justify-between w-full">
+                    {codeSlots}
+                  </View>
+
+                  {/* Hidden absolute TextInput overlay for typing */}
                   <TextInput
                     value={code}
                     onChangeText={handleCodeChange}
-                    placeholder="e.g. K7M9P2"
-                    placeholderTextColor="#a1a1aa"
                     autoCapitalize="characters"
                     autoCorrect={false}
                     spellCheck={false}
                     maxLength={6}
                     returnKeyType="done"
                     onSubmitEditing={handleJoin}
-                    className="text-center font-mono text-3xl font-black text-neutral-900 tracking-widest"
+                    className="absolute inset-0 opacity-0 text-center"
+                    autoFocus
                   />
-                </View>
-
-                {/* Progress Indicators */}
-                <View className="flex-row justify-between items-center mt-2 px-1">
-                  <Text className="text-[11px] text-neutral-400">
-                    Supports Section & Course Guest codes
-                  </Text>
-                  <View className="bg-neutral-100 px-2 py-0.5 rounded-full">
-                    <Text
-                      className={`text-[10px] font-mono font-bold ${
-                        code.length === 6 ? 'text-neutral-900' : 'text-neutral-500'
-                      }`}
-                    >
-                      {code.length}/6
-                    </Text>
-                  </View>
                 </View>
 
                 {/* Feedback Alerts */}
                 {errorMessage && (
-                  <View className="mt-3.5 p-3.5 bg-rose-50 border border-rose-200/70 rounded-2xl flex-row items-start">
-                    <AlertCircle size={16} color="#e11d48" className="mt-0.5 mr-2 flex-shrink-0" />
-                    <Text className="text-xs text-rose-800 font-semibold flex-1 leading-tight ml-2">
+                  <View className="mt-3.5 p-3.5 bg-rose-50 border border-rose-200 rounded-2xl flex-row items-center">
+                    <AlertCircle size={16} color="#E11D48" className="shrink-0" />
+                    <Text className="text-xs text-rose-800 font-semibold ml-2.5 flex-1">
                       {errorMessage}
                     </Text>
                   </View>
                 )}
 
                 {successMessage && (
-                  <View className="mt-3.5 p-3.5 bg-emerald-50 border border-emerald-200/70 rounded-2xl flex-row items-center">
-                    <CheckCircle2 size={16} color="#059669" className="mr-2 flex-shrink-0" />
-                    <Text className="text-xs font-bold text-emerald-800 ml-2">
+                  <View className="mt-3.5 p-3.5 bg-emerald-50 border border-emerald-200 rounded-2xl flex-row items-center">
+                    <CheckCircle2 size={16} color="#059669" className="shrink-0" />
+                    <Text className="text-xs font-bold text-emerald-800 ml-2.5 flex-1">
                       {successMessage}
                     </Text>
                   </View>
                 )}
               </View>
 
-              {/* Code Types Guide */}
-              <View className="mt-6 p-4 bg-white rounded-3xl border border-neutral-100 shadow-2xs space-y-2.5">
-                <View className="flex-row items-center">
-                  <View className="w-6 h-6 rounded-full bg-neutral-100 items-center justify-center mr-2.5">
-                    <Users size={13} color="#18181b" />
+              {/* Code Types Explanation Cards */}
+              <View className="mt-6 p-4 bg-white rounded-2xl border border-neutral-200/80 shadow-2xs space-y-2.5">
+                <View className="flex-row items-start">
+                  <View className="w-6 h-6 rounded-lg bg-neutral-100 items-center justify-center mr-2.5 mt-0.5 shrink-0">
+                    <Users size={13} color="#18181B" strokeWidth={2.4} />
                   </View>
-                  <Text className="text-xs text-neutral-600 flex-1">
-                    <Text className="font-bold text-neutral-900">Section Code:</Text> Enrolls you in the cohort and all of its scheduled courses.
+                  <Text className="text-xs text-neutral-600 flex-1 leading-snug">
+                    <Text className="font-bold text-neutral-900">Section Code:</Text> Enrolls you in the entire cohort timetable and broadcasts.
                   </Text>
                 </View>
-                <View className="flex-row items-center mt-2">
-                  <View className="w-6 h-6 rounded-full bg-amber-50 items-center justify-center mr-2.5">
-                    <BookOpen size={13} color="#d97706" />
+
+                <View className="flex-row items-start mt-2">
+                  <View className="w-6 h-6 rounded-lg bg-amber-50 border border-amber-200 items-center justify-center mr-2.5 mt-0.5 shrink-0">
+                    <BookOpen size={13} color="#D97706" strokeWidth={2.4} />
                   </View>
-                  <Text className="text-xs text-neutral-600 flex-1">
-                    <Text className="font-bold text-neutral-900">Guest Course Code:</Text> Enrolls you only in that specific retake or elective course.
+                  <Text className="text-xs text-neutral-600 flex-1 leading-snug">
+                    <Text className="font-bold text-neutral-900">Guest Course Code:</Text> Enrolls you only in a specific retake or elective course.
                   </Text>
                 </View>
               </View>
             </View>
 
             {/* Bottom Actions */}
-            <View className="w-full pt-4">
+            <View className="w-full pt-4 space-y-3">
+              {/* Join Button */}
               <Pressable
                 onPress={handleJoin}
                 disabled={isButtonDisabled}
-                className={`w-full py-4 rounded-full flex-row items-center justify-center shadow-md transition-all ${
+                className={`w-full h-13 rounded-2xl flex-row items-center justify-center shadow-xs transition-all ${
                   isButtonDisabled
-                    ? 'bg-neutral-200 shadow-none'
-                    : 'bg-neutral-900 active:bg-neutral-800 shadow-neutral-900/20 active:scale-[0.99]'
+                    ? 'bg-neutral-200'
+                    : 'bg-[#FACC15] active:bg-[#EAB308]'
                 }`}
               >
                 {isLoading ? (
-                  <ActivityIndicator size="small" color="#ffffff" />
+                  <ActivityIndicator size="small" color="#18181B" />
                 ) : successMessage ? (
-                  <Text className="text-white text-sm font-bold">Joined!</Text>
+                  <Text className="text-neutral-900 text-sm font-bold">Joined!</Text>
                 ) : (
                   <>
                     <Text
                       className={`text-sm font-bold mr-2 ${
-                        isButtonDisabled ? 'text-neutral-400' : 'text-white'
+                        isButtonDisabled ? 'text-neutral-400' : 'text-neutral-900'
                       }`}
                     >
-                      Join with Code
+                      Join Cohort
                     </Text>
                     <ArrowRight
                       size={16}
-                      color={isButtonDisabled ? '#a1a1aa' : '#ffffff'}
+                      color={isButtonDisabled ? '#a1a1aa' : '#18181B'}
                       strokeWidth={2.4}
                     />
                   </>
                 )}
               </Pressable>
+
+              {/* CR Role Switcher Link */}
+              <View className="items-center pt-2">
+                <Pressable
+                  onPress={() => {
+                    router.replace('/create-section');
+                  }}
+                  className="flex-row items-center gap-1.5 py-1"
+                >
+                  <Sparkles size={14} color="#A16207" />
+                  <Text className="text-xs text-neutral-600">
+                    Are you a Class Representative?{' '}
+                    <Text className="font-bold text-neutral-900 underline">
+                      Create a Section
+                    </Text>
+                  </Text>
+                </Pressable>
+              </View>
             </View>
           </View>
         </TouchableWithoutFeedback>

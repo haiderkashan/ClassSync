@@ -4,11 +4,16 @@ import {
   Text,
   Pressable,
   ActivityIndicator,
-  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
-import { Calendar, Sparkles, Clock, AlertCircle } from 'lucide-react-native';
+import * as WebBrowser from 'expo-web-browser';
+import {
+  Zap,
+  Users,
+  WifiOff,
+  AlertCircle,
+} from 'lucide-react-native';
 import { useWarmUpBrowser, useOAuthFlow } from '@/hooks/useOAuthFlow';
 
 function GoogleIcon() {
@@ -55,115 +60,172 @@ export default function SignInScreen() {
   const isAnyLoading = googleAuth.isLoading || appleAuth.isLoading;
   const activeError = googleAuth.error || appleAuth.error;
 
+  const handleOpenTerms = async () => {
+    try {
+      await WebBrowser.openBrowserAsync('https://classsync.app/terms');
+    } catch (e) {
+      console.warn('Unable to open Terms URL', e);
+    }
+  };
+
+  const handleOpenPrivacy = async () => {
+    try {
+      await WebBrowser.openBrowserAsync('https://classsync.app/privacy');
+    } catch (e) {
+      console.warn('Unable to open Privacy Policy URL', e);
+    }
+  };
+
   return (
-    <SafeAreaView className="flex-1 bg-[#F8F9FA]" edges={['top', 'bottom', 'left', 'right']}>
-      <View className="flex-1 justify-between px-6 py-6">
-        {/* Top Floating Hero Container */}
-        <View className="items-center mt-2">
-          {/* Branded Icon Container */}
-          <View className="w-20 h-20 rounded-3xl bg-neutral-900 items-center justify-center mb-5 shadow-lg shadow-neutral-900/15">
-            <Calendar size={38} color="#ffffff" strokeWidth={2.2} />
+    <SafeAreaView className="flex-1 bg-[#FAFAF9]" edges={['top', 'bottom', 'left', 'right']}>
+      <View className="flex-1 justify-between px-6 py-6 max-w-md mx-auto w-full">
+        {/* Brand Hero Section */}
+        <View className="items-center pt-3">
+          {/* Yellow Brand Icon Mark */}
+          <View className="relative mb-4">
+            <View className="w-20 h-20 rounded-3xl bg-[#18181B] items-center justify-center shadow-lg shadow-black/10">
+              <View className="w-10 h-10 rounded-2xl bg-[#FACC15] items-center justify-center shadow-sm">
+                <Zap size={22} color="#18181B" strokeWidth={2.6} fill="#18181B" />
+              </View>
+            </View>
+            {/* Signature yellow accent dot */}
+            <View className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#FACC15] border-2 border-[#FAFAF9]" />
           </View>
 
-          {/* Heading */}
+          {/* App Title */}
           <Text className="text-3xl font-black text-neutral-900 tracking-tight text-center">
             ClassSync
           </Text>
-          <View className="mt-1.5 bg-brand-50 px-3.5 py-1 rounded-full border border-brand-100/60">
-            <Text className="text-xs font-bold text-brand-700 tracking-wide">
-              The Academic Hub for Modern Cohorts
+
+          {/* Yellow Accent Subtitle Pill */}
+          <View className="mt-2 flex-row items-center gap-1.5 px-3 py-1 rounded-full bg-[#FEF08A]/70 border border-[#FACC15]/60">
+            <View className="w-2 h-2 rounded-full bg-[#CA8A04]" />
+            <Text className="text-xs font-bold text-neutral-900">
+              Live Academic Timetables
             </Text>
           </View>
-          <Text className="text-sm text-neutral-500 text-center mt-3 px-3 leading-5">
-            Centralized timetables, instant class status overrides, and deadline alerts. No noise, zero spam.
+
+          <Text className="text-sm text-neutral-500 text-center mt-2.5 px-3 leading-relaxed">
+            Live academic schedules and cohort updates directly from your class representatives.
           </Text>
 
-          {/* Core Feature Highlights as Floating Soft Pastel Cards */}
+          {/* Three Core Benefits (Clean Mobile Cards, Zero Fluff) */}
           <View className="w-full mt-6 space-y-2.5">
-            <View className="flex-row items-center bg-white/90 p-3.5 rounded-2xl border border-neutral-100 shadow-xs">
-              <View className="w-9 h-9 rounded-xl bg-emerald-50 items-center justify-center mr-3 border border-emerald-100/50">
-                <Clock size={18} color="#059669" strokeWidth={2.2} />
+            {/* Card 1: Real-Time Overrides */}
+            <View className="flex-row items-center p-3.5 rounded-2xl bg-white border border-neutral-200/80 shadow-2xs">
+              <View className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-200/80 items-center justify-center mr-3.5 shrink-0">
+                <Zap size={18} color="#D97706" strokeWidth={2.4} fill="#FACC15" />
               </View>
               <View className="flex-1">
-                <Text className="text-xs font-bold text-neutral-800">
-                  Sub-Second Live Overrides
+                <Text className="text-xs font-bold text-neutral-900">
+                  Real-Time Overrides
                 </Text>
-                <Text className="text-[11px] text-neutral-500 mt-0.5">
-                  Instant push updates for cancellations, delays & room moves
+                <Text className="text-[11px] text-neutral-500 mt-0.5 leading-snug">
+                  Instant alerts when classes are moved, delayed, or cancelled.
                 </Text>
               </View>
             </View>
 
-            <View className="flex-row items-center bg-white/90 p-3.5 rounded-2xl border border-neutral-100 shadow-xs mt-2.5">
-              <View className="w-9 h-9 rounded-xl bg-purple-50 items-center justify-center mr-3 border border-purple-100/50">
-                <Sparkles size={18} color="#7c3aed" strokeWidth={2.2} />
+            {/* Card 2: Cohort Synchronization */}
+            <View className="flex-row items-center p-3.5 rounded-2xl bg-white border border-neutral-200/80 shadow-2xs mt-2.5">
+              <View className="w-10 h-10 rounded-xl bg-neutral-100 border border-neutral-200 items-center justify-center mr-3.5 shrink-0">
+                <Users size={18} color="#18181B" strokeWidth={2.2} />
               </View>
               <View className="flex-1">
-                <Text className="text-xs font-bold text-neutral-800">
-                  Deterministic Timetable Engine
+                <Text className="text-xs font-bold text-neutral-900">
+                  Cohort Synchronization
                 </Text>
-                <Text className="text-[11px] text-neutral-500 mt-0.5">
-                  Deterministic base loop with alternating A/B week cycles
+                <Text className="text-[11px] text-neutral-500 mt-0.5 leading-snug">
+                  Join your section with one code and stay in sync with your course rep.
+                </Text>
+              </View>
+            </View>
+
+            {/* Card 3: Offline Ready */}
+            <View className="flex-row items-center p-3.5 rounded-2xl bg-white border border-neutral-200/80 shadow-2xs mt-2.5">
+              <View className="w-10 h-10 rounded-xl bg-neutral-100 border border-neutral-200 items-center justify-center mr-3.5 shrink-0">
+                <WifiOff size={18} color="#18181B" strokeWidth={2.2} />
+              </View>
+              <View className="flex-1">
+                <Text className="text-xs font-bold text-neutral-900">
+                  Offline Ready
+                </Text>
+                <Text className="text-[11px] text-neutral-500 mt-0.5 leading-snug">
+                  Full access to your schedule even in lecture halls without internet.
                 </Text>
               </View>
             </View>
           </View>
         </View>
 
-        {/* Action & OAuth Buttons Section */}
-        <View className="w-full space-y-3 pb-2">
-          {/* Error Banner */}
+        {/* Action & Strict OAuth Section */}
+        <View className="w-full pt-4 space-y-2.5">
+          {/* Active Error Notice */}
           {activeError && (
-            <View className="flex-row items-center bg-rose-50 border border-rose-200/80 p-3.5 rounded-2xl mb-3">
-              <AlertCircle size={18} color="#e11d48" />
+            <View className="flex-row items-center bg-rose-50 border border-rose-200 p-3.5 rounded-2xl mb-2">
+              <AlertCircle size={16} color="#E11D48" />
               <Text className="text-xs text-rose-800 font-semibold ml-2.5 flex-1">
                 {activeError}
               </Text>
             </View>
           )}
 
-          {/* Google Sign-In Button */}
+          {/* Button 1: Continue with Google */}
           <Pressable
             onPress={() => googleAuth.startFlow()}
             disabled={isAnyLoading}
-            className="w-full flex-row items-center justify-center py-4 px-5 bg-white border border-neutral-200/80 rounded-full shadow-xs active:bg-neutral-50"
+            className="w-full h-13 px-5 bg-white border border-neutral-200 rounded-2xl flex-row items-center justify-center gap-3 active:bg-neutral-50 shadow-2xs"
           >
             {googleAuth.isLoading ? (
-              <ActivityIndicator size="small" color="#18181b" />
+              <ActivityIndicator size="small" color="#18181B" />
             ) : (
               <>
                 <GoogleIcon />
-                <Text className="text-sm font-bold text-neutral-800 ml-3">
+                <Text className="text-sm font-bold text-neutral-900 ml-1">
                   Continue with Google
                 </Text>
               </>
             )}
           </Pressable>
 
-          {/* Apple Sign-In Button (Dark Pill) */}
+          {/* Button 2: Continue with Apple */}
           <Pressable
             onPress={() => appleAuth.startFlow()}
             disabled={isAnyLoading}
-            className="w-full flex-row items-center justify-center py-4 px-5 bg-neutral-900 rounded-full shadow-md shadow-neutral-900/20 active:bg-neutral-800 mt-2.5"
+            className="w-full h-13 px-5 bg-[#18181B] rounded-2xl flex-row items-center justify-center gap-3 active:bg-neutral-800 shadow-sm mt-2.5"
           >
             {appleAuth.isLoading ? (
-              <ActivityIndicator size="small" color="#ffffff" />
+              <ActivityIndicator size="small" color="#FFFFFF" />
             ) : (
               <>
-                <AppleIcon color="#ffffff" />
-                <Text className="text-sm font-bold text-white ml-3 tracking-wide">
+                <AppleIcon color="#FFFFFF" />
+                <Text className="text-sm font-bold text-white ml-1 tracking-wide">
                   Continue with Apple
                 </Text>
               </>
             )}
           </Pressable>
 
-          {/* App Store Compliance Disclaimers */}
-          <Text className="text-[11px] text-neutral-400 text-center leading-4 mt-4 px-4">
-            By continuing, you agree to ClassSync's{' '}
-            <Text className="text-neutral-700 font-semibold underline">Terms</Text> and{' '}
-            <Text className="text-neutral-700 font-semibold underline">Privacy Policy</Text>.
-          </Text>
+          {/* Interactive Compliance Disclaimer with Live Clickable Policy Links */}
+          <View className="pt-3 pb-1 items-center">
+            <Text className="text-[11px] text-neutral-400 text-center leading-relaxed">
+              By continuing, you agree to our{' '}
+              <Text
+                onPress={handleOpenTerms}
+                className="text-neutral-800 font-bold underline underline-offset-2"
+              >
+                Terms of Service
+              </Text>{' '}
+              and{' '}
+              <Text
+                onPress={handleOpenPrivacy}
+                className="text-neutral-800 font-bold underline underline-offset-2"
+              >
+                Privacy Policy
+              </Text>
+              .
+            </Text>
+          </View>
         </View>
       </View>
     </SafeAreaView>

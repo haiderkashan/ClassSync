@@ -267,7 +267,7 @@ export default function AgendaScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-[#F8F9FA]" edges={['top', 'left', 'right']}>
+    <SafeAreaView className="flex-1 bg-[#FAFAF9]" edges={['top', 'left', 'right']}>
       <ScrollView
         className="flex-1"
         contentContainerStyle={{ flexGrow: 1, paddingBottom: 110 }}
@@ -294,9 +294,9 @@ export default function AgendaScreen() {
 
             {/* Join Code Pill */}
             {activeSection?.join_code && (
-              <View className="bg-neutral-50 border border-neutral-200/70 px-3 py-1.5 rounded-full flex-row items-center shadow-2xs">
-                <Hash size={12} color="#71717a" />
-                <Text className="text-xs font-mono font-bold text-neutral-800 ml-1">
+              <View className="bg-[#FEF08A]/70 border border-[#FACC15]/80 px-3 py-1.5 rounded-full flex-row items-center shadow-2xs">
+                <Hash size={12} color="#854D0E" />
+                <Text className="text-xs font-mono font-bold text-neutral-900 ml-1">
                   {activeSection.join_code}
                 </Text>
               </View>
@@ -360,7 +360,7 @@ export default function AgendaScreen() {
             </View>
 
             {/* Parity Segmented Control */}
-            <View className="flex-row p-1 bg-neutral-100/90 rounded-full">
+            <View className="flex-row p-1 bg-neutral-100 rounded-full border border-neutral-200/60">
               {PARITY_OPTIONS.map((opt) => {
                 const isSelected = currentParity === opt.id;
                 return (
@@ -369,13 +369,13 @@ export default function AgendaScreen() {
                     onPress={() => setCurrentParity(opt.id)}
                     className={`px-3 py-1 rounded-full ${
                       isSelected
-                        ? 'bg-white shadow-sm'
+                        ? 'bg-[#FACC15] shadow-xs'
                         : 'active:bg-neutral-200/60'
                     }`}
                   >
                     <Text
                       className={`text-[11px] font-bold ${
-                        isSelected ? 'text-neutral-900' : 'text-neutral-500'
+                        isSelected ? 'text-[#18181B]' : 'text-neutral-500'
                       }`}
                     >
                       {opt.label}
@@ -396,22 +396,22 @@ export default function AgendaScreen() {
                   <Pressable
                     key={day.id}
                     onPress={() => setSelectedDay(day.id)}
-                    className={`mr-2.5 rounded-2xl py-2.5 px-3 min-w-[50px] items-center justify-center ${
+                    className={`mr-2.5 rounded-2xl py-2 px-3 min-w-[52px] items-center justify-center ${
                       isSelected
-                        ? 'bg-neutral-900 shadow-sm shadow-neutral-900/20'
-                        : 'bg-white border border-neutral-200 shadow-sm active:bg-neutral-50'
+                        ? 'bg-[#18181B] border border-[#FACC15] shadow-sm'
+                        : 'bg-white border border-neutral-200/90 shadow-2xs active:bg-neutral-50'
                     }`}
                   >
                     <Text
                       className={`text-[10px] font-bold uppercase tracking-wider ${
-                        isSelected ? 'text-neutral-400' : 'text-neutral-400'
+                        isSelected ? 'text-[#FACC15]' : 'text-neutral-400'
                       }`}
                     >
                       {day.short}
                     </Text>
                     <Text
                       className={`text-base font-black mt-0.5 ${
-                        isSelected ? 'text-white' : 'text-neutral-800'
+                        isSelected ? 'text-white' : 'text-neutral-900'
                       }`}
                     >
                       {day.dateNumber}
@@ -420,9 +420,9 @@ export default function AgendaScreen() {
                     <View
                       className={`w-1.5 h-1.5 rounded-full mt-1 ${
                         isSelected
-                          ? 'bg-white'
+                          ? 'bg-[#FACC15]'
                           : day.isDeviceToday
-                          ? 'bg-neutral-900'
+                          ? 'bg-[#18181B]'
                           : 'bg-transparent'
                       }`}
                     />
@@ -520,15 +520,15 @@ export default function AgendaScreen() {
                     },
                   })
                 }
-                className="bg-amber-500/15 border border-amber-400/30 px-3 py-2 rounded-full flex-row items-center active:bg-amber-500/25"
+                className="bg-[#FEF08A]/80 border border-[#FACC15] px-3 py-2 rounded-full flex-row items-center active:bg-[#FEF08A]"
               >
-                <Radio size={12} color="#d97706" />
-                <Text className="text-xs font-bold text-amber-900 ml-1">+ Alert</Text>
+                <Radio size={12} color="#854D0E" />
+                <Text className="text-xs font-bold text-neutral-900 ml-1">+ Alert</Text>
               </Pressable>
 
               <Pressable
                 onPress={() => router.push('/schedule/builder')}
-                className="bg-neutral-900 px-3.5 py-2 rounded-full flex-row items-center active:bg-neutral-800 shadow-2xs"
+                className="bg-[#18181B] px-3.5 py-2 rounded-full flex-row items-center active:bg-neutral-800 shadow-2xs"
               >
                 <Text className="text-xs font-bold text-white">Builder</Text>
                 <ChevronRight size={14} color="#ffffff" className="ml-0.5" />
@@ -609,8 +609,10 @@ export default function AgendaScreen() {
 
                     {/* Timeline Node & Vertical Connector Line */}
                     <View className="items-center mr-2.5 pt-1.5">
-                      <View className="w-2.5 h-2.5 rounded-full bg-neutral-900 border-2 border-white shadow-2xs" />
-                      <View className="w-0.5 flex-1 bg-neutral-200/70 my-1 rounded-full" />
+                      <View className="w-3 h-3 rounded-full bg-[#18181B] border-2 border-white items-center justify-center shadow-2xs">
+                        <View className="w-1 h-1 rounded-full bg-[#FACC15]" />
+                      </View>
+                      <View className="w-0.5 flex-1 bg-neutral-200/80 my-1 rounded-full" />
                     </View>
 
                     {/* Right: Floating Pastel Schedule Block Card */}

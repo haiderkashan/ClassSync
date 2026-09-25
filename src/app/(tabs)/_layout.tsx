@@ -82,7 +82,7 @@ function FloatingTabBar({ state, descriptors, navigation }: CustomTabBarProps) {
                 onLongPress={onLongPress}
                 style={styles.activePill}
               >
-                {renderIcon('#ffffff')}
+                {renderIcon('#FACC15')}
                 <Text style={styles.activeLabel}>
                   {typeof label === 'string' ? label : route.name}
                 </Text>

@@ -30,13 +30,13 @@ export function FreePeriodSpacer({ durationMinutes, startTime, endTime }: FreePe
       <View className="flex-1 border-b border-dashed border-neutral-200" />
 
       {/* Center Soft Pill */}
-      <View className="mx-3 flex-row items-center bg-white border border-neutral-200/80 px-3.5 py-1.5 rounded-full shadow-2xs">
-        <Coffee size={12} color="#a1a1aa" />
-        <Text className="text-[11px] font-semibold text-neutral-600 ml-1.5">
+      <View className="mx-3 flex-row items-center bg-white border border-neutral-200/90 px-3.5 py-1.5 rounded-full shadow-2xs">
+        <Coffee size={12} color="#D97706" />
+        <Text className="text-[11px] font-bold text-neutral-800 ml-1.5">
           Free Period • {durationText}
         </Text>
         {timeWindow && (
-          <Text className="text-[10px] font-medium text-neutral-400 ml-1">
+          <Text className="text-[10px] font-semibold text-neutral-400 ml-1">
             ({timeWindow})
           </Text>
         )}

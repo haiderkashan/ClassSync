@@ -100,11 +100,11 @@ export function PeerVotingModal({
           {/* Header */}
           <View className="px-6 py-4 border-b border-neutral-100 flex-row items-center justify-between bg-neutral-50/70">
             <View className="flex-row items-center space-x-2">
-              <View className="w-8 h-8 rounded-full bg-amber-100 items-center justify-center">
-                <ShieldAlert size={16} color="#d97706" />
+              <View className="w-9 h-9 rounded-2xl bg-[#FACC15] items-center justify-center shadow-xs">
+                <ShieldAlert size={18} color="#18181B" strokeWidth={2.4} />
               </View>
-              <View>
-                <Text className="text-xs font-bold text-neutral-500 uppercase tracking-wider">
+              <View className="ml-2">
+                <Text className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider">
                   Decentralized Consensus
                 </Text>
                 <Text className="text-base font-black text-neutral-900">
@@ -182,29 +182,29 @@ export function PeerVotingModal({
                 </View>
               </View>
             ) : (
-              <View className="p-4 bg-amber-50 border border-amber-200 rounded-2xl mb-5">
+              <View className="p-4 bg-amber-50/70 border border-[#FACC15] rounded-2xl mb-5">
                 <View className="flex-row items-center space-x-1.5 mb-1">
-                  <AlertTriangle size={14} color="#d97706" />
-                  <Text className="text-xs font-black text-amber-950">
+                  <AlertTriangle size={15} color="#D97706" />
+                  <Text className="text-xs font-black text-amber-950 ml-1.5">
                     Active Verification Quorum
                   </Text>
                 </View>
-                <Text className="text-[11px] text-amber-800 leading-relaxed">
+                <Text className="text-[11px] text-amber-900 leading-relaxed mt-1">
                   Is the instructor absent or class called off? 3 affirmative votes and a {'>'} 2x denial ratio are required to automatically cancel this session.
                 </Text>
 
                 {/* Live Vote Progress Bar */}
-                <View className="mt-3 pt-3 border-t border-amber-200/60 flex-row items-center justify-between">
+                <View className="mt-3 pt-3 border-t border-amber-200/80 flex-row items-center justify-between">
                   <View className="flex-row items-center">
-                    <ThumbsUp size={13} color="#d97706" />
-                    <Text className="text-xs font-bold text-amber-900 ml-1">
+                    <ThumbsUp size={13} color="#D97706" />
+                    <Text className="text-xs font-bold text-amber-950 ml-1.5">
                       {affirms} {affirms === 1 ? 'Vote' : 'Votes'} Cancelled
                     </Text>
                   </View>
 
                   <View className="flex-row items-center">
                     <ThumbsDown size={13} color="#71717a" />
-                    <Text className="text-xs font-bold text-neutral-600 ml-1">
+                    <Text className="text-xs font-bold text-neutral-600 ml-1.5">
                       {denials} {denials === 1 ? 'Vote' : 'Votes'} In Session
                     </Text>
                   </View>

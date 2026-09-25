@@ -445,8 +445,8 @@ export function ScheduleBlockCard({
                 </View>
               </View>
 
-              <View className="px-2.5 py-1 bg-amber-500 rounded-full">
-                <Text className="text-[10px] font-black text-white">Vote</Text>
+              <View className="px-3 py-1 bg-[#FACC15] rounded-full shadow-2xs">
+                <Text className="text-[10px] font-black text-neutral-900">Vote</Text>
               </View>
             </Pressable>
           )}

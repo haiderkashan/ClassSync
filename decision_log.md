@@ -733,3 +733,50 @@ This document records the architectural and product decisions made during the de
   - **Sub-Second Perceived Latency:** User interactions never wait for network confirmation.
   - **Battery Conservation:** Replay engine remains quiescent in dead zones and only wakes when the OS signals network availability.
   - **Data Integrity & Eventual Consistency:** Idempotent PL/pgSQL RPCs on Supabase guarantee that replayed mutations converge to the identical state on cloud and edge.
+
+---
+
+## ADR-042: Decentralized Crowd-Sourced Consensus Engine
+
+- **Date:** 2026-09-24
+- **Status:** Accepted
+- **Context:** In university environments, Class Representatives (CRs) may fall sick, be delayed, or be unresponsive during unexpected class cancellations. When an instructor fails to show up, students in the classroom need a decentralized mechanism to report and verify class cancellations without trusting a single point of failure or allowing malicious spam or false cancellations.
+- **Alternatives Considered:**
+  1. *Unrestricted Single-Student Broadcast:* Any student can report a class cancelled and broadcast an override. Rejected: Highly vulnerable to malicious trolling and false alerts during exams or lab sessions.
+  2. *Simple Majority Voting without Denial Weighting:* Quorum reached when affirmations > denials. Rejected: Vulnerable to small groups of 2-3 conspirators reporting a class cancelled when 50 students are waiting for a quiz.
+  3. *Fragmented Per-Student Reports:* Creating a report row per user. Rejected: Fragments consensus votes across isolated rows instead of pooling cohort votes.
+  4. *Client-Side Temporal Window & Offline Queued Voting:* Enforce time bounds on client devices and allow offline queueing. Rejected: Device clocks can be manipulated, and offline queued votes replay hours later, corrupting future schedule states.
+  5. *Decentralized Consensus Engine with Server-Side Temporal Gate, 2x Denial Weighting, and CR Veto Authority:*
+     - **Database Architecture:** Two relational tables: `peer_schedule_reports` with unique constraint `(base_schedule_id, report_date)` ensuring exactly one pooled consensus report per class session, and `peer_report_votes` with unique constraint `(report_id, user_id)` ensuring one vote per student.
+     - **Server-Side Temporal Gate:** Enforced strictly in Postgres RPC `cast_peer_vote` using server `now()`: reports and votes are strictly accepted only within $[-10\text{ min}, +30\text{ min}]$ of session start time (`session_date + start_time`).
+     - **Quorum Mathematics:** Affirmative quorum requires:
+       $$\text{affirmations} \ge 3 \quad \text{AND} \quad \text{affirmations} > 2 \times \text{denials}$$
+       Denials carry double weighting because a single student physically observing the professor entering the hall outweighs two students claiming absence from outside.
+     - **Automated Override Insertion:** Reaching quorum automatically inserts an override into `schedule_overrides` (`status = 'cancelled'`) with broadcast note "Peer Verified Cancellation".
+     - **Administrative CR Veto:** A designated CR/Co-Admin can invoke `veto_peer_report` RPC, which sets report status to `'vetoed'`, immediately deletes the auto-generated override from `schedule_overrides`, and resets the schedule to normal.
+     - **Strict Offline Queue Bypass:** Peer voting is online-only. Offline attempts reject immediately to prevent stale replay attacks.
+- **Decision:** Adopt the decentralized consensus engine with server-side temporal gate, 2x denial weighting, auto-override, and CR administrative veto.
+- **Why This Decision is Best:**
+  - Prevents single-point-of-failure reliance on absent CRs while strictly guarding against trolling.
+  - Mathematically robust consensus ensures accurate status reflection across lecture halls in real-time.
+
+---
+
+## ADR-043: Web-Guarded Native Hardware Display & Camera Abstraction Layer
+
+- **Date:** 2026-09-24
+- **Status:** Accepted
+- **Context:** Features like the Presenter HUD (for projecting QR codes in auditorium halls) and in-app join scanning require direct interaction with physical hardware: screen brightness (`expo-brightness`), display keep-awake (`expo-keep-awake`), screen orientation locking (`expo-screen-orientation`), and camera scanning (`expo-camera`). However, ClassSync's QA and developer workflow relies heavily on the Expo Web Bundler (`localhost:8081`). Unconditional invocations of native hardware modules crash web bundlers and throw runtime errors on web environments. On Android, setting system-wide brightness requires invasive `WRITE_SETTINGS` permissions that cause app store rejections and runtime security exceptions.
+- **Alternatives Considered:**
+  1. *Separate Native-Only Screens:* Fork screens into `.native.tsx` and `.web.tsx`. Rejected: Leads to duplicate UI maintenance and styling drift.
+  2. *System-Wide Brightness Control:* Invoking `Brightness.setSystemBrightnessAsync()`. Rejected: Causes `SecurityException` on Android without dangerous runtime permissions.
+  3. *Web-Guarded Hardware Abstraction Layer:*
+     - **App-Level Brightness Control:** Strictly utilize `Brightness.setBrightnessAsync(1.0)` scoped exclusively to the current app window, restoring previous brightness upon component unmount without requiring system settings permissions.
+     - **Platform Guards:** Encapsulate all native hardware invocations inside strict `Platform.OS !== 'web'` conditionals with fallback mocks for web rendering.
+     - **Modern `<CameraView>` Adoption:** Standardize on Expo SDK 50+ `<CameraView>` with `onBarcodeScanned` and OS permission flow (`requestCameraPermissionsAsync()`), eliminating deprecated `BarCodeScanner`.
+     - **Zustand Deep-Link Persistence:** Store incoming deep link / OAuth join codes in `useAppStore.pendingJoinCode` whitelisted in Zustand `partialize`, ensuring codes survive browser OAuth redirects without raw AsyncStorage regressions.
+- **Decision:** Adopt the web-guarded hardware abstraction layer with app-scoped brightness, orientation controls, and Zustand-persisted deep linking.
+- **Why This Decision is Best:**
+  - Guarantees 100% build and export compatibility on Expo Web (`npx expo export --platform web` succeeds with 0 errors).
+  - Protects against Android permission crashes and provides flawless auditorium projection and QR scanning UX on physical devices.
+

@@ -25,6 +25,9 @@
 17. [Attendance Tracking Architecture & The PostgreSQL NULL Uniqueness Trap](#17-attendance-tracking-architecture--the-postgresql-null-uniqueness-trap)
 18. [The Bunk Calculator: Mathematical Derivations & Precision Protection](#18-the-bunk-calculator-mathematical-derivations--precision-protection)
 19. [Expo Router Lifecycle & The Unconditional Navigator Invariant](#19-expo-router-lifecycle--the-unconditional-navigator-invariant)
+20. [Expo Splash Screen Traps & Multi-Layered Stability Architecture](#20-expo-splash-screen-traps--multi-layered-stability-architecture)
+21. [Local-First 3-Tier Offline Architecture, PRAGMA Tuning & Mutation Queue Replay](#21-local-first-3-tier-offline-architecture-pragma-tuning--mutation-queue-replay)
+22. [Bi-Weekly Parity Freeze, Universal Deep-Linking & Quorum State Machine](#22-bi-weekly-parity-freeze-universal-deep-linking--quorum-state-machine)
 
 ---
 
@@ -1004,6 +1007,90 @@ To eliminate hydration race conditions and prevent visual empty-state flashes on
 1. `src/lib/db/hydrateAppStore.ts` queries all SQLite entity tables on launch.
 2. `src/app/_layout.tsx` coordinates `expo-splash-screen`, holding the native splash screen visible until both Clerk authentication resolution and SQLite store hydration complete.
 3. Data hooks (`useBaseSchedule`, `useAttendance`, `useAcademicTasks`) populate TanStack Query `initialData` directly from Zustand, rendering populated timetables in <100ms before any network request is initiated.
+
+---
+
+## 22. Bi-Weekly Parity Freeze, Universal Deep-Linking & Quorum State Machine
+
+### 22.1 Parity Freeze Math (Bi-Weekly / A/B Cycles & Academic Breaks)
+
+Academic institutions globally (especially in the UK, Europe, Australia, and North America) frequently structure laboratory and tutorial schedules on alternating bi-weekly cycles (e.g. "Week A" vs. "Week B", or "Odd" vs. "Even" weeks).
+
+#### The Continuous Parity Engine:
+A section defines a `cycle_mode` (`'weekly'` or `'alternating_ab'`) and a `week_a_anchor_date` ($D_{\text{anchor}}$), representing the Monday start of an initial Week A.
+
+Given any target calendar date $D$, the elapsed days between $D$ and $D_{\text{anchor}}$ are computed in UTC to ensure complete Daylight Saving Time (DST) immunity:
+$$\Delta d = \lfloor (D_{\text{target, UTC}} - D_{\text{anchor, UTC}}) / 86400000 \rfloor$$
+$$\text{WeekIndex} = \lfloor \Delta d / 7 \rfloor$$
+
+The cycle parity is deterministically resolved:
+$$\text{Parity}(D) = \begin{cases} \text{'biweekly\_week\_a'}, & \text{if } \text{WeekIndex} \pmod 2 = 0 \\ \text{'biweekly\_week\_b'}, & \text{if } \text{WeekIndex} \pmod 2 = 1 \end{cases}$$
+
+#### The Academic Break / Parity Freeze Trap:
+When a semester experiences an odd-length academic break (such as a 1-week Spring Break or Fall Reading Week), naive continuous week math would cause the resumed week to flip to the opposite parity (e.g., Week A before break, Week B after break). However, university curricula often dictate that the week after break must resume on the parity of the missed week (a **Parity Freeze**).
+
+To implement a Parity Freeze without introducing row-level exceptions across every single timetable block, ClassSync uses the **Anchor Shift Algorithm**:
+When a recess spans an odd number of weeks $N_{\text{break}}$, the Genesis CR simply shifts the section's reference anchor date:
+$$D_{\text{anchor, new}} = D_{\text{anchor, old}} + (N_{\text{break}} \times 7 \text{ days})$$
+
+By adjusting the anchor date by the duration of the recess, the modulus offset shifts identically for all future dates while preserving deterministic parity calculations for all subsequent weeks of the academic term.
+
+### 22.2 Universal Deep-Linking & Presenter QR Architecture
+
+#### 1. The Presenter HUD Protocol (`/schedule/presenter-hud`)
+In university auditoriums and lecture halls with 100–300 students, onboarding an entire cohort via individual codes or verbal instructions creates massive friction. The Presenter HUD provides a frictionless projection interface:
+- **Maximized Contrast Display:** Projects an oversized high-contrast QR code generated from `https://classsync.app/join?code=XYZ123`.
+- **App-Scoped Brightness Control:** Utilizes `Brightness.setBrightnessAsync(1.0)` scoped exclusively to the app window (`try/catch` guarded), automatically restoring initial brightness upon exit without triggering Android `WRITE_SETTINGS` security exceptions.
+- **Keep-Awake Lock:** Engages `activateKeepAwakeAsync()` to prevent screen dimming during 60-minute orientation lectures.
+- **Orientation Lock:** Invokes `ScreenOrientation.lockAsync(PORTRAIT_UP)` to prevent accidental device rotation when handling the projector device.
+- **Live Realtime Student Roster Counter:** Connects to Supabase Realtime WebSocket subscribing to `INSERT` events on `section_members`, displaying a live badge (`👥 X Students Joined`) that increments in real time as students scan the code.
+
+#### 2. Universal Deep-Link Parsing & CameraView Integration
+- **Universal Extraction Engine (`parseJoinCodeFromUrl`):** Parses raw 6-character uppercase codes (`CS101A`), custom scheme links (`classsync://join?code=CS101A` or `classsync://join/CS101A`), and web URLs (`https://classsync.app/join?code=CS101A`).
+- **Modern Camera Scanning:** Uses Expo SDK 50+ `<CameraView>` with `onBarcodeScanned` and OS-level permission handling (`requestCameraPermissionsAsync`), presenting an interactive permission recovery card if access was denied.
+- **OAuth Deep-Link Preservation:** To ensure that a student scanning a link while unauthenticated does not lose their destination during the external browser Google/Apple OAuth redirect, the join code is saved to `useAppStore.pendingJoinCode` and whitelisted in Zustand `partialize` (AsyncStorage). Upon session recovery in `_layout.tsx`, the pending join code is consumed and routes directly to the enrollment confirmation modal.
+
+### 22.3 The Quorum State Machine (Consensus Math with 2x Denials & CR Veto)
+
+To solve the "Absent CR" bottleneck without opening the door to malicious false cancellations, ClassSync implements a decentralized peer verification consensus state machine:
+
+```
+                  [ Normal Scheduled Session ]
+                               │
+               (Student reports cancellation within
+                 server-validated window [-10m, +30m])
+                               ▼
+               ┌───────────────────────────────┐
+               │  peer_schedule_reports (Open) │
+               │  peer_report_votes (Pooled)   │
+               └───────────────┬───────────────┘
+                               │
+            ┌──────────────────┴──────────────────┐
+            ▼                                     ▼
+[ Quorum Formula Satisfied ]             [ CR Administrative Veto ]
+Aff >= 3 AND Aff > 2 * Den               CR invokes veto_peer_report
+            │                                     │
+            ▼                                     ▼
+Auto-inserts cancellation into           Marks report 'vetoed',
+schedule_overrides table                 deletes generated override,
+("Peer Verified Cancellation")           restores normal schedule
+```
+
+#### 1. Server-Side Temporal Gate:
+To eliminate client clock manipulation, the Postgres RPC `cast_peer_vote` strictly enforces the reporting window using server `now()`:
+$$\text{session\_timestamp} - 10 \text{ minutes} \le \text{now}() \le \text{session\_timestamp} + 30 \text{ minutes}$$
+Votes submitted outside this 40-minute window are rejected at the database transaction layer.
+
+#### 2. Asymmetric Quorum Consensus Formula (2x Denial Weighting):
+Quorum is reached if and only if:
+$$\text{Affirmations} \ge 3 \quad \text{AND} \quad \text{Affirmations} > 2 \times \text{Denials}$$
+
+- **Why Minimum 3 Affirmations?** Prevents 1 or 2 malicious students from spoofing a class cancellation.
+- **Why 2x Denial Weighting?** In physical lecture halls, an affirmation ("Professor is not here") can easily be a premature observation from someone in the hallway. Conversely, a denial ("Professor IS here") requires observing the instructor physically present. Therefore, one denial counterbalances two affirmations. If 4 students vote Cancelled and 2 vote In Session, $4 > 2 \times 2$ is false ($4 \ngtr 4$), holding the class open until stronger consensus emerges.
+
+#### 3. Strict Offline Queue Bypass:
+Peer verification is strictly real-time and online-only. `peerVerificationService.ts` queries `NetInfo.fetch()` prior to submission; if offline, it immediately throws an error rather than enqueuing into the Phase 7 FIFO offline mutation queue. This eliminates "delayed replay attacks" where an offline vote cast hours earlier replays when a student connects to Wi-Fi at home, corrupting historical class records.
+
 
 
 

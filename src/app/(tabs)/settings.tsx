@@ -47,6 +47,7 @@ import { useSupabase } from '@/hooks/useSupabase';
 import { useAppStore } from '@/store/useAppStore';
 import { useAttendance } from '@/hooks/useAttendance';
 import { QuietHoursModal } from '@/components/settings/QuietHoursModal';
+import { DeleteAccountModal } from '@/components/settings/DeleteAccountModal';
 import { resetLocalDatabase } from '@/lib/db/localDatabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -74,6 +75,7 @@ export default function SettingsScreen() {
 
   // Quiet Hours Modal & Settings State
   const [isQuietHoursModalOpen, setIsQuietHoursModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [quietHoursSettings, setQuietHoursSettings] = useState<{
     enabled: boolean;
     start: string;
@@ -703,7 +705,7 @@ export default function SettingsScreen() {
           ))}
         </View>
 
-        {/* 8. Destructive Actions / Sign Out */}
+        {/* 8. Destructive Actions / Sign Out & Delete Account */}
         <View className="mb-8 space-y-2">
           <Pressable
             onPress={handleSignOut}
@@ -720,6 +722,17 @@ export default function SettingsScreen() {
                 </Text>
               </>
             )}
+          </Pressable>
+
+          <Pressable
+            testID="btn-open-delete-modal"
+            onPress={() => setIsDeleteModalOpen(true)}
+            className="w-full py-3.5 bg-neutral-50 border border-neutral-200/80 rounded-2xl items-center justify-center flex-row space-x-2 active:bg-neutral-100 mt-2"
+          >
+            <Trash2 size={16} color="#71717A" />
+            <Text className="text-xs font-bold text-neutral-600 ml-1.5">
+              Delete Account & Data
+            </Text>
           </Pressable>
         </View>
       </ScrollView>
@@ -745,6 +758,12 @@ export default function SettingsScreen() {
             });
           }
         }}
+      />
+
+      {/* Account Deletion Compliance Modal */}
+      <DeleteAccountModal
+        visible={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
       />
     </SafeAreaView>
   );

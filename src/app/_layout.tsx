@@ -17,6 +17,7 @@ import { useAppStore } from '@/store/useAppStore';
 import { useOfflineSync } from '@/hooks/useOfflineSync';
 import { useRealtimeSync } from '@/hooks/useRealtimeSync';
 import { useDeepLinkJoin } from '@/hooks/useDeepLinkJoin';
+import { setupAndroidNotificationChannels } from '@/services/notificationChannelService';
 
 // Prevent native splash screen from auto-hiding before auth session is resolved
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -177,6 +178,9 @@ export default function RootLayout() {
         setIsDbHydrated(true);
       }
     });
+
+    // Initialize Google Play / Android 8+ Notification Channels
+    setupAndroidNotificationChannels();
 
     // Safety guard: guarantee native splash screen is dismissed within 3s even if network/db hangs
     const timer = setTimeout(() => {

@@ -16,6 +16,7 @@ import { useRouter } from 'expo-router';
 import { useUser, useAuth } from '@clerk/expo';
 import { useQueryClient } from '@tanstack/react-query';
 import * as Clipboard from 'expo-clipboard';
+import * as WebBrowser from 'expo-web-browser';
 import {
   LogOut,
   Mail,
@@ -41,6 +42,9 @@ import {
   Sparkles,
   RefreshCw,
   TrendingUp,
+  HelpCircle,
+  FileText,
+  ExternalLink,
 } from 'lucide-react-native';
 import { useWorkspaces } from '@/hooks/useWorkspaces';
 import { useSupabase } from '@/hooks/useSupabase';
@@ -167,6 +171,30 @@ export default function SettingsScreen() {
       console.error('[Settings] Error signing out:', error);
     } finally {
       setIsSigningOut(false);
+    }
+  };
+
+  const handleOpenSupport = async () => {
+    try {
+      await WebBrowser.openBrowserAsync('https://classsync.app/support');
+    } catch (e) {
+      console.warn('Unable to open Support URL', e);
+    }
+  };
+
+  const handleOpenPrivacy = async () => {
+    try {
+      await WebBrowser.openBrowserAsync('https://classsync.app/privacy');
+    } catch (e) {
+      console.warn('Unable to open Privacy Policy URL', e);
+    }
+  };
+
+  const handleOpenTerms = async () => {
+    try {
+      await WebBrowser.openBrowserAsync('https://classsync.app/terms');
+    } catch (e) {
+      console.warn('Unable to open Terms URL', e);
     }
   };
 
@@ -703,6 +731,61 @@ export default function SettingsScreen() {
               />
             </View>
           ))}
+        </View>
+
+        {/* 7. Legal, Compliance & Support */}
+        <View className="mb-5 bg-white p-4 rounded-3xl border border-neutral-200/80 shadow-2xs">
+          <Text className="text-[10px] font-black text-neutral-400 uppercase tracking-wider mb-2.5">
+            LEGAL & SUPPORT
+          </Text>
+
+          <Pressable
+            testID="btn-open-support"
+            onPress={handleOpenSupport}
+            className="py-2.5 border-b border-neutral-100 flex-row items-center justify-between active:opacity-70"
+          >
+            <View className="flex-row items-center space-x-2.5">
+              <View className="w-7 h-7 rounded-lg bg-indigo-50 items-center justify-center">
+                <HelpCircle size={15} color="#4F46E5" />
+              </View>
+              <Text className="text-xs font-bold text-neutral-800 ml-2">
+                Help Center & Support
+              </Text>
+            </View>
+            <ExternalLink size={13} color="#A1A1AA" />
+          </Pressable>
+
+          <Pressable
+            testID="btn-open-privacy"
+            onPress={handleOpenPrivacy}
+            className="py-2.5 border-b border-neutral-100 flex-row items-center justify-between active:opacity-70"
+          >
+            <View className="flex-row items-center space-x-2.5">
+              <View className="w-7 h-7 rounded-lg bg-emerald-50 items-center justify-center">
+                <ShieldCheck size={15} color="#059669" />
+              </View>
+              <Text className="text-xs font-bold text-neutral-800 ml-2">
+                Privacy Policy
+              </Text>
+            </View>
+            <ExternalLink size={13} color="#A1A1AA" />
+          </Pressable>
+
+          <Pressable
+            testID="btn-open-terms"
+            onPress={handleOpenTerms}
+            className="py-2.5 flex-row items-center justify-between active:opacity-70"
+          >
+            <View className="flex-row items-center space-x-2.5">
+              <View className="w-7 h-7 rounded-lg bg-amber-50 items-center justify-center">
+                <FileText size={15} color="#D97706" />
+              </View>
+              <Text className="text-xs font-bold text-neutral-800 ml-2">
+                Terms of Service
+              </Text>
+            </View>
+            <ExternalLink size={13} color="#A1A1AA" />
+          </Pressable>
         </View>
 
         {/* 8. Destructive Actions / Sign Out & Delete Account */}

@@ -1033,6 +1033,7 @@ export type Database = {
       }
       delete_calendar_break: { Args: { p_break_id: string }; Returns: boolean }
       delete_schedule_override: { Args: { p_id: string }; Returns: boolean }
+      delete_user_account: { Args: never; Returns: boolean }
       is_course_enrolled: { Args: { c_id: string }; Returns: boolean }
       is_section_admin: { Args: { sec_id: string }; Returns: boolean }
       is_section_member: { Args: { sec_id: string }; Returns: boolean }

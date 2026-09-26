@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Customer Support & Account Management - ClassSync</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #FAFAF9;
+      --card-bg: #FFFFFF;
+      --text-main: #18181B;
+      --text-muted: #71717A;
+      --border: #E4E4E7;
+      --accent: #FACC15;
+      --danger: #E11D48;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background-color: var(--bg);
+      color: var(--text-main);
+      line-height: 1.6;
+      padding: 40px 20px;
+    }
+    .container {
+      max-width: 820px;
+      margin: 0 auto;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 48px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+    }
+    .header {
+      margin-bottom: 36px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 24px;
+    }
+    .badge {
+      display: inline-block;
+      background: #E0E7FF;
+      color: #3730A3;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 4px 12px;
+      border-radius: 999px;
+      margin-bottom: 12px;
+      border: 1px solid #C7D2FE;
+    }
+    h1 {
+      font-size: 32px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin-bottom: 8px;
+    }
+    h2 {
+      font-size: 20px;
+      font-weight: 700;
+      margin-top: 32px;
+      margin-bottom: 12px;
+      letter-spacing: -0.01em;
+    }
+    p, li {
+      font-size: 15px;
+      color: #3F3F46;
+      margin-bottom: 14px;
+    }
+    ul, ol {
+      margin-left: 20px;
+      margin-bottom: 18px;
+    }
+    li {
+      margin-bottom: 6px;
+    }
+    .contact-card {
+      background: #F4F4F5;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 20px;
+      margin: 20px 0;
+    }
+    .callout-deletion {
+      background: #FFF1F2;
+      border: 1px solid #FECDD3;
+      border-left: 4px solid var(--danger);
+      padding: 20px;
+      border-radius: 12px;
+      margin: 24px 0;
+    }
+    .footer {
+      margin-top: 48px;
+      padding-top: 24px;
+      border-top: 1px solid var(--border);
+      text-align: center;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+    a { color: #2563EB; text-decoration: none; font-weight: 600; }
+    a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <span class="badge">Help & Support</span>
+      <h1>ClassSync Support</h1>
+      <p style="color: var(--text-muted); font-size: 14px;">Official Help Center and User Assistance</p>
+    </div>
+
+    <h2>1. Contacting Our Support Team</h2>
+    <div class="contact-card">
+      <p style="margin-bottom: 6px;"><strong>General Support:</strong> <a href="mailto:support@classsync.app">support@classsync.app</a></p>
+      <p style="margin-bottom: 6px;"><strong>Account Privacy & Data:</strong> <a href="mailto:privacy@classsync.app">privacy@classsync.app</a></p>
+      <p style="margin-bottom: 0;"><strong>Response Time:</strong> We strive to respond to all academic inquiries within 24 hours.</p>
+    </div>
+
+    <h2>2. Frequently Asked Questions (FAQ)</h2>
+    <p><strong>How do I join my academic section?</strong><br>
+    Your class representative will provide a 6-character Section Join Code (e.g., <code>BSCS26</code>) or a direct QR code. Tap "Join Section" on the Agenda tab and enter the code.</p>
+
+    <p><strong>Does ClassSync work when I am offline?</strong><br>
+    Yes. ClassSync uses a native dual-tier database architecture (SQLite on-device + Supabase cloud). Your entire schedule is cached locally and is 100% accessible even in lecture basements without cellular reception.</p>
+
+    <p><strong>How do notifications work?</strong><br>
+    Instant push notifications are delivered for room changes, cancellations, and makeup classes. You can configure "Smart Quiet Hours" in the Settings tab to suppress non-urgent alerts during sleep hours.</p>
+
+    <h2>3. Requesting Account Deletion (Without Device Access)</h2>
+    <div class="callout-deletion">
+      <strong style="color: var(--danger); font-size: 16px;">Direct Account Deletion URL & Instructions:</strong>
+      <p style="margin-top: 8px;">If you have the ClassSync app installed, you can delete your account instantly by navigating to: <strong>Settings &rarr; Destructive Actions &rarr; Delete Account & Data</strong>.</p>
+      <p>If you no longer have access to your mobile device or have uninstalled the application, you may request permanent erasure by sending an email from your registered account email to <a href="mailto:support@classsync.app">support@classsync.app</a> with the subject line <code>"ACCOUNT DELETION REQUEST"</code>. Our team will verify ownership and permanently erase your account and associated attendance data within 48 hours.</p>
+    </div>
+
+    <div class="footer">
+      <p>&copy; 2026 ClassSync. All rights reserved. | <a href="privacy-policy.html">Privacy Policy</a> | <a href="terms-of-service.html">Terms of Service</a></p>
+    </div>
+  </div>
+</body>
+</html>

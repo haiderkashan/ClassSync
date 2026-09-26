@@ -10,6 +10,10 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.classsync.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "ClassSync requires camera access to scan physical and digital QR codes to join your academic section quickly.",
+        "ITSAppUsesNonExemptEncryption": false
+      },
       "privacyManifests": {
         "NSPrivacyTracking": false,
         "NSPrivacyTrackingDomains": [],
@@ -75,7 +79,13 @@
       "@react-native-community/datetimepicker",
       "expo-notifications",
       "expo-splash-screen",
-      "expo-sqlite"
+      "expo-sqlite",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "ClassSync requires camera access to scan physical and digital QR codes to join your academic section quickly."
+        }
+      ]
     ]
   }
 }

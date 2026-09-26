@@ -31,6 +31,7 @@ import {
 } from 'lucide-react-native';
 import { useSupabase } from '@/hooks/useSupabase';
 import { useUser } from '@clerk/expo';
+import { useModalBackHandler } from '@/hooks/useModalBackHandler';
 
 // Dynamic import of native DateTimePicker with strict web guard
 let NativeDateTimePicker: any = null;
@@ -51,6 +52,9 @@ export interface QuietHoursModalProps {
 export function QuietHoursModal({ visible, onClose, onSaved }: QuietHoursModalProps) {
   const supabase = useSupabase();
   const { user } = useUser();
+
+  // Handle Android hardware back press gracefully
+  useModalBackHandler(visible, onClose);
 
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isSaving, setIsSaving] = useState<boolean>(false);

@@ -21,6 +21,7 @@ import {
   CheckCircle2,
 } from 'lucide-react-native';
 import { useDeleteAccount } from '@/hooks/useDeleteAccount';
+import { useModalBackHandler } from '@/hooks/useModalBackHandler';
 
 export interface DeleteAccountModalProps {
   visible: boolean;
@@ -39,6 +40,9 @@ export function DeleteAccountModal({ visible, onClose }: DeleteAccountModalProps
   } = useDeleteAccount();
 
   const [confirmationInput, setConfirmationInput] = useState('');
+
+  // Handle Android hardware back press gracefully
+  useModalBackHandler(visible, onClose);
 
   // Reset state when modal is opened/closed
   useEffect(() => {

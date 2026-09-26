@@ -780,3 +780,48 @@ This document records the architectural and product decisions made during the de
   - Guarantees 100% build and export compatibility on Expo Web (`npx expo export --platform web` succeeds with 0 errors).
   - Protects against Android permission crashes and provides flawless auditorium projection and QR scanning UX on physical devices.
 
+---
+
+## ADR-044: Account Deletion Engine and Genesis CR Safeguard Architecture (Apple Guideline 5.1.1v)
+
+- **Date:** 2026-09-26
+- **Status:** Accepted
+- **Context:** Apple App Store Guideline 5.1.1(v) requires any application offering user account registration to provide an in-app, immediate, and permanent account deletion mechanism. In ClassSync's academic architecture, sections are administered by a "Genesis Class Representative (CR)" who creates the cohort. If a Genesis CR deletes their account naively, either hundreds of students lose access to their academic timetable, or the cohort section becomes an unmanageable orphan.
+- **Alternatives Considered:**
+  1. *External Web Form or Email-Only Deletion:* Requiring users to send an email to delete their account. Rejected: Apple explicitly rejects apps where deletion cannot be initiated and completed directly in-app.
+  2. *Automatic Cohort Deletion on CR Exit:* Deleting the section and all course schedules when the creator deletes their account. Rejected: Catastrophic disruption to enrolled students.
+  3. *Uncontrolled Random Reassignment:* Randomly assigning Genesis CR status to the oldest member. Rejected: Risk of elevating malicious or inactive accounts to administrative authority.
+  4. *Multi-Tiered Deletion Architecture with Genesis CR Ownership Guard:*
+     - **Pre-Flight Genesis CR Guard:** Both client hook (`useDeleteAccount`) and server-side RPC (`delete_user_account`) verify whether the user is Genesis CR of any active section (`s.is_archived = false AND sm.role = 'genesis_cr'`). If true, deletion is strictly blocked, presenting an amber warning modal directing them to transfer ownership to a Co-Admin via `section-members.tsx`.
+     - **Atomic Database Cascade Purge:** For standard members and co-admins, PostgREST RPC `delete_user_account` runs an atomic database transaction deleting push tokens, notification settings, attendance logs, personal tasks, completions, peer votes, course enrollments, section memberships, and user profile record.
+     - **Full Local & Auth State Eviction:** Following RPC success, the hook purges the Clerk Auth account (`user.delete()`), executes SQLite database eviction (`resetLocalDatabase()`), clears `AsyncStorage`, resets Zustand store (`reset()`), and navigates to `/(auth)/sign-in`.
+- **Decision:** Adopt the multi-tiered account deletion architecture with Genesis CR pre-flight guard and atomic cascade purge.
+- **Why This Decision is Best:**
+  - Guarantees 100% compliance with Apple Guideline 5.1.1(v) and Google Play data deletion policies.
+  - Mathematically eliminates the Genesis CR Orphan vulnerability at the database level.
+  - Leaves zero residual cached state or orphaned biometric tokens on client devices.
+
+---
+
+## ADR-045: Native Android Notification Channel Segregation & Hardware Back-Navigation Compliance
+
+- **Date:** 2026-09-26
+- **Status:** Accepted
+- **Context:** Google Play Developer Program policies and Android 8.0+ (API 26+) require all application notifications to be assigned to explicit notification channels. Notifications posted without valid channels are silently dropped by the Android OS. Furthermore, on Android devices with physical or gesture back-navigation, unhandled modal back events cause entire application exits or erratic stack behavior during review.
+- **Alternatives Considered:**
+  1. *Single Default Channel:* Grouping all notifications into a single "General" channel. Rejected: Prevents students from muting general announcements while keeping urgent room relocation alerts active.
+  2. *Untyped In-Line Notification Config:* Constructing notification payloads on demand. Rejected: Fragile and error-prone across multiple edge workers.
+  3. *Segregated Typed Notification Channels & Web-Safe Registration:*
+     - **Channel Segregation:** Establish 3 dedicated channels:
+       - `urgent-class-alerts`: Importance `MAX` (5), heads-up banner, red light `#EF4444`, vibration `[0, 250, 250, 250]`, bypasses non-critical quiet hours.
+       - `academic-deadlines`: Importance `HIGH` (4), amber light `#F59E0B`, vibration `[0, 250]`.
+       - `cohort-announcements`: Importance `DEFAULT` (3), vibration `[0, 150]`.
+     - **Web & Expo Go Guarded Lifecycle:** Registration function `setupAndroidNotificationChannels()` runs on app boot in `_layout.tsx`, safely bypassing non-Android runtimes and Expo Go to prevent native module crashes.
+     - **Hardware Back Navigation Hook (`useModalBackHandler`):** Intercepts native Android `hardwareBackPress` events across all interactive modals (`DeleteAccountModal`, `QuietHoursModal`, etc.), dismissing modal state gracefully without bubbling to root app exit.
+- **Decision:** Adopt segregated typed Android notification channels with boot-time registration and modal hardware back navigation handlers.
+- **Why This Decision is Best:**
+  - Meets Google Play submission criteria for Android 8+ notification channel compliance.
+  - Gives students granular notification control matching university study preferences.
+  - Ensures seamless gesture and hardware navigation conforming to Material Design guidelines.
+
+

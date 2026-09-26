@@ -1091,6 +1091,91 @@ $$\text{Affirmations} \ge 3 \quad \text{AND} \quad \text{Affirmations} > 2 \time
 #### 3. Strict Offline Queue Bypass:
 Peer verification is strictly real-time and online-only. `peerVerificationService.ts` queries `NetInfo.fetch()` prior to submission; if offline, it immediately throws an error rather than enqueuing into the Phase 7 FIFO offline mutation queue. This eliminates "delayed replay attacks" where an offline vote cast hours earlier replays when a student connects to Wi-Fi at home, corrupting historical class records.
 
+---
+
+## 23. Phase 9: Store Launch Hardening & Compliance Architecture
+
+Phase 9 prepares ClassSync for official publication on the Apple App Store and Google Play Store, addressing strict compliance mandates, privacy entitlements, hardware gestures, and push notification infrastructures.
+
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│                   PHASE 9: STORE LAUNCH HARDENING                      │
+├──────────────────────────┬──────────────────────────┬──────────────────┤
+│ 9.1 Apple 5.1.1(v)       │ 9.2 Privacy & Entitlement│ 9.3 Android Play │
+│ Account Deletion Engine  │ Apple Privacy Manifest   │ Notification Chs │
+│ Genesis CR Orphan Guard  │ Non-Exempt Encryption    │ Back-Nav Handler │
+├──────────────────────────┼──────────────────────────┴──────────────────┤
+│ 9.4 Hosted Legal Metadata│ 9.5 Production Build Pipeline               │
+│ Privacy, Terms, Support  │ EAS Profiles (dev, preview, prod)           │
+│ APNs & FCM Credentials   │ Zero-Error Web Export & 100% Passing Tests  │
+└──────────────────────────┴─────────────────────────────────────────────┘
+```
+
+### 23.1 The Account Deletion Engine & Genesis CR Orphan Guard (Apple Guideline 5.1.1v)
+
+Apple App Store Guideline 5.1.1(v) mandates that any application supporting account creation must provide an in-app mechanism to delete the account and all associated personal data immediately and permanently.
+
+#### The Genesis CR Orphan Dilemma:
+In ClassSync, academic cohorts are administered by the creator ("Genesis CR"). If a Genesis CR could arbitrarily delete their account:
+- Either the entire section and all enrolled students' schedules would be wiped out, OR
+- The cohort section would become an unmanageable orphan, permanently preventing schedule updates.
+
+#### Architectural Safeguard:
+1. **Pre-Flight Hook Guard:** `useDeleteAccount` inspects enrolled sections. If the user holds `role: 'genesis_cr'` in any active section, account deletion is blocked. The user is presented with an informative warning requiring them to transfer ownership to a Co-Admin via `section-members.tsx` before deletion can proceed.
+2. **Server-Side RPC Barrier:** The PostgREST RPC `delete_user_account` enforces this constraint atomically in Postgres:
+   ```sql
+   select count(*) into v_genesis_sections_count
+   from section_members sm
+   join sections s on s.id = sm.section_id
+   where sm.user_id = v_user_id and sm.role = 'genesis_cr' and coalesce(s.is_archived, false) = false;
+
+   if v_genesis_sections_count > 0 then
+     raise exception 'CANNOT_DELETE_GENESIS_CR: You are the Genesis CR of an active cohort. Transfer ownership before deleting your account.';
+   end if;
+   ```
+3. **Atomic Purge Cascade:** Standard student deletions execute in a single atomic transaction purging:
+   - Device push tokens (`user_push_tokens`)
+   - Notification preferences (`user_notification_settings`)
+   - Local attendance logs (`attendance_logs`)
+   - Personal academic tasks (`academic_tasks` where `scope = 'personal'`)
+   - Task completion checkmarks (`user_task_completions`)
+   - Peer verification votes (`peer_report_votes`)
+   - Course enrollments (`course_enrollments`)
+   - Section memberships (`section_members`)
+   - User profile record (`profiles`)
+4. **Client Eviction:** Once the RPC succeeds, the client invokes `user.delete()` on Clerk, invokes `resetLocalDatabase()` to clear SQLite, flushes `AsyncStorage`, resets Zustand stores, and routes to `/(auth)/sign-in`.
+
+### 23.2 Apple Privacy Manifest & Platform Entitlements
+
+Beginning Spring 2024, Apple requires all iOS apps to include an embedded Privacy Manifest (`PrivacyInfo.xcprivacy`) declaring data collection and API usage reasons:
+
+1. **Zero Tracking Guarantee (`NSPrivacyTracking: false`):** Declares ClassSync does not engage in cross-app tracking or sell data to brokers.
+2. **Collected Data Types:**
+   - `NSPrivacyCollectedDataTypeUserID`: Linked to user for core application functionality.
+   - `NSPrivacyCollectedDataTypeEmailAddress`: Linked to user for account recovery and identity verification.
+   - `NSPrivacyCollectedDataTypeDeviceOrOtherID`: Linked to user for APNs push notification dispatch.
+3. **Declared Required Reason APIs:**
+   - `NSPrivacyAccessedAPICategoryUserDefaults` (Reason `CA92.1`): Used by system libraries to persist user preferences within the app.
+   - `NSPrivacyAccessedAPICategoryFileTimestamp` (Reason `C617.1`): Used by Expo SQLite to verify cached database timestamps.
+   - `NSPrivacyAccessedAPICategorySystemBootTime` (Reason `35F4.1`): Used to measure absolute monotonic durations for quiet hours and countdown timers.
+4. **Non-Exempt Encryption (`ITSAppUsesNonExemptEncryption: false`):** Declares standard HTTPS/TLS encryption to avoid export compliance delays in App Store Connect.
+
+### 23.3 Android Notification Channels & Gestures (Google Play Compliance)
+
+Android 8.0+ (API 26+) requires explicit notification channels. Posting a notification without a valid channel ID results in silent failure on Android devices:
+
+- **`urgent-class-alerts`:** Importance `MAX` (5). Heads-up banner with red light (`#EF4444`) and `[0, 250, 250, 250]` vibration for immediate room relocations and cancellations.
+- **`academic-deadlines`:** Importance `HIGH` (4). Alert with amber light (`#F59E0B`) and `[0, 250]` vibration for assignment and quiz reminders.
+- **`cohort-announcements`:** Importance `DEFAULT` (3). Low-intrusive sound and badge for general broadcasts.
+- **Hardware Back Navigation (`useModalBackHandler`):** Intercepts native Android back events when modals are visible, preventing accidental app termination.
+
+### 23.4 Legal Metadata & Production Push Pipelines
+
+- **Hosted Static HTML Legal Center:** `docs/legal/privacy-policy.html`, `terms-of-service.html`, and `support.html` provide responsive public endpoints complying with store mandates.
+- **APNs & FCM v1:** Detailed in `docs/PRODUCTION_PUSH_CREDENTIALS.md`, linking `.p8` keys to EAS iOS and Firebase Service Account JSON credentials to Google Play Android.
+- **EAS Profiles:** `eas.json` establishes isolated `development`, `preview` (APK), and `production` (AAB / IPA) build profiles with automated version increments and store submission targets.
+
+
 
 
 

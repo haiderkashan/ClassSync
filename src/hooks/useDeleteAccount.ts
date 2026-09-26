@@ -6,6 +6,11 @@ import { useSupabase } from '@/hooks/useSupabase';
 import { useWorkspaces } from '@/hooks/useWorkspaces';
 import { useAppStore, type SectionRow } from '@/store/useAppStore';
 import { resetLocalDatabase } from '@/lib/db/localDatabase';
+import {
+  filterGenesisCrSections,
+  isGenesisCrBlocked,
+  executeAccountDeletion,
+} from '@/services/deleteAccountService';
 
 export interface UseDeleteAccountResult {
   isGenesisCrOfAnySection: boolean;
@@ -32,58 +37,38 @@ export function useDeleteAccount(): UseDeleteAccountResult {
 
   // 1. Genesis CR Safeguard Evaluation
   const genesisSections = useMemo(
-    () => (sections || []).filter((s) => s.role === 'genesis_cr'),
+    () => filterGenesisCrSections(sections),
     [sections]
   );
-  const isGenesisCrOfAnySection = genesisSections.length > 0;
+  const isGenesisCrOfAnySection = isGenesisCrBlocked(sections);
 
   // 2. Cascade Purge Handler
   const deleteAccount = async (): Promise<boolean> => {
     setError(null);
-
-    if (isGenesisCrOfAnySection) {
-      setError(
-        'Cannot delete account: You are the Genesis CR of an active cohort section. Please transfer ownership before proceeding.'
-      );
-      return false;
-    }
-
     setIsDeleting(true);
 
     try {
-      // Step A: Execute atomic database purge in Supabase via RPC
-      const { error: rpcError } = await supabase.rpc('delete_user_account');
-      if (rpcError) {
-        throw new Error(rpcError.message || 'Failed to purge account data.');
+      const result = await executeAccountDeletion(sections, {
+        supabase,
+        clerkUser: user,
+        resetLocalDb: resetLocalDatabase,
+        clearStorage: () => AsyncStorage.clear(),
+        resetStore: reset,
+      });
+
+      if (!result.success) {
+        setError(
+          result.error ||
+            'Failed to complete account deletion. Please try again or contact support.'
+        );
+        return false;
       }
 
-      // Step B: Permanently destroy user account in Clerk Auth
-      if (user) {
-        await user.delete();
-      }
-
-      // Step C: Drop all local SQLite cached tables
-      try {
-        resetLocalDatabase();
-      } catch (err) {
-        console.warn('[useDeleteAccount] Local database reset non-critical failure:', err);
-      }
-
-      // Step D: Flush AsyncStorage
-      try {
-        await AsyncStorage.clear();
-      } catch (err) {
-        console.warn('[useDeleteAccount] AsyncStorage clear non-critical failure:', err);
-      }
-
-      // Step E: Reset Zustand L1 client store
-      reset();
-
-      // Step F: Redirect cleanly to authentication
+      // Redirect cleanly to authentication
       router.replace('/(auth)/sign-in');
       return true;
     } catch (err: any) {
-      console.error('[useDeleteAccount] Account deletion error:', err);
+      console.error('[useDeleteAccount] Account deletion unexpected error:', err);
       setError(
         err?.message || 'Failed to complete account deletion. Please try again or contact support.'
       );

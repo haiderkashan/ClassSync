@@ -133,14 +133,13 @@ export function useScheduleOverrides(options?: UseScheduleOverridesOptions) {
 
   // Sync server data into Zustand offline store safely
   useEffect(() => {
-    if (!overridesQuery.data) return;
+    if (!overridesQuery.data || overridesQuery.data.length === 0) return;
 
-    if (overridesQuery.data.length > 0) {
-      const serverMap = new Map(overridesQuery.data.map((o) => [o.id, o]));
-      const localOnly = overrides.filter((o) => !serverMap.has(o.id));
-      setOverrides([...overridesQuery.data, ...localOnly]);
-    }
-  }, [overridesQuery.data, setOverrides, overrides]);
+    const currentOverrides = useAppStore.getState().overrides;
+    const serverMap = new Map(overridesQuery.data.map((o) => [o.id, o]));
+    const localOnly = currentOverrides.filter((o) => !serverMap.has(o.id));
+    setOverrides([...overridesQuery.data, ...localOnly]);
+  }, [overridesQuery.data, setOverrides]);
 
   const overridesList = useMemo(() => {
     if (overridesQuery.data && overridesQuery.data.length > 0) {

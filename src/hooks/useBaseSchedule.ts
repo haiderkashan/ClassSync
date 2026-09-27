@@ -132,18 +132,17 @@ export function useBaseSchedule() {
 
   // Sync server data into Zustand store when query resolves safely without wiping offline timetable blocks
   useEffect(() => {
-    if (!scheduleQuery.data) return;
+    if (!scheduleQuery.data || scheduleQuery.data.length === 0) return;
 
-    if (scheduleQuery.data.length > 0) {
-      const serverMap = new Map(scheduleQuery.data.map((b) => [b.id, b]));
-      const localOnly = baseSchedules.filter((b) => !serverMap.has(b.id));
-      setBaseSchedules(
-        [...scheduleQuery.data, ...localOnly].sort(
-          (a, b) => a.day_of_week - b.day_of_week || a.start_time.localeCompare(b.start_time)
-        )
-      );
-    }
-  }, [scheduleQuery.data, setBaseSchedules, baseSchedules]);
+    const currentBaseSchedules = useAppStore.getState().baseSchedules;
+    const serverMap = new Map(scheduleQuery.data.map((b) => [b.id, b]));
+    const localOnly = currentBaseSchedules.filter((b) => !serverMap.has(b.id));
+    setBaseSchedules(
+      [...scheduleQuery.data, ...localOnly].sort(
+        (a, b) => a.day_of_week - b.day_of_week || a.start_time.localeCompare(b.start_time)
+      )
+    );
+  }, [scheduleQuery.data, setBaseSchedules]);
 
   const schedules = useMemo(() => {
     if (scheduleQuery.data && scheduleQuery.data.length > 0) {

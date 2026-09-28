@@ -16,6 +16,7 @@ import { useAppStore } from '@/store/useAppStore';
 export async function hydrateAppStoreFromLocalDb(userId?: string | null): Promise<void> {
   const isWebRuntime = Platform.OS === 'web' || isWeb;
   if (isWebRuntime) {
+    useAppStore.getState().setHydrated(true);
     return;
   }
 
@@ -65,5 +66,7 @@ export async function hydrateAppStoreFromLocalDb(userId?: string | null): Promis
     });
   } catch (err) {
     console.warn('⚠️ [Hydration] Failed to hydrate store from local SQLite:', err);
+  } finally {
+    useAppStore.getState().setHydrated(true);
   }
 }

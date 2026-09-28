@@ -92,22 +92,36 @@ export function useWorkspaces() {
     if (!data) return;
 
     if (data.sections && data.sections.length > 0) {
-      setActiveSections(data.sections);
+      const currentSections = useAppStore.getState().activeSections;
+      const isSectionsDifferent =
+        currentSections.length !== data.sections.length ||
+        data.sections.some((s, i) => s.id !== currentSections[i]?.id);
+      if (isSectionsDifferent) {
+        setActiveSections(data.sections);
+      }
     }
 
     if (data.courses) {
+      const currentCourses = useAppStore.getState().activeCourses;
       const serverMap = new Map(data.courses.map((c) => [c.id, c]));
-      const localOnly = activeCourses.filter((c) => !serverMap.has(c.id));
-      setActiveCourses([...data.courses, ...localOnly]);
+      const localOnly = currentCourses.filter((c) => !serverMap.has(c.id));
+      const merged = [...data.courses, ...localOnly];
+      const isCoursesDifferent =
+        currentCourses.length !== merged.length ||
+        merged.some((c, i) => c.id !== currentCourses[i]?.id);
+      if (isCoursesDifferent) {
+        setActiveCourses(merged);
+      }
     }
 
     if (data.sections.length > 0) {
-      const exists = data.sections.some((s) => s.id === activeSectionId);
-      if (!activeSectionId || !exists) {
+      const currentActiveId = useAppStore.getState().activeSectionId;
+      const exists = data.sections.some((s) => s.id === currentActiveId);
+      if (!currentActiveId || !exists) {
         setActiveSectionId(data.sections[0].id);
       }
     }
-  }, [data, activeSectionId, setActiveSectionId, setActiveSections, setActiveCourses, activeCourses]);
+  }, [data, setActiveSectionId, setActiveSections, setActiveCourses]);
 
   const sections = (data?.sections && data.sections.length > 0) ? data.sections : activeSections;
   const courses = (data?.courses && data.courses.length > 0) ? data.courses : activeCourses;

@@ -43,6 +43,7 @@ export interface LogAttendanceInput {
 export interface UseAttendanceOptions {
   courseId?: string;
   calculatorOptions?: BunkCalculatorOptions;
+  skipMetrics?: boolean;
 }
 
 export function useAttendance(options?: UseAttendanceOptions) {
@@ -110,16 +111,40 @@ export function useAttendance(options?: UseAttendanceOptions) {
     },
   });
 
-  // Sync server data into Zustand store
+  // Sync server data into Zustand store safely without wiping offline logs or other courses
   useEffect(() => {
-    if (attendanceQuery.data) {
-      setAttendanceLogs(attendanceQuery.data);
+    if (!attendanceQuery.data || attendanceQuery.data.length === 0) return;
+
+    const currentLogs = useAppStore.getState().attendanceLogs;
+    const serverMap = new Map(attendanceQuery.data.map((l) => [l.id, l]));
+
+    if (options?.courseId) {
+      const otherLogs = currentLogs.filter(
+        (l) => !serverMap.has(l.id) && l.course_id !== options.courseId
+      );
+      const merged = [...attendanceQuery.data, ...otherLogs];
+      const isDifferent =
+        currentLogs.length !== merged.length ||
+        merged.some((l, i) => l.id !== currentLogs[i]?.id);
+      if (isDifferent) {
+        setAttendanceLogs(merged);
+      }
+    } else {
+      const localOnly = currentLogs.filter((l) => !serverMap.has(l.id));
+      const merged = [...attendanceQuery.data, ...localOnly];
+      const isDifferent =
+        currentLogs.length !== merged.length ||
+        merged.some((l, i) => l.id !== currentLogs[i]?.id);
+      if (isDifferent) {
+        setAttendanceLogs(merged);
+      }
     }
-  }, [attendanceQuery.data, setAttendanceLogs]);
+  }, [attendanceQuery.data, setAttendanceLogs, options?.courseId]);
 
   // 2. Compute course-by-course metrics using Bunk Calculator pure math engine
   const courseMetricsMap = useMemo(() => {
     const map = new Map<string, AttendanceMetrics>();
+    if (options?.skipMetrics) return map;
 
     // Group logs by course_id
     const logsByCourse = new Map<string, AttendanceLogRow[]>();
@@ -139,12 +164,15 @@ export function useAttendance(options?: UseAttendanceOptions) {
     }
 
     return map;
-  }, [attendanceLogs, enrolledCourses, options?.calculatorOptions]);
+  }, [attendanceLogs, enrolledCourses, options?.calculatorOptions, options?.skipMetrics]);
 
   // 3. Compute overall aggregate attendance metrics
   const overallMetrics = useMemo(() => {
+    if (options?.skipMetrics) {
+      return calculateAttendanceMetrics(0, 0, options?.calculatorOptions);
+    }
     return calculateCourseAttendance(attendanceLogs, options?.calculatorOptions);
-  }, [attendanceLogs, options?.calculatorOptions]);
+  }, [attendanceLogs, options?.calculatorOptions, options?.skipMetrics]);
 
   const getCourseMetrics = (courseId: string): AttendanceMetrics => {
     return (

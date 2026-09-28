@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -295,9 +295,77 @@ export default function AgendaScreen() {
     return dayBlocks.length > 0 && dayBlocks.every((b) => b.is_cancelled);
   }, [dayBlocks]);
 
-  const handleRefresh = async () => {
+  const handleRefresh = useCallback(async () => {
     await Promise.all([refetch(), refetchSchedule(), refetchOverrides()]);
-  };
+  }, [refetch, refetchSchedule, refetchOverrides]);
+
+  const handlePeerVotePress = useCallback((b: any) => {
+    setActiveVotingBlock(b);
+  }, []);
+
+  const handleCardPress = useCallback(
+    (b: any) => {
+      if (isSectionAdmin) {
+        router.push({
+          pathname: '/schedule/edit-block',
+          params: { id: b.id, day: selectedDay.toString() },
+        });
+      }
+    },
+    [isSectionAdmin, router, selectedDay]
+  );
+
+  const handleCardLongPress = useCallback(
+    (b: any) => {
+      if (isSectionAdmin) {
+        router.push({
+          pathname: '/schedule/broadcast-exception',
+          params: {
+            base_schedule_id: b.id,
+            override_date: selectedDateString,
+          },
+        });
+      }
+    },
+    [isSectionAdmin, router, selectedDateString]
+  );
+
+  const handleCardBroadcastPress = useCallback(
+    (b: any) => {
+      if (isSectionAdmin) {
+        router.push({
+          pathname: '/schedule/broadcast-exception',
+          params: {
+            base_schedule_id: b.id,
+            override_date: selectedDateString,
+          },
+        });
+      }
+    },
+    [isSectionAdmin, router, selectedDateString]
+  );
+
+  const handleCloseVotingModal = useCallback(() => {
+    setActiveVotingBlock(null);
+  }, []);
+
+  const handleCastVote = useCallback(
+    async (vote: 'affirm' | 'deny') => {
+      if (!activeVotingBlock) return;
+      await castVote({
+        baseScheduleId: activeVotingBlock.base_schedule_id || activeVotingBlock.id,
+        vote,
+      });
+    },
+    [activeVotingBlock, castVote]
+  );
+
+  const handleVetoReport = useCallback(
+    async (reportId: string, reason?: string) => {
+      await vetoReport({ reportId, reason });
+    },
+    [vetoReport]
+  );
 
   const isLoading = isWorkspaceLoading || isScheduleLoading || isOverridesLoading;
 
@@ -685,37 +753,10 @@ export default function AgendaScreen() {
                     isAdmin={isSectionAdmin}
                     peerReport={peerReport}
                     userVote={userVote}
-                    onPeerVotePress={(b) => setActiveVotingBlock(b)}
-                    onPress={(b) => {
-                      if (isSectionAdmin) {
-                        router.push({
-                          pathname: '/schedule/edit-block',
-                          params: { id: b.id, day: selectedDay.toString() },
-                        });
-                      }
-                    }}
-                    onLongPress={(b) => {
-                      if (isSectionAdmin) {
-                        router.push({
-                          pathname: '/schedule/broadcast-exception',
-                          params: {
-                            base_schedule_id: b.id,
-                            override_date: selectedDateString,
-                          },
-                        });
-                      }
-                    }}
-                    onBroadcastPress={(b) => {
-                      if (isSectionAdmin) {
-                        router.push({
-                          pathname: '/schedule/broadcast-exception',
-                          params: {
-                            base_schedule_id: b.id,
-                            override_date: selectedDateString,
-                          },
-                        });
-                      }
-                    }}
+                    onPeerVotePress={handlePeerVotePress}
+                    onPress={handleCardPress}
+                    onLongPress={handleCardLongPress}
+                    onBroadcastPress={handleCardBroadcastPress}
                   />
                 </View>
               );
@@ -728,21 +769,14 @@ export default function AgendaScreen() {
       {activeVotingBlock && (
         <PeerVotingModal
           visible={!!activeVotingBlock}
-          onClose={() => setActiveVotingBlock(null)}
+          onClose={handleCloseVotingModal}
           block={activeVotingBlock}
           report={getReportForBlock(activeVotingBlock.base_schedule_id || activeVotingBlock.id)}
           isAdmin={isSectionAdmin}
           targetDate={selectedDateString}
           userVote={getUserVoteForBlock(activeVotingBlock.base_schedule_id || activeVotingBlock.id)}
-          onCastVote={async (vote: 'affirm' | 'deny') => {
-            await castVote({
-              baseScheduleId: activeVotingBlock.base_schedule_id || activeVotingBlock.id,
-              vote,
-            });
-          }}
-          onVetoReport={async (reportId: string, reason?: string) => {
-            await vetoReport({ reportId, reason });
-          }}
+          onCastVote={handleCastVote}
+          onVetoReport={handleVetoReport}
           isVoting={isCastingVote}
           isVetoing={isVetoing}
         />

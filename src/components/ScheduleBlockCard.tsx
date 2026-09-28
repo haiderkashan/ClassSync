@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import { View, Text, Pressable } from 'react-native';
 import {
   Clock,
@@ -17,7 +17,7 @@ import {
   Lock,
   Radio,
 } from 'lucide-react-native';
-import type { BaseScheduleRow } from '@/store/useAppStore';
+import { useAppStore, type BaseScheduleRow } from '@/store/useAppStore';
 import type { CompiledScheduleItem } from '@/lib/schedule/scheduleCompiler';
 import {
   formatTime12Hour,
@@ -25,7 +25,6 @@ import {
   formatDuration,
 } from '@/lib/schedule/timeUtils';
 import { useAttendance } from '@/hooks/useAttendance';
-import { useWorkspaces } from '@/hooks/useWorkspaces';
 import {
   isAttendanceEligible,
   type AttendanceStatus,
@@ -46,7 +45,9 @@ export interface ScheduleBlockCardProps {
   onPeerVotePress?: (block: any) => void;
 }
 
-export function ScheduleBlockCard({
+const ATTENDANCE_HOOK_OPTIONS = { skipMetrics: true };
+
+export const ScheduleBlockCard = React.memo(function ScheduleBlockCard({
   block,
   onPress,
   onLongPress,
@@ -58,9 +59,11 @@ export function ScheduleBlockCard({
   userVote,
   onPeerVotePress,
 }: ScheduleBlockCardProps) {
-  const { allLogs, logAttendance, isLogging } = useAttendance();
-  const { activeSection } = useWorkspaces();
-  const timezone = activeSection?.timezone || 'UTC';
+  const { allLogs, logAttendance, isLogging } = useAttendance(ATTENDANCE_HOOK_OPTIONS);
+  const timezone = useAppStore(
+    (state) =>
+      state.activeSections.find((s) => s.id === state.activeSectionId)?.timezone || 'UTC'
+  );
 
   const isInteractive = (!readOnly && !!onPress) || !!onLongPress;
   const durationMins = calculateDurationMinutes(block.start_time, block.end_time);
@@ -100,20 +103,33 @@ export function ScheduleBlockCard({
   const currentStatus: AttendanceStatus | null =
     (sessionLog?.status as AttendanceStatus) ?? null;
 
-  const handleLogAttendance = async (status: AttendanceStatus) => {
-    if (!targetDate || !block.course_id) return;
-    try {
-      await logAttendance({
-        course_id: block.course_id,
-        attendance_date: targetDate,
-        status,
-        schedule_block_id: block.is_makeup ? null : (block.base_schedule_id || block.id),
-        override_id: block.is_makeup ? (block.override_id || block.id) : null,
-      });
-    } catch (e) {
-      console.error('[ScheduleBlockCard] Failed to log attendance:', e);
-    }
-  };
+  const handleLogAttendance = useCallback(
+    async (status: AttendanceStatus) => {
+      if (!targetDate || !block.course_id) return;
+      try {
+        await logAttendance({
+          course_id: block.course_id,
+          attendance_date: targetDate,
+          status,
+          schedule_block_id: block.is_makeup
+            ? null
+            : block.base_schedule_id || block.id,
+          override_id: block.is_makeup ? block.override_id || block.id : null,
+        });
+      } catch (e) {
+        console.error('[ScheduleBlockCard] Failed to log attendance:', e);
+      }
+    },
+    [
+      targetDate,
+      block.course_id,
+      block.is_makeup,
+      block.base_schedule_id,
+      block.id,
+      block.override_id,
+      logAttendance,
+    ]
+  );
 
   const generalTitle =
     block.session_type === 'break'

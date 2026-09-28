@@ -493,4 +493,4 @@ export const ScheduleBlockCard = React.memo(function ScheduleBlockCard({
       </View>
     </Pressable>
   );
-}
+});
